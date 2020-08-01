@@ -1,0 +1,3394 @@
+arXiv:1901.02358v1 [cs.LG] 8 Jan 2019
+
+FastGRNN: A Fast, Accurate, Stable and Tiny
+Kilobyte Sized Gated Recurrent Neural Network
+
+Aditya Kusupati† , Manish Singh§ , Kush Bhatia‡ ,
+Ashish Kumar‡ , Prateek Jain† and Manik Varma†
+†
+Microsoft Research India
+§
+Indian Institute of Technology Delhi
+‡
+University of California Berkeley
+{t-vekusu,prajain,manik}@microsoft.com, singhmanishiitd@gmail.com
+kush@cs.berkeley.edu, ashish_kumar@berkeley.edu
+
+Abstract
+This paper develops the FastRNN and FastGRNN algorithms to address the twin
+RNN limitations of inaccurate training and inefficient prediction. Previous approaches have improved accuracy at the expense of prediction costs making them
+infeasible for resource-constrained and real-time applications. Unitary RNNs
+have increased accuracy somewhat by restricting the range of the state transition matrix’s singular values but have also increased the model size as they require a larger number of hidden units to make up for the loss in expressive power.
+Gated RNNs have obtained state-of-the-art accuracies by adding extra parameters thereby resulting in even larger models. FastRNN addresses these limitations
+by adding a residual connection that does not constrain the range of the singular values explicitly and has only two extra scalar parameters. FastGRNN then
+extends the residual connection to a gate by reusing the RNN matrices to match
+state-of-the-art gated RNN accuracies but with a 2-4x smaller model. Enforcing
+FastGRNN’s matrices to be low-rank, sparse and quantized resulted in accurate
+models that could be up to 35x smaller than leading gated and unitary RNNs.
+This allowed FastGRNN to accurately recognize the "Hey Cortana" wakeword
+with a 1 KB model and to be deployed on severely resource-constrained IoT microcontrollers too tiny to store other RNN models. FastGRNN’s code is available
+at [30].
+
+1 Introduction
+Objective: This paper develops the FastGRNN (an acronym for a Fast, Accurate, Stable and Tiny
+Gated Recurrent Neural Network) algorithm to address the twin RNN limitations of inaccurate training and inefficient prediction. FastGRNN almost matches the accuracies and training times of stateof-the-art unitary and gated RNNs but has significantly lower prediction costs with models ranging
+from 1 to 6 Kilobytes for real-world applications.
+RNN training and prediction: It is well recognized that RNN training is inaccurate and unstable
+as non-unitary hidden state transition matrices could lead to exploding and vanishing gradients for
+long input sequences and time series. An equally important concern for resource-constrained and
+real-time applications is the RNN’s model size and prediction time. Squeezing the RNN model and
+code into a few Kilobytes could allow RNNs to be deployed on billions of Internet of Things (IoT)
+endpoints having just 2 KB RAM and 32 KB flash memory [17, 29]. Similarly, squeezing the RNN
+model and code into a few Kilobytes of the 32 KB L1 cache of a Raspberry Pi or smartphone, could
+significantly reduce the prediction time and energy consumption and make RNNs feasible for real32nd Conference on Neural Information Processing Systems (NeurIPS 2018), Montréal, Canada.
+
+time applications such as wake word detection [27, 11, 12, 42, 43], predictive maintenance [46, 1],
+human activity recognition [3, 2], etc.
+Unitary and gated RNNs: A number of techniques have been proposed to stabilize RNN training
+based on improved optimization algorithms [40, 26], unitary RNNs [5, 24, 37, 47, 50, 54, 25] and
+gated RNNs [20, 13, 14]. While such approaches have increased the RNN prediction accuracy they
+have also significantly increased the model size. Unitary RNNs have avoided gradients exploding
+and vanishing by limiting the range of the singular values of the hidden state transition matrix. This
+has led to only limited gains in prediction accuracy as the optimal transition matrix might often not
+be close to unitary. Unitary RNNs have compensated by learning higher dimensional representations
+but, unfortunately, this has led to larger model sizes. Gated RNNs [20, 13, 14] have stabilized
+training by adding extra parameters leading to state-of-the-art prediction accuracies but with models
+that might sometimes be even larger than unitary RNNs.
+FastRNN: This paper demonstrates that standard RNN training could be stabilized with the addition
+of a residual connection [19, 44, 22, 7] having just 2 additional scalar parameters. Residual connections for RNNs have been proposed in [22] and further studied in [7]. This paper proposes the
+FastRNN architecture and establishes that a simple variant of [22, 7] with learnt weighted residual
+connections (2) can lead to provably stable training and near state-of-the-art prediction accuracies
+with lower prediction costs than all unitary and gated RNNs. In particular, FastRNN’s prediction
+accuracies could be: (a) up to 19% higher than a standard RNN; (b) could often surpass the accuracies of all unitary RNNs and (c) could be just shy of the accuracies of leading gated RNNs.
+FastRNN’s empirical performance could be understood on the basis of theorems proving that for an
+input sequence with T steps and appropriate setting of residual connection weights: (a) FastRNN
+converges to a stationary point within O(1/ǫ2 ) SGD iterations (see Theorem 3.1), independent of
+T , while the same analysis for a standard RNN reveals an upper bound of O(2T ) iterations and (b)
+FastRNN’s generalization error bound is independent of T whereas the same proof technique reveals
+an exponential bound for standard RNNs.
+FastGRNN: Inspired by this analysis, this paper develops the novel FastGRNN architecture by converting the residual connection to a gate while reusing the RNN matrices. This allowed FastGRNN to
+match, and sometimes exceed, state-of-the-art prediction accuracies of LSTM, GRU, UGRNN and
+other leading gated RNN techniques while having 2-4x fewer parameters. Enforcing FastGRNN’s
+matrices to be low-rank, sparse and quantized led to a minor decrease in the prediction accuracy but
+resulted in models that could be up to 35x smaller and fit in 1-6 Kilobytes for many applications. For
+instance, using a 1 KB model, FastGRNN could match the prediction accuracies of all other RNNs
+at the task of recognizing the "Hey Cortana" wakeword. This allowed FastGRNN to be deployed
+on IoT endpoints, such as the Arduino Uno, which were too small to hold other RNN models. On
+slightly larger endpoints, such as the Arduino MKR1000 or Due, FastGRNN was found to be 18-42x
+faster at making predictions than other leading RNN methods.
+Contributions: This paper makes two contributions. First, it rigorously studies the residual connection based FastRNN architecture which could often outperform unitary RNNs in terms of training
+time, prediction accuracy and prediction cost. Second, inspired by FastRNN, it develops the FastGRNN architecture which could almost match state-of-the-art accuracies and training times but with
+prediction costs that could be lower by an order of magnitude. FastRNN and FastGRNN’s code can
+be downloaded from [30].
+
+2 Related Work
+Residual connections: Residual connections have been studied extensively in CNNs [19, 44] as
+well as RNNs [22, 7]. The Leaky Integration Unit architecture [22] proposed residual connections
+for RNNs but were unable to learn the state transition matrix due to the problem of exploding and
+vanishing gradients. They therefore sampled the state transition matrix from a hand-crafted distribution with spectral radius less than one. This limitation was addressed in [7] where the state
+transition matrix was learnt but the residual connections were applied to only a few hidden units and
+with randomly sampled weights. Unfortunately, the distribution from which the weights were sampled could lead to an ill-conditioned optimization problem. In contrast, the FastRNN architecture
+leads to provably stable training with just two learnt weights connected to all the hidden units.
+2
+
+β
+
+ht-1
+
+U
+
+U
+
+σ
+
+σ
+xt
+
+ht
+
+ht-1
+
+ht
+
+α
+
+W
+xt
+
+(a) FastRNN - Residual Connection
+
+W
+
+f(zt)
+=
+ζ(1-zt)+
+
+tanh
+
+(b) FastGRNN - Gate
+
+Figure 1: Block diagrams for FastRNN (a) and FastGRNN (b). FastGRNN uses shared matrices W,
+U to compute both the hidden state ht as well as the gate zt .
+Unitary RNNs: Unitary RNNs [5, 50, 37, 24, 47, 25] stabilize RNN training by learning only wellconditioned state transition matrices. This limits their expressive power and prediction accuracy
+while increasing training time. For instance, SpectralRNN [54] learns a transition matrix with singular values in 1 ± ǫ. Unfortunately, the training algorithm converged only for small ǫ thereby limiting
+accuracy on most datasets. Increasing the number of hidden units was found to increase accuracy
+somewhat but at the cost of increased training time, prediction time and model size.
+Gated RNNs: Gated architectures [20, 13, 14, 23] achieve state-of-the-art classification accuracies
+by adding extra parameters but also increase model size and prediction time. This has resulted in a
+trend to reduce the number of gates and parameters with UGRNN [14] simplifying GRU [13] which
+in turn simplifies LSTM [20]. FastGRNN can be seen as a natural simplification of UGRNN where
+the RNN matrices are reused within the gate and are made low-rank, sparse and quantized so as to
+compress the model.
+Efficient training and prediction: Efficient prediction algorithms have often been obtained by
+making sparsity and low-rank assumptions. Most unitary methods effectively utilize a low-rank
+representation of the state transition matrix to control prediction and training complexity [24, 54].
+Sparsity, low-rank, and quantization were shown to be effective in RNNs [51, 39, 48], CNNs [18],
+trees [29] and nearest neighbour classifiers [17]. FastGRNN builds on these ideas to utilize low-rank,
+sparse and quantized representations for learning kilobyte sized classifiers without compromising
+on classification accuracy. Other approaches to speed up RNN training and prediction are based on
+replacing sequential hidden state transitions by parallelizable convolutions [9] or on learning skip
+connections [10] so as to avoid evaluating all the hidden states. Such techniques are complementary
+to the ones proposed in this paper and can be used to further improve FastGRNN’s performance.
+
+3 FastRNN and FastGRNN
+Notation: Throughout the paper, parameters of an RNN are denoted by matrices W ∈ RD̂×D , U ∈
+RD̂×D̂ and bias vectors b ∈ RD̂ , often using subscripts if multiple vectors are required to specify
+the architecture. a ⊙ b denotes the Hadamard product between a and b, i.e., (a ⊙ b)i = ai , bi . k · k0
+denotes the number of non-zeros entries in a matrix or vector. k · kF , k · k2 denotes the Frobenius
+and spectral
+P norm of a matrix, respectively. Unless specified, k · k denotes k · k2 of a matrix or vector.
+a⊤ b = i ai bi denotes the inner product of a and b.
+Standard RNN architecture [41] is known to be unstable for training due to exploding or vanishing
+gradients and hence is shunned for more expensive gated architectures.
+
+This paper studies the FastRNN architecture that is inspired by weighted residual connections [22,
+19], and shows that FastRNN can be significantly more stable and accurate than the standard RNN
+while preserving its prediction complexity. In particular, Section 3.1.1 demonstrates parameter settings for FastRNN that guarantee well-conditioned gradients as well as faster convergence rate and
+smaller generalization error than the standard RNN. This paper further strengthens FastRNN to develop the FastGRNN architecture that is more accurate than unitary methods [5, 54] and provides
+comparable accuracy to the state-of-the-art gated RNNs at 35x less computational cost (see Table 3).
+3
+
+3.1 FastRNN
+Let X = [x1 , . . . , xT ] be the input data where xt ∈ RD denotes the t-th step feature vector. Then,
+the goal of multi-class RNNs is to learn a function F : RD×T → {1, . . . , L} that predicts one of L
+classes for the given data point X. Standard RNN architecture has a provision to produce an output
+at every time step, but we focus on the setting where each data point is associated with a single label
+that is predicted at the end of the time horizon T . Standard RNN maintains a vector of hidden state
+ht ∈ RD̂ which captures temporal dynamics in the input data, i.e.,
+ht = tanh(Wxt + Uht−1 + b).
+
+(1)
+
+As explained in the next section, learning U, W in the above architecture is difficult as the gradient
+can have exponentially large (in T ) condition number. Unitary methods explicitly control the condition number of the gradient but their training time can be significantly larger or the generated model
+can be less accurate.
+Instead, FastRNN uses a simple weighted residual connection to stabilize the training by generating
+well-conditioned gradients. In particular, FastRNN updates the hidden state ht as follows:
+h̃t = σ(Wxt + Uht−1 + b),
+ht = αh̃t + βht−1 ,
+
+(2)
+
+where 0 ≤ α, β ≤ 1 are trainable weights that are parameterized by the sigmoid function. σ : R →
+R is a non-linear function such as tanh, sigmoid, or ReLU, and can vary across datasets. Given hT ,
+the label for a given point X is predicted by applying a standard classifier, e.g., logistic regression
+to hT .
+Typically, α ≪ 1 and β ≈ 1 − α, especially for problems with larger T . FastRNN updates hidden
+state in a controlled manner with α, β limiting the extent to which the current feature vector xt
+updates the hidden state. Also, FastRNN has only 2 more parameters than RNN and require only
+D̂ more computations, which is a tiny fraction of per-step computation complexity of RNN. Unlike
+unitary methods [5, 23, 54], FastRNN does not introduce expensive structural constraints on U and
+hence scales well to large datasets with standard optimization techniques [28].
+3.1.1 Analysis
+This section shows how FastRNN addresses the issue of ill-conditioned gradients, leading to stable
+training and smaller generalization error. For simplicity, assume that the label decision function is
+one dimensional and is given by f (X) = v⊤ hT . Let L(X, y; θ) = L(f (X), y; θ) be the logistic
+loss function for the given labeled data point (X, y) and with parameters θ = (W, U, v). Then, the
+gradient of L w.r.t. W, U, v is given by:
+T
+X
+∂L
+Dt
+=α
+∂U
+t=0
+
+T
+X
+∂L
+=α
+Dt
+∂W
+t=0
+
+TY
+−1
+
+⊤
+
+!
+
+⊤
+
+!
+
+(αU Dk+1 + βI) (∇hT L)h⊤
+t−1 ,
+
+k=t
+
+TY
+−1
+
+(αU Dk+1 + βI) (∇hT L)x⊤
+t ,
+
+k=t
+
+(3)
+
+−y exp (−y · v⊤ hT )
+∂L
+=
+hT ,
+∂v
+1 + exp (−y · v⊤ hT )
+
+(4)
+
+1
+where ∇hT L = −c(θ) · y · v, and c(θ) = 1+exp (y·v
+⊤ h ) . A critical term in the above expression is:
+T
+QT −1
+⊤
+M (U) = k=t (αU Dk+1 + βI), whose condition number, κM(U) , is bounded by:
+
+κM(U) ≤
+
+(1 +
+
+(1 −
+
+α
+β
+α
+β
+
+maxk kU⊤ Dk+1 k)T −t
+maxk kU⊤ Dk+1 k)T −t
+
+,
+
+(5)
+
+where Dk = diag(σ ′ (Wxk + Uhk−1 + b)) is the Jacobian matrix of the pointwise nonlinearity.
+Also if α = 1 and β = 0, which corresponds to standard RNN, the condition number of M (U) can
+kU⊤ D
+
+k
+
+T −t
+be as large as (maxk λmin (U⊤k+1
+where λmin (A) denotes the minimum singular value of A.
+Dk+1 ) )
+Hence, gradient’s condition number for the standard RNN can be exponential in T . This implies that,
+relative to the average eigenvalue, the gradient can explode or vanish in certain directions, leading
+to unstable training.
+
+4
+
+In contrast to the standard RNN, if β ≈ 1 and α ≈ 0, then the condition number, κM(U) , for
+1
+FastRNN is bounded by a small term. For example, if β = 1 − α and α = T maxk kU
+,
+⊤D
+k+1 k
+then κM(U) = O(1). Existing unitary methods are also motivated by similar observation. But they
+attempt to control the κM(U) by restricting the condition number, κU , of U which can still lead
+to ill-conditioned gradients as U⊤ Dk+1 might still be very small in certain directions. By using
+residual connections, FastRNN is able to address this issue, and hence have faster training and more
+accurate model than the state-of-the-art unitary RNNs.
+Finally, by using the above observations and a careful perturbation analysis, we can provide the
+following convergence and generalization error bounds for FastRNN:
+Theorem 3.1 (Convergence Bound).
+Let [(X1 , y1 ), . . . , (Xn , yn )] be the given labeled sequential
+P
+training data. Let L(θ) = n1 i L(Xi , yi ; θ) be the loss function with θ = (W, U, v) be the
+parameters of FastRNN architecture (2) with β = 1 − α and α such that,
+
+
+1
+1
+1
+,
+,
+,
+α ≤ min
+4T · |DkUk2 − 1| 4T · RU T · |kUk2 − 1|
+where D = supθ,k kDθk k2 . Then, randomized stochastic gradient descent [15], a minor variation
+of SGD, when applied to the data for a maximum of M iteration outputs a solution θb such that:
+
+
+O(αT )L(θ0 )
+4RW RU Rv O(αT )
+2
+b
+√
+E[k∇θ L(θ)k2 k] ≤ BM :=
++ D̄ +
+≤ ǫ,
+M
+D̄
+M
+
+where RX = maxX kXkF for X = {U, W, v}, L(θ0 ) isnthe loss of theoinitial classifier, and
+D̄
+1
+√
+the step-size of the k-th SGD iteration is fixed as: γk = min O(αT
+) , T M , k ∈ [M ], D̄ ≥ 0.
+
+Maximum number of iterations is bounded by M = O( αT
+ǫ2 · poly(L(θ0 ), RW RU Rv , D̄)), ǫ ≥ 0.
+
+Theorem 3.2 (Generalization Error Bound). [6] Let Y, Ŷ ⊆ [0, 1] and let FT denote the class
+of FastRNN with kUkF ≤ RU , kWkF ≤ RW . Let the final classifier be given by σ(v⊤ hT ),
+kvk2 ≤ Rv . Let L : Y × Ŷ → [0, B] be any 1-Lipschitz loss function. Let D be any distribution on
+X × Y such that kxit k2 ≤ Rx a.s. Let 0 ≤ δ ≤ 1. For all β = 1 − α and α such that,
+
+
+1
+1
+1
+α ≤ min
+,
+,
+,
+4T · |DkUk2 − 1| 4T · RU T · |kUk2 − 1|
+where D = supθ,k kDθk k2 , we have that with probability at least 1 − δ, all functions f ∈ v ◦ FT
+satisfy,
+s
+n
+X
+ln( δ1 )
+O(αT )
+1
+L(f (Xi ), yi ) + C √
+ED [L(f (X), y)] ≤
+,
++B
+n i=1
+n
+n
+where C = RW RU Rx Rv represents the boundedness of the parameter matrices and the data.
+
+The convergence bound states that if α = O(1/T ) then the algorithm converges to a stationary
+point in constant time with respect to T and polynomial time with respect to all the other problem
+parameters. Generalization bound states that for α = O(1/T ), the generalization error of FastRNN
+is independent of T . In contrast, similar proof technique provide exponentially poor (in T ) error
+bound and convergence rate for standard RNN. But, this is an upper bound, so potentially significantly better error bounds for RNN might exist; matching lower bound results for standard RNN
+is an interesting research direction. Also, O(T 2 ) generalization error bound can be argued using
+VC-dimension style arguments [4]. But such bounds hold for specific settings like binary y, and are
+independent of problem hardness parameterized by the size of the weight matrices (RW , RU ).
+Finally, note that the above analysis fixes α = O(1/T ), β = 1 − α, but in practice FastRNN
+learns α, β (which is similar to performing cross-validation on α, β). However, interestingly, across
+datasets the learnt α, β values indeed display a similar scaling wrt T for large T (see Figure 2).
+3.2 FastGRNN
+While FastRNN controls the condition number of gradient reasonably well, its expressive power
+might be limited for some datasets. This concern is addressed by a novel architecture, FastGRNN,
+5
+
+that uses a scalar weighted residual connection for each and every coordinate of the hidden state ht .
+That is,
+zt = σ(Wxt + Uht−1 + bz ),
+h̃t = tanh(Wxt + Uht−1 + bh ),
+ht = (ζ(1 − zt ) + ν) ⊙ h̃t + zt ⊙ ht−1 ,
+
+(6)
+
+where 0 ≤ ζ, ν ≤ 1 are trainable parameters that are parameterized by the sigmoid function, and
+σ : R → R is a non-linear function such as tanh, sigmoid and can vary across datasets. Note that
+each coordinate of zt is similar to parameter β in (2) and ζ(1 − zt ) + ν’s coordinates simulate α
+parameter; also if ν ≈ 0, ζ ≈ 1 then it satisfies the intuition that α + β = 1. It was observed that
+across all datasets, this gating mechanism outperformed the simple vector extension of FastRNN
+where each coordinate of α and β is learnt (see Appendix G).
+FastGRNN computes each coordinate of gate zt using a non-linear function of xt and ht−1 . To
+minimize the number of parameters, FastGRNN reuses the matrices W, U for the vector-valued
+gating function as well. Hence, FastGRNN’s inference complexity is almost same as that of the
+standard RNN but its accuracy and training stability is on par with expensive gated architectures like
+GRU and LSTM.
+Sparse low-rank representation: FastGRNN further compresses the model size by using a lowrank and a sparse representation of the parameter matrices W, U. That is,
+W = W1 (W2 )⊤ , U = U1 (U2 )⊤ , kWi k0 ≤ siw , kUi k0 ≤ siu , i = {1, 2},
+
+(7)
+
+where W1 ∈ RD̂×rw , W2 ∈ RD×rw , and U1 , U2 ∈ RD̂×ru . Hyperparameters rw , sw , ru , su
+provide an efficient way to control the accuracy-memory trade-off for FastGRNN and are typically
+set via fine-grained validation. In particular, such compression is critical for FastGRNN model to fit
+on resource-constrained devices. Second, this low-rank representation brings down the prediction
+time by reducing the cost at each time step from O(D̂(D + D̂)) to O(rw (D + D̂) + ru D̂). This
+enables FastGRNN to provide on-device prediction in real-time on battery constrained devices.
+3.2.1 Training FastGRNN
+The parameters for FastGRNN: ΘFastGRNN = (Wi , Ui , bh , bz , ζ, ν) are trained jointly using projected batch stochastic gradient descent (b-SGD) (or other stochastic optimization methods) with
+typical batch sizes ranging from 64 − 128. In particular, the optimization problem is given by:
+min
+
+ΘFastGRNN ,kWi k0 ≤siw ,kUi k0 ≤siu ,i∈{1,2}
+
+J (ΘFastGRNN ) =
+
+1X
+L(Xj , yj ; ΘFastGRNN )
+n j
+
+(8)
+
+where L denotes the appropriate loss function (typically softmax cross-entropy). The training procedure for FastGRNN is divided into 3 stages:
+(I) Learning low-rank representation (L): In the first stage of the training, FastGRNN is trained
+for e1 epochs with the model as specified by (7) using b-SGD. This stage of optimization ignores
+the sparsity constraints on the parameters and learns a low-rank representation of the parameters.
+(II) Learning sparsity structure (S): FastGRNN is next trained for e2 epochs using b-SGD, projecting the parameters onto the space of sparse low-rank matrices after every few batches while maintaining support between two consecutive projection steps. This stage, using b-SGD with Iterative
+Hard Thresholding (IHT), helps FastGRNN identify the correct support for parameters (Wi , Ui ).
+(III) Optimizing with fixed parameter support: In the last stage, FastGRNN is trained for e3
+epochs with b-SGD while freezing the support set of the parameters.
+In practice, it is observed that e1 = e2 = e3 = 100 generally leads to the convergence of FastGRNN
+to a good solution. Early stopping is often deployed in stages (II) and (III) to obtain the best models.
+3.3 Byte Quantization (Q)
+FastGRNN further compresses the model by quantizing each element of Wi , Ui , restricting them to
+at most one byte along with byte indexing for sparse models. However, simple integer quantization
+of Wi , Ui leads to a large loss in accuracy due to gross approximation. Moreover, while such a
+6
+
+quantization reduces the model size, the prediction time can still be large as non-linearities will require all the hidden states to be floating point. FastGRNN overcomes these shortcomings by training
+Wi and Ui using piecewise-linear approximation of the non-linear functions, thereby ensuring that
+all the computations can be performed with integer arithmetic. During training, FastGRNN replaces
+the non-linear function in (6) with their respective approximations and uses the above mentioned
+training procedure to obtain ΘFastGRNN . The floating point parameters are then jointly quantized
+to ensure that all the relevant entities are integer-valued and the entire inference computation can
+be executed efficiently with integer arithmetic without a significant drop in accuracy. For instance,
+Tables 4, 5 show that on several datasets FastGRNN models are 3-4x faster than their corresponding
+FastGRNN-Q models on common IoT boards with no floating point unit (FPU). FastGRNN-LSQ,
+FastGRNN "minus" the Low-rank, Sparse and Quantized components, is the base model with no
+compression.
+
+4 Experiments
+Datasets: FastRNN and FastGRNN’s performance was benchmarked on the following IoT tasks
+where having low model sizes and prediction times was critical to the success of the application:
+(a) Wakeword-2 [45] - detecting utterances of the "Hey Cortana" wakeword; (b) Google-30 [49]
+and Google-12 - detection of utterances of 30 and 10 commands plus background noise and silence
+and (c) HAR-2 [3] and DSA-19 [2] - Human Activity Recognition (HAR) from an accelerometer
+and gyroscope on a Samsung Galaxy S3 smartphone and Daily and Sports Activity (DSA) detection
+from a resource-constrained IoT wearable device with 5 Xsens MTx sensors having accelerometers,
+gyroscopes and magnetometers on the torso and four limbs. Traditional RNN tasks typically do
+not have prediction constraints and are therefore not the focus of this paper. Nevertheless, for the
+sake of completeness, experiments were also carried out on benchmark RNN tasks such as language
+modeling on the Penn Treebank (PTB) dataset [33], star rating prediction on a scale of 1 to 5 of Yelp
+reviews [52] and classification of MNIST images on a pixel-by-pixel sequence [32, 31].
+All datasets, apart from Wakeword-2, are publicly available and their pre-processing and feature
+extraction details are provided in Appendix B. The publicly provided training set for each dataset
+was subdivided into 80% for training and 20% for validation. Once the hyperparameters had been
+fixed, the algorithms were trained on the full training set and results were reported on the publicly
+available test set. Table 1 lists the statistics of all datasets.
+Baseline algorithms and Implementation: FastRNN and FastGRNN were compared to standard RNN [41], leading unitary RNN approaches such as SpectralRNN [54], Orthogonal RNN
+(oRNN) [37], Efficient Unitary Recurrent Neural Networks (EURNN) [24], FactoredRNN [47] and
+state-of-the-art gated RNNs including UGRNN [14], GRU [13] and LSTM [20]. Details of these
+methods are provided in Section 2. Native Tensorflow implementations were used for the LSTM
+and GRU architectures. For all the other RNNs, publicly available implementations provided by the
+authors were used taking care to ensure that published results could be reproduced thereby verifying
+the code and hyper-parameter settings. All experiments were run on an Nvidia Tesla P40 GPU with
+CUDA 9.0 and cuDNN 7.1 on a machine with an Intel Xeon 2.60 GHz CPU with 12 cores.
+Hyper-parameters: The hyper-parameters of each algorithm were set by a fine-grained validation
+wherever possible or according to the settings recommended by the authors otherwise. Adam, Nesterov Momentum and SGD were used to optimize each algorithm on each dataset and the optimizer
+with the best validation performance was selected. The learning rate was initialized to 10−2 for all
+architectures except for RNNs where the learning rate was initialized to 10−3 to ensure stable training. Each algorithm was run for 200 epochs after which the learning rate was decreased by a factor
+Table 1: Dataset Statistics
+Dataset
+Google-12
+Google-30
+Wakeword-2
+Yelp-5
+HAR-2
+Pixel-MNIST-10
+PTB-10000
+DSA-19
+
+Table 2: PTB Language Modeling - 1 Layer
+
+#Train
+
+#Features
+
+#Time
+Steps
+
+#Test
+
+22,246
+51,088
+195,800
+500,000
+7,352
+60,000
+929,589
+4,560
+
+3,168
+3,168
+5,184
+38,400
+1,152
+784
+—
+5,625
+
+99
+99
+162
+300
+128
+784
+300
+125
+
+3,081
+6,835
+83,915
+500,000
+2,947
+10,000
+82,430
+4,560
+
+Method
+RNN
+FastRNN
+FastGRNN-LSQ
+FastGRNN
+SpectralRNN
+UGRNN
+LSTM
+
+7
+
+Test
+Perplexity
+
+Train
+Perplexity
+
+Model
+Size (KB)
+
+144.71
+127.76+
+115.92
+116.11
+130.20
+119.71
+117.41
+
+68.11
+109.07
+89.58
+81.31
+65.42
+65.25
+69.44
+
+129
+513
+513
+39
+242
+256
+2052
+
+Train
+Time (min)
+9.11
+11.20
+12.53
+13.75
+—
+11.12
+13.52
+
+of 10−1 and the algorithm run again for another 100 epochs. This procedure was carried out on all
+datasets except for Pixel MNIST where the learning rate was decayed by 21 after each pass of 200
+epochs. Batch sizes between 64 and 128 training points were tried for most architectures and a batch
+size of 100 was found to work well in general except for standard RNNs which required a batch size
+of 512. FastRNN used tanh as the non-linearity in most cases except for a few (indicated by + )
+where ReLU gave slightly better results. Table 11 in the Appendix lists the non-linearity, optimizer
+and hyper-parameter settings for FastGRNN on all datasets.
+Evaluation criteria: The emphasis in this paper is on designing RNN architectures which can run
+on low-memory IoT devices and which are efficient at prediction time. As such, the model size of
+each architecture is reported along with its training time and classification accuracy (F1 score on the
+Wakeword-2 dataset and perplexity on the PTB dataset). Prediction times on some of the popular
+IoT boards are also reported. Note that, for NLP applications such as PTB and Yelp, just the model
+size of the various RNN architectures has been reported. In a real application, the size of the learnt
+word-vector embeddings (10 MB for FastRNN and FastGRNN) would also have to be considered.
+Results: Tables 2 and 3 compare the performance of FastRNN, FastGRNN and FastGRNN-LSQ
+to state-of-the-art RNNs. Three points are worth noting about FastRNN’s performance. First, FastRNN’s prediction accuracy gains over a standard RNN ranged from 2.34% on the Pixel-MNIST
+dataset to 19% on the Google-12 dataset. Second, FastRNN’s prediction accuracy could surpass
+leading unitary RNNs on 6 out of the 8 datasets with gains up to 2.87% and 3.77% over SpectralRNN on the Google-12 and DSA-19 datasets respectively. Third, FastRNN’s training speedups over
+all unitary and gated RNNs could range from 1.2x over UGRNN on the Yelp-5 and DSA-19 datasets
+to 196x over EURNN on the Google-12 dataset. This demonstrates that the vanishing and exploding
+gradient problem could be overcome by the addition of a simple weighted residual connection to
+the standard RNN architecture thereby allowing FastRNN to train efficiently and stablely. This also
+demonstrates that the residual connection offers a theoretically principled architecture that can often
+result in accuracy gains without limiting the expressive power of the hidden state transition matrix.
+Tables 2 and 3 also demonstrate that FastGRNN-LSQ could be more accurate and faster to train than
+all unitary RNNs. Furthermore, FastGRNN-LSQ could match the accuracies and training times of
+state-of-the-art gated RNNs while having models that could be 1.18-4.87x smaller. This demonstrates that extending the residual connection to a gate which reuses the RNN matrices increased
+accuracy with virtually no increase in model size over FastRNN in most cases. In fact, on Google30 and Pixel-MNIST FastGRNN-LSQ’s model size was lower than FastRNN’s as it had a lower
+hidden dimension indicating that the gate efficiently increased expressive power.
+Table 3: FastGRNN had up to 35x smaller models than leading RNNs with almost no loss in accuracy
+Dataset
+
+Google-12
+Accuracy
+(%)
+
+Google-30
+Accuracy
+(%)
+
+Model
+Size (KB)
+
+Wakeword-2
+Train
+Time (hr)
+
+F1
+Score
+
+Model
+Size (KB)
+
+Train
+Time(hr)
+
+RNN
+
+73.25
+
+56
+
+1.11
+
+80.05
+
+63
+
+2.13
+
+89.17
+
+8
+
+0.28
+
+Unitary Proposed
+
+Train
+Time (hr)
+
+FastRNN
+FastGRNN-LSQ
+FastGRNN
+
+92.21+
+93.18
+92.10
+
+56
+57
+5.5
+
+0.61
+0.63
+0.75
+
+91.60+
+92.03
+90.78
+
+96
+45
+6.25
+
+1.30
+1.41
+1.77
+
+97.09
+98.19
+97.83
+
+8
+8
+1
+
+0.69
+0.83
+1.08
+
+SpectralRNN
+EURNN
+oRNN
+FactoredRNN
+
+91.59
+76.79
+88.18
+53.33
+
+228
+210
+102
+1114
+
+19.00
+120.00
+16.00
+7.00
+
+88.73
+56.35
+86.95
+40.57
+
+128
+135
+120
+1150
+
+11.00
+19.00
+35.00
+8.52
+
+96.75
+92.22
+—
+—
+
+17
+24
+—
+—
+
+7.00
+69.00
+—
+—
+
+Gated
+
+Method
+
+Model
+Size (KB)
+
+UGRNN
+GRU
+LSTM
+
+92.63
+93.15
+92.30
+
+75
+248
+212
+
+0.78
+1.23
+1.36
+
+90.54
+91.41
+90.31
+
+260
+257
+219
+
+2.11
+2.70
+2.63
+
+98.17
+97.63
+97.82
+
+16
+24
+32
+
+1.00
+1.38
+1.71
+
+Dataset
+
+Yelp-5
+
+HAR-2
+
+RNN Model
+Size (KB)
+
+Train
+Time (hr)
+
+DSA-19
+
+Accuracy
+(%)
+
+Model
+Size (KB)
+
+Train
+Time (hr)
+
+Accuracy
+(%)
+
+Model
+Size (KB)
+
+Pixel-MNIST-10
+Train
+Time (min)
+
+Accuracy
+(%)
+
+Model
+Size (KB)
+
+Train
+Time (hr)
+
+RNN
+
+47.59
+
+130
+
+3.33
+
+91.31
+
+29
+
+0.11
+
+71.68
+
+20
+
+1.11
+
+94.10
+
+71
+
+45.56
+
+Unitary Proposed
+
+Accuracy
+(%)
+
+FastRNN
+FastGRNN-LSQ
+FastGRNN
+
+55.38
+59.51
+59.43
+
+130
+130
+8
+
+3.61
+3.91
+4.62
+
+94.50+
+95.38
+95.59
+
+29
+29
+3
+
+0.06
+0.08
+0.10
+
+84.14
+85.00
+83.73
+
+97
+208
+3.25
+
+1.92
+2.15
+2.10
+
+96.44
+98.72
+98.20
+
+166
+71
+6
+
+15.10
+12.57
+16.97
+
+SpectralRNN
+EURNN
+oRNN
+FactoredRNN
+
+56.56
+59.01
+—
+—
+
+89
+122
+—
+—
+
+4.92
+72.00
+—
+—
+
+95.48
+93.11
+94.57
+78.65
+
+525
+12
+22
+1
+
+0.73
+0.84
+2.72
+0.11
+
+80.37
+—
+72.52
+73.20
+
+50
+—
+18
+1154
+
+2.25
+—
+—
+—
+
+97.70
+95.38
+97.20
+94.60
+
+25
+64
+49
+125
+
+—
+122.00
+—
+—
+
+Gated
+
+Method
+
+UGRNN
+GRU
+LSTM
+
+58.67
+59.02
+59.49
+
+258
+388
+516
+
+4.34
+8.12
+8.61
+
+94.53
+93.62
+93.65
+
+37
+71
+74
+
+0.12
+0.13
+0.18
+
+84.74
+84.84
+84.84
+
+399
+270
+526
+
+2.31
+2.33
+2.58
+
+97.29
+98.70
+97.80
+
+84
+123
+265
+
+15.17
+23.67
+26.57
+
+8
+
+Table 4: Prediction time in ms on the Arduino MKR1000
+Google-12 HAR-2 Wakeword-2
+Method
+FastGRNN
+FastGRNN-Q
+RNN
+UGRNN
+SpectralRNN
+
+537
+2282
+12028
+22875
+70902
+
+162
+553
+2249
+4207
+—
+
+Table 5: Prediction time in ms on the Arduino Due
+Google-12 HAR-2 Wakeword-2
+Method
+
+175
+755
+2232
+6724
+10144
+
+FastGRNN
+FastGRNN-Q
+RNN
+UGRNN
+SpectralRNN
+
+242
+779
+3472
+6693
+17766
+
+62
+172
+590
+1142
+55558
+
+77
+238
+653
+1823
+2691
+
+Finally, Tables 2 and 3 show that FastGRNN’s accuracy was at most 1.13% worse than the best
+RNN but its model could be up to 35x smaller even as compared to low-rank unitary methods such
+as SpectralRNN. Figures 3 and 4 in the Appendix also show that FastGRNN-LSQ and FastGRNN’s
+classification accuracies could be higher than those obtained by the best unitary and gated RNNs for
+any given model size in the 0-128 KB range. This demonstrates the effectiveness of making FastGRNN’s parameters low-rank, sparse and quantized and allows FastGRNN to fit on the Arduino Uno
+having just 2 KB RAM and 32 KB flash memory. In particular, FastGRNN was able to recognize
+the "Hey Cortana" wakeword just as accurately as leading RNNs but with a 1 KB model.
+Prediction on IoT boards: Unfortunately, most RNNs were too large to fit on an Arduino Uno apart
+from FastGRNN. On the slightly more powerful Arduino MKR1000 having an ARM Cortex M0+
+microcontroller operating at 48 MHz with 32 KB RAM and 256 KB flash memory, Table 4 shows
+that FastGRNN could achieve the same prediction accuracy while being 25-45x faster at prediction
+than UGRNN and 57-132x faster than SpectralRNN. Results on the even more powerful Arduino
+Due are presented in Table 5 while results on the Raspberry Pi are presented in Table 12 of the
+Appendix.
+Ablations, extensions and parameter settings: Enforcing that FastGRNN’s matrices be low-rank
+led to a slight increase in prediction accuracy and reduction in prediction costs as shown in the
+ablation experiments in Tables 8, 9 and 10 in the Appendix. Adding sparsity and quantization
+led to a slight drop in accuracy but resulted in significantly smaller models. Next, Table 16 in
+the Appendix shows that regularization and layering techniques [36] that have been proposed to
+increase the prediction accuracy of other gated RNNs are also effective for FastGRNN and can
+lead to reductions in perplexity on the PTB dataset. Finally, Figure 2 and Table 7 of the Appendix
+measure the agreement between FastRNN’s theoretical analysis and empirical observations. Figure 2
+(a) shows that the α learnt on datasets with T time steps is decreasing function of T and Figure 2
+(b) shows that the learnt α and β follow the relation α/β ≈ O(1/T ) for large T which is one of
+the settings in which FastRNN’s gradients stabilize and training converges quickly as proved by
+Theorems 3.1 and 3.2. Furthermore, β can be seen to be close to 1 − α for large T in Figure 2 (c)
+as assumed in Section 3.1.1 for the convergence of long sequences. For instance, the relative error
+between β and 1 − α for Google-12 with 99 timesteps was 2.15%, for HAR-2 with 128 timesteps
+was 3.21% and for MNIST-10 with 112 timesteps was 0.68%. However, for short sequences where
+there was a lower likelihood of gradients exploding or vanishing, β was found to deviate significantly
+from 1 − α as this led to improved prediction accuracy. Enforcing that β = 1 − α on short sequences
+was found to drop accuracy by up to 1.5%.
+0.8
+
+0.6
+0.4
+
+Google-12
+HAR-2
+MNIST-10
+
+0.6
+
+1
+Google-12
+HAR-2
+MNIST-10
+
+0.9
+
+0.4
+0.2
+0
+0
+
+0.2
+0.05
+
+0.1
+
+1/T
+
+(a)
+
+0.15
+
+0
+0
+
+Google - 12
+HAR-2
+MNIST-10
+
+0.8
+0.05
+
+0.1
+
+0.15
+
+0.4
+
+0.5
+
+0.6
+
+0.7
+
+0.8
+
+0.9
+
+1
+
+1/T
+
+(b)
+
+Figure 2: Plots (a) and (b) show the variation of α and
+
+α/β
+
+(c)
+1/T
+
+of FastRNN with respect to
+for three datasets.
+Plot (c) shows the relation between β and 1 − α. In accordance with Theorem 3.1, the learnt values of α and
+α/β scale as O(1/T ) while β → 1 − α for long sequences.
+
+5 Conclusions
+This paper proposed the FastRNN and FastGRNN architectures for efficient RNN training and prediction. FastRNN could lead to provably stable training by incorporating a residual connection with
+two scalar parameters into the standard RNN architecture. FastRNN was demonstrated to have lower
+9
+
+training times, lower prediction costs and higher prediction accuracies than leading unitary RNNs
+in most cases. FastGRNN extended the residual connection to a gate reusing the RNN matrices and
+was able to match the accuracies of state-of-the-art gated RNNs but with significantly lower prediction costs. FastGRNN’s model could be compressed to 1-6 KB without compromising accuracy in
+many cases by enforcing that its parameters be low-rank, sparse and quantized. This allowed FastGRNN to make accurate predictions efficiently on severely resource-constrained IoT devices too
+tiny to hold other RNN models.
+
+Acknowledgements
+We are grateful to Ankit Anand, Niladri Chatterji, Kunal Dahiya, Don Dennis, Inderjit S. Dhillon,
+Dinesh Khandelwal, Shishir Patil, Adithya Pratapa, Harsha Vardhan Simhadri and Raghav Somani
+for helpful discussions and feedback. KB acknowledges the support of the NSF through grant IIS1619362 and of the AFOSR through grant FA9550-17-1-0308.
+
+References
+[1] S. Ahmad, A. Lavin, S. Purdy, and Z. Agha. Unsupervised real-time anomaly detection for
+streaming data. Neurocomputing, 262:134–147, 2017.
+[2] K. Altun, B. Barshan, and O. Tunçel. Comparative study on classifying human activities with
+miniature inertial and magnetic sensors. Pattern Recognition, 43(10):3605–3620, 2010. URL
+https://archive.ics.uci.edu/ml/datasets/Daily+and+Sports+Activities.
+[3] D. Anguita, A. Ghio, L. Oneto, X. Parra, and J. L. Reyes-Ortiz. Human activity recognition on smartphones using a multiclass hardware-friendly support vector machine. In
+International Workshop on Ambient Assisted Living, pages 216–223. Springer, 2012. URL
+https://archive.ics.uci.edu/ml/datasets/human+activity+recognition+using+smartphones.
+[4] M. Anthony and P. L. Bartlett. Neural network learning: Theoretical foundations. Cambridge
+University Press, 2009.
+[5] M. Arjovsky, A. Shah, and Y. Bengio. Unitary evolution recurrent neural networks. In International Conference on Machine Learning, pages 1120–1128, 2016.
+[6] P. L. Bartlett and S. Mendelson. Rademacher and gaussian complexities: Risk bounds and
+structural results. Journal of Machine Learning Research, 3(Nov):463–482, 2002.
+[7] Y. Bengio, N. Boulanger-Lewandowski, and R. Pascanu. Advances in optimizing recurrent
+networks. In Acoustics, Speech and Signal Processing (ICASSP), 2013 IEEE International
+Conference on, pages 8624–8628. IEEE, 2013.
+[8] K. Bhatia, K. Dahiya, H. Jain, Y. Prabhu, and M. Varma.
+treme Classification Repository:
+Multi-label Datasets & Code.
+http://manikvarma.org/downloads/XC/XMLRepository.html.
+
+The
+
+ExURL
+
+[9] J. Bradbury, S. Merity, C. Xiong, and R. Socher. Quasi-recurrent neural networks. arXiv
+preprint arXiv:1611.01576, 2016.
+[10] V. Campos, B. Jou, X. G. i Nieto, J. Torres, and S.-F. Chang. Skip RNN: Learning to skip
+state updates in recurrent neural networks. In International Conference on Learning Representations, 2018.
+[11] G. Chen, C. Parada, and G. Heigold. Small-footprint keyword spotting using deep neural
+networks. In Acoustics, Speech and Signal Processing (ICASSP), 2015 IEEE International
+Conference on, pages 4087–4091. IEEE, 2014.
+[12] G. Chen, C. Parada, and T. N. Sainath. Query-by-example keyword spotting using long shortterm memory networks. In Acoustics, Speech and Signal Processing (ICASSP), 2015 IEEE
+International Conference on, pages 5236–5240. IEEE, 2015.
+[13] K. Cho, B. Van Merriënboer, D. Bahdanau, and Y. Bengio. On the properties of neural machine
+translation: Encoder-decoder approaches. arXiv preprint arXiv:1409.1259, 2014.
+[14] J. Collins, J. Sohl-Dickstein, and D. Sussillo. Capacity and trainability in recurrent neural
+networks. arXiv preprint arXiv:1611.09913, 2016.
+10
+
+[15] S. Ghadimi and G. Lan. Stochastic first-and zeroth-order methods for nonconvex stochastic
+programming. SIAM Journal on Optimization, 23(4):2341–2368, 2013.
+[16] N. Golowich, A. Rakhlin, and O. Shamir. Size-independent sample complexity of neural networks. arXiv preprint arXiv:1712.06541, 2017.
+[17] C. Gupta, A. S. Suggala, A. Gupta, H. V. Simhadri, B. Paranjape, A. Kumar, S. Goyal,
+R. Udupa, M. Varma, and P. Jain. Protonn: Compressed and accurate knn for resource-scarce
+devices. In Proceedings of the International Conference on Machine Learning, August 2017.
+[18] S. Han, H. Mao, and W. J. Dally. Deep compression: Compressing deep neural networks with
+pruning, trained quantization and huffman coding. In ICLR, 2016.
+[19] K. He, X. Zhang, S. Ren, and J. Sun. Deep residual learning for image recognition. In Proceedings of the IEEE Conference on Computer Vision and Pattern Recognition, pages 770–778,
+2016.
+[20] S. Hochreiter and J. Schmidhuber. Long short-term memory. Neural computation, 9(8):1735–
+1780, 1997.
+[21] H. Inan, K. Khosravi, and R. Socher. Tying word vectors and word classifiers: A loss framework for language modeling. arXiv preprint arXiv:1611.01462, 2016.
+[22] H. Jaeger, M. Lukosevicius, D. Popovici, and U. Siewert. Optimization and applications of
+echo state networks with leaky-integrator neurons. Neural Networks, 20(3):335–352, 2007.
+[23] L. Jing, C. Gulcehre, J. Peurifoy, Y. Shen, M. Tegmark, M. Soljacić, and Y. Bengio. Gated
+orthogonal recurrent units: On learning to forget. arXiv preprint arXiv:1706.02761, 2017.
+[24] L. Jing, Y. Shen, T. Dubcek, J. Peurifoy, S. Skirlo, M. Tegmark, and M. Soljacić. Tunable efficient unitary neural networks (eunn) and their application to RNN. In International Conference
+on Machine Learning, 2017.
+[25] C. Jose, M. Cisse, and F. Fleuret. Kronecker recurrent units. In J. Dy and A. Krause, editors, International Conference on Machine Learning, volume 80 of Proceedings of Machine Learning
+Research, pages 2380–2389, Stockholmsmässan, Stockholm Sweden, 10–15 Jul 2018. PMLR.
+[26] S. Kanai, Y. Fujiwara, and S. Iwamura. Preventing gradient explosions in gated recurrent units.
+In Advances in Neural Information Processing Systems, pages 435–444, 2017.
+[27] V. Këpuska and T. Klein. A novel wake-up-word speech recognition system, wake-up-word
+recognition task, technology and evaluation. Nonlinear Analysis: Theory, Methods & Applications, 71(12):e2772–e2789, 2009.
+[28] D. P. Kingma and J. Ba. Adam: A method for stochastic optimization. arXiv preprint
+arXiv:1412.6980, 2014.
+[29] A. Kumar, S. Goyal, and M. Varma. Resource-efficient machine learning in 2 kb ram for
+the internet of things. In Proceedings of the International Conference on Machine Learning,
+August 2017.
+[30] A. Kusupati, D. Dennis, C. Gupta, A. Kumar, S. Patil, and H. Simhadri.
+The
+EdgeML Library: An ML library for machine learning on the Edge, 2017.
+URL
+https://github.com/Microsoft/EdgeML.
+[31] Q. V. Le, N. Jaitly, and G. E. Hinton. A simple way to initialize recurrent networks of rectified
+linear units. arXiv preprint arXiv:1504.00941, 2015.
+[32] Y. LeCun, L. Bottou, Y. Bengio, and P. Haffner. Gradient-based learning applied to document
+recognition. Proceedings of the IEEE, 86(11):2278–2324, 1998.
+[33] M. P. Marcus, M. A. Marcinkiewicz, and B. Santorini. Building a large annotated corpus of
+english: The penn treebank. Computational linguistics, 19(2):313–330, 1993.
+[34] J. McAuley and J. Leskovec. Hidden factors and hidden topics: understanding rating dimensions with review text. In Proceedings of the 7th ACM conference on Recommender systems,
+pages 165–172. ACM, 2013.
+[35] G. Melis, C. Dyer, and P. Blunsom. On the state of the art of evaluation in neural language
+models. arXiv preprint arXiv:1707.05589, 2017.
+[36] S. Merity, N. S. Keskar, and R. Socher. Regularizing and optimizing LSTM language models.
+arXiv preprint arXiv:1708.02182, 2017.
+11
+
+[37] Z. Mhammedi, A. Hellicar, A. Rahman, and J. Bailey. Efficient orthogonal parametrisation
+of recurrent neural networks using householder reflections. In International Conference on
+Machine Learning, 2017.
+[38] T. Mikolov and G. Zweig. Context dependent recurrent neural network language model. SLT,
+12(234-239):8, 2012.
+[39] S. Narang, E. Elsen, G. Diamos, and S. Sengupta. Exploring sparsity in recurrent neural
+networks. arXiv preprint arXiv:1704.05119, 2017.
+[40] R. Pascanu, T. Mikolov, and Y. Bengio. On the difficulty of training recurrent neural networks.
+In International Conference on Machine Learning, pages 1310–1318, 2013.
+[41] D. E. Rumelhart, G. E. Hinton, and R. J. Williams. Learning representations by backpropagating errors. Nature, 323(6088):533, 1986.
+[42] T. N. Sainath and C. Parada. Convolutional neural networks for small-footprint keyword spotting. In Sixteenth Annual Conference of the International Speech Communication Association,
+2015.
+[43] Siri Team, Apple. Hey Siri: An on-device dnn-powered voice trigger for apple’s personal assistant, 2017. URL https://machinelearning.apple.com/2017/10/01/hey-siri.html.
+[44] R. K. Srivastava, K. Greff, and J. Schmidhuber. Highway networks. arXiv preprint
+arXiv:1505.00387, 2015.
+[45] STCI, Microsoft. Wakeword dataset.
+[46] G. A. Susto, A. Schirru, S. Pampuri, S. McLoone, and A. Beghi. Machine learning for predictive maintenance: A multiple classifier approach. IEEE Transactions on Industrial Informatics,
+11(3):812–820, 2015.
+[47] E. Vorontsov, C. Trabelsi, S. Kadoury, and C. Pal. On orthogonality and learning recurrent
+networks with long term dependencies. In International Conference on Machine Learning,
+2017.
+[48] Z. Wang, J. Lin, and Z. Wang. Accelerating recurrent neural networks: A memory-efficient
+approach. IEEE Transactions on Very Large Scale Integration (VLSI) Systems, 25(10):2763–
+2775, 2017.
+[49] P. Warden.
+Speech commands:
+A dataset for limited-vocabulary
+speech recognition.
+arXiv preprint arXiv:1804.03209, 2018.
+URL
+http://download.tensorflow.org/data/speech_commands_v0.01.tar.gz.
+[50] S. Wisdom, T. Powers, J. Hershey, J. Le Roux, and L. Atlas. Full-capacity unitary recurrent
+neural networks. In Advances in Neural Information Processing Systems, pages 4880–4888,
+2016.
+[51] J. Ye, L. Wang, G. Li, D. Chen, S. Zhe, X. Chu, and Z. Xu. Learning compact recurrent neural
+networks with block-term tensor decomposition. arXiv preprint arXiv:1712.05134, 2017.
+[52] Yelp
+Inc.
+Yelp
+dataset
+challenge,
+2017.
+URL
+https://www.yelp.com/dataset/challenge.
+[53] W. Zaremba, I. Sutskever, and O. Vinyals. Recurrent neural network regularization. arXiv
+preprint arXiv:1409.2329, 2014.
+[54] J. Zhang, Q. Lei, and I. S. Dhillon. Stabilizing gradients for deep neural networks via efficient
+SVD parameterization. In International Conference on Machine Learning, 2018.
+
+12
+
+A
+
+Convergence Analysis for FastRNN
+
+Algorithm 1: Randomized Stochastic Gradient
+Input: Initial point θ1 , iteration limit M, step sizes γk≥1 , Probability mass function PR (·)
+supported on {1, 2, . . . , M }
+Initialize: R be a random variable with probability mass function PR
+for m = 1, . . . , R do
+Obtain sample of stochastic gradient ∇Lt (θt )
+θt ← θt−1 − γt ∇Lt (θt )
+Output: θR
+Let θ = (W, U, v) represent the set of parameters of the scalar gated recurrent neural network.
+In order to prove the convergence properties of Randomized Stochastic Gradient (see Algorithm
+1) as in [15], we first obtain a bound on the Lipschitz constant of the loss function L(X, y; θ) :=
+log(1 + exp (−y · v⊤ hT )) where hT is the output of FastRNN after T time steps given input X.
+∂L ∂L ∂L
+The gradient ∇θ L of the loss function is given by ( ∂W
+, ∂U , ∂v ) wherein
+T
+X
+∂L
+Dt
+=α
+∂U
+t=0
+
+T
+X
+∂L
+Dt
+=α
+∂W
+t=0
+
+TY
+−1
+
+⊤
+
+!
+
+(9)
+
+⊤
+
+!
+
+(10)
+
+(αU Dk+1 + βI) (∇hT L)h⊤
+t−1
+
+k=t
+
+TY
+−1
+
+(αU Dk+1 + βI) (∇hT L)x⊤
+t
+
+k=t
+
+∂L
+−y exp (−y · v⊤ hT )
+=
+hT ,
+∂v
+1 + exp (−y · v⊤ hT )
+
+(11)
+
+1
+where ∇hT L = −c(θ)y · v, with c(θ) = 1+exp (y·v
+⊤ h ) . We do a perturbation analysis and obtain
+T
+a bound on k∇θ L(θ) − ∇θ L(θ + δ)k2 where δ = (δW , δU , δv ).
+
+Deviation bound for hT : In this subsection, we consider bounding the term khT (θ + δ) − hT (θ)k2
+evaluated on the same input X. Note that for FastRNN, hT = αh̃T + βhT −1 . For notational
+convenience, we use h′T = hT (θ + δ) and hT = hT (θ).
+kh′T − hT k2 ≤ βkh′T −1 − hT −1 k2 + αkσ(WxT + UhT −1 ) − σ((W + δW )xT + (U + δU )h′T −1 )k2
+ζ1
+
+..
+.
+
+≤ βkh′T −1 − hT −1 k2 + αkUhT −1 − δW xT − Uh′T −1 − δU h′T −1 k2
+p
+≤ (αkUk2 + β)kh′T −1 − hT −1 k2 + α( D̂ · kδU k2 + kδW k2 Rx )
+
+≤ α(
+
+p
+
+
+
+D̂ · kδU k2 + kδW k2 Rx ) 1 + (αkUk2 + β) + . . . + (αkUk2 + β)T −1
+
+p
+p
+(α(kUk2 − 1) + 1)T − 1
+≤ 2α( D̂ · kδU k2 + kδW k2 Rx ) · T
+≤ α( D̂ · kδU k2 + kδW k2 Rx )
+α(kUk2 − 1)
+p
+2 D̂ · kδU k2 + 2kδW k2 Rx
+,
+(12)
+≤
+|kUk2 − 1|
+ζ2
+
+where ζ1 follows by using 1-lipschitz property of the sigmoid function and ζ2 follows by setting
+1
+α = O( T ·|kUk
+) and β = 1 − α.
+2 −1|
+Deviation bound for c(θ): In this subsection, we consider bounding the deviation c(θ) − c(θ + δ).
+|c(θ) − c(θ + δ)| ≤ |v⊤ hT − (v + δv⊤ )h′T |
+
+≤ |v⊤ (hT − h′T )| + kδv k2 kht k2
+≤ kvk2 khT − h′T k2 + kδv k2 kht k2
+p
+≤ Rv khT − h′T k2 + D̂kδv k2 .
+
+13
+
+(13)
+
+Deviation bound for
+
+∂L
+∂v :
+
+In this subsection we consider the bounds on k ∂L
+∂v (θ) −
+
+∂L
+∂L
+(θ) −
+(θ + δ)
+∂v
+∂v
+
+∂L
+∂v (θ
+
++ δ)k2 .
+
+h′T
+
+hT
+−
+1 + exp (yv⊤ hT )
+1 + exp (y(v + δv )⊤ h′T )
+
+=
+2
+
+= c(θ)hT − c(θ + δ)h′T )
+
+2
+
+2
+
+= k(c(θ) − c(θ + δ)) · hT + c(θ + δ) · (hT − h′T )k2
+p
+≤ D̂ · |c(θ) − c(θ + δ)| + khT − h′T k2
+
+p
+D̂Rv + 1 · khT − h′T k2 + D̂kδv k2 .
+≤
+
+Deviation bound for
+supk,θ kDθk k.
+
+∂L
+∂W :
+
+∂L
+In this subsection, we analyze k ∂W
+(θ) −
+
+∂L
+∂L
+(θ) −
+(θ + δ)
+∂W
+∂W
+F
+"
+!
+TY
+−1
+T
+X
+c(θ)Dθt
+(αU⊤ Dθk+1 + βI) v −
+= αRx
+t=0
+
+c(θ + δ)Dtθ+δ
+
+TY
+−1
+
+∂L
+∂W (θ
+
+(14)
+
++ δ)k2 . Let D =
+
+!
+
+θ+δ
+(α(U + δU )⊤ Dk+1
++ βI) (v + δv )
+
+k=t
+
+k=t
+
+(15)
+
+QT −1
+Let us define matrices Aθt := Dθt k=t (αU⊤ Dθk+1 + βI) and similarly Aθ+δ
+t
+QT −1
+⊤ θ+δ
+Dθ+δ
+t
+k=t (α(U + δU ) Dk+1 + βI). Using this, we have,
+∂L
+∂L
+(θ) −
+(θ + δ)
+∂W
+∂W
+F
+T h
+i
+X
+c(θ) · Aθt v − c(θ + δ) · Atθ+δ (v + δv )
+= αRx
+t=0
+
+≤ αRx
+
+|c(θ) − c(θ + δ)| ·
+
+T
+X
+
+Aθt v
+
+t=0
+
+≤ αRx
+
+|c(θ) − c(θ + δ)| ·
+
+T
+X
+
+|c(θ) − c(θ + δ)| · Rv
+
++
+
+Aθt v
+
+T
+X
+
++
+
+Aθt
+
+t=0
+
+−
+
+Atθ+δ (v
+
++ δv )
+2
+
+(Aθt
+
+−
+
+Atθ+δ )v
+
+t=0
+
+2
+T
+X
+
+Aθt v
+
+2
+
+t=0
+
+2
+
+t=0
+
+≤ αRx
+
+T
+X
+
++ Rv
+
++
+
+T
+X
+
+Aθt
+
+−
+
+!
+
+T
+X
+
+Atθ+δ δv
+
+t=0
+
+2
+
+Atθ+δ
+
+t=0
+
+2
+
+:=
+
++ kδv k2
+
+2
+T
+X
+t=0
+
+2
+
+!
+
+Atθ+δ
+2
+
+!
+
+.
+
+(16)
+
+We will proceed by bounding the first term in the above equation. Consider,
+T
+X
+t=0
+
+Aθt
+
+≤D
+
+T
+TY
+−1
+X
+t=0
+
+2
+
+≤D
+
+T
+X
+
+(αU⊤ Dθk+1 + βI)
+
+k=t
+
+2
+
+(αD · kUk2 + β)T −t
+
+t=0
+
+|(αD · kUk2 + β)T +1 − 1|
+≤D
+|αD · kUk2 + β − 1|
+ζ1
+
+≤D
+
+(1 + α · (DkU k2 − 1))T +1 − 1
+α|DkUk2 − 1|
+
+ζ2
+
+≤ 2D · (T + 1),
+
+(17)
+
+where ζ1 follows by setting β = 1 − α and ζ2 follows by using the inequality (1 + x)r ≤ 1 + 2rx
+1
+. Note that the third term in Equation (17)
+for (r − 1)x ≤ 1/2 and the fact that α ≤ 4T ·|DkUk
+2 −1|
+1
+can be bounded in a similar way as above by 2D · (T + 1) using α ≤ 4T ·R
+. We now proceed to
+U
+14
+
+#
+
+.
+2
+
+bound the second term. Consider the following for any fixed value of t,
+Aθt − Atθ+δ
+
+2
+
+= Dθt
+
+TY
+−1
+
+(αU⊤ Dθk+1 + βI) − Dtθ+δ
+
+TY
+−1
+
+≤ (Dθt − Dtθ+δ )
+
+TY
+−1
+
+≤ Dθt − Dtθ+δ
+≤ Dθt − Dtθ+δ
+
+2
+
+2
+
+TY
+−1
+
+k=t
+
+(αU⊤ Dθk+1 + βI) −
+
+TY
+−1
+
+TY
+−1
+
+2
+
+θ+δ
+(α(U + δU )⊤ Dk+1
++ βI)
+
+TY
+−1
+
+2
+θ+δ
+(α(U + δU )⊤ Dk+1
++ βI)
+
+k=t
+
+k=t
+
+2
+
+|
+
+TY
+−1
+k=t
+
+(αU⊤ Dθk+1 + βI) −
+
+TY
+−1
+
+2
+
+θ+δ
+(α(U + δU )⊤ Dk+1
++ βI)
+
+k=t
+
+k=t
+
+(αU⊤ Dθk+1 + βI) −
+
+{z
+
+(I)
+
+θ+δ
+(α(U + δU )⊤ Dk+1
++ βI)
+2
+
+θ+δ
+(αU⊤ Dk+1
++ βI + αU⊤ ∆θk+1 ) −
+
+TY
+−1
+
+θ+δ
+⊤ θ+δ
+(αU⊤ Dk+1
++ βI + αδU
+Dk+1 )
+
+k=t
+
+k=t
+
+.
+
+(18)
+
+2
+
+⊤ θ+δ
+Let Bk := αU⊤ Dθ+δ
++ βI, Ck := αU⊤ ∆θk+1 and Gk := αδU
+Dk+1 . Note that we have the
+k
+following bounds on the operator norms of these matrices:
+kBk k2 ≤ αD ·kUk2 + β = Bmax , kCk k2 ≤ α∆θ ·kUk2 = Cmax , kGk k ≤ αD ·kδU k2 = Gmax .
+(19)
+By our assumptions on α, Bk is invertible and I + Bk Ck Bk−1 , I + Bk Gk Bk−1 are diagonizable.
+−1
+Moreover, kBk−1 k ≤ 2αD · kUk2 + β = Bmax
+.
+
+Hence, we can rewrite Equation (18) as,
+TY
+−1
+
+(αU⊤ Dθk+1 + βI) −
+
+θ+δ
+(α(U + δU )⊤ Dk+1
++ βI)
+
+k=t
+
+k=t
+
+≤
+
+TY
+−1
+
+TY
+−1
+
+(Bk + Ck ) −
+
+TY
+−1
+
+2
+
+(Bk + Gk )
+
+k=t
+
+k=t
+
+≤ 4kBt k ·
+
+TY
+−1
+k=t
+
+
+
+−1
+
+ TY
+I + Bt−1 Gk Bt+1
+I + Bt−1 Ck Bt+1 −
+k=t
+
+≤ 4kBt k · (1 + Bmax · Cmax ·
+
+−1 T −t
+Bmax
+)
+
+
+−1 T −t
+− 1 + (1 + Bmax · Gmax · Bmax
+)
+−1 ,
+
+where BT := I and the last equation follows from the following fact: k
+(maxk kCk k + 1)T − 1.
+Combining the above term with Equation (16):
+T
+X
+t=0
+
+Aθt − Atθ+δ
+
+≤
+
+T
+X
+
+Aθt − Atθ+δ
+
+t=0
+
+2
+
+≤ ∆θ ·
+
+T
+X
+
+QT
+
+k=1 (I
+
+(20)
+
++ Ck ) − Ik ≤
+
+2
+
+−1
+(αD · kUk2 + β)T −t + D · Bmax
+· Bmax
+
+t=0
+
+·
+
+T 
+X
+t=0
+
+
+−1 T −t
+−1 T −t
+(1 + Bmax · Cmax · Bmax
+)
+− 1 + (1 + Bmax · Gmax · Bmax
+)
+−1
+
+≤ ∆θ ·
+
+T
+X
+
+−1 3
+(αD · kUk2 + β)T −t + 2D · (Bmax
+) · (Bmax )3 · T 2 · ((Cmax )2 + (Gmax )2 )
+
+t=0
+
+ζ1
+
+−1 3
+≤ 2∆θ · (T + 1) + 2D · (Bmax
+) · (Bmax )3 · T 2 · ((Cmax )2 + (Gmax )2 ),
+
+15
+
+.
+2
+
+≤ ∆θ independent of the value of k. We
+
+k=t
+
+TY
+−1
+
+TY
+−1
+
++D
+
+· (αkUk2 D + β)T −t + D
+
+k=t
+
+(αU⊤ Dθk+1 + βI) −
+
+k=t
+
+(αU⊤ Dθk+1 + βI)
+
+θ
+Let ∆θk := Dθk − Dθ+δ
+k . We will later show that ∆k
+focus on term (I) in the expression above:
+
+≤
+
++D
+2
+
+TY
+−1
+
+·
+
+2
+
+(αU⊤ Dθk+1 + βI)
+
+k=t
+
+TY
+−1
+
+θ+δ
+(α(U + δU )⊤ Dk+1
++ βI)
+
+k=t
+
+k=t
+
+(21)
+
+}
+
+where ζ1 follows by summing the geometric series and using the fact that α ≤
+
+1
+4T ·|DkUk2 −1| .
+
+Using the definition of Dkθ = diag(σ ′ (Wxk + Uhk−1 )) from Section 3 of the paper, we obtain a
+bound on ∆θk .
+Dθk − Dkθ+δ
+
+2
+
+p
+
+
+≤ 2 Rx · kδW k2 + D̂ · kδU k2 + RU · khk−1 − h′k−1 k2
+p
+!
+p
+ζ1
+2 D̂ · kδU k2 + 2kδW k2 Rx
+≤ 2 Rx · kδW k2 + D̂ · kδU k2 + RU ·
+,
+|kU k2 − 1|
+
+(22)
+
+where ζ1 follows from using the bound from Equation (12). Combining bounds obtained in Equations (16), (17), (21) and (22), we obtain that,
+∂L
+∂L
+(θ) −
+(θ + δ)
+∂W
+∂W
+
+≤ O(αT ) · kδkF , for
+
+
+1
+1
+1
+1
+,
+,
+,
+α ≤ min
+4T · |DkU k2 − 1| 4T · RU 2T · ∆θ kU k2 T · |kUk2 − 1|
+
+F
+
+where the O notation hides polynomial dependence of the Lipschitz smoothness constant of L on
+RW , RU , Rv , Rx , kUk2 , kWk2 and the ambient dimensions D, D̂.
+
+∂L
+Deviation bound for ∂U
+: Following similar arguments as we did above for
+∂L
+perturbation bound for the term ∂U
+as
+
+∂L
+∂L
+(θ) −
+(θ + δ)
+∂U
+∂U
+
+F
+
+∂L
+∂W ,
+
+we can derive the
+
+= O(αT ) · kδkF
+
+(23)
+
+where the O notation is the same as above.
+
+Using our bounds in corollary 2.2 of [15], we obtain the following convergence theorem.
+
+Theorem 3.1 (Convergence Bound).
+Let [(X1 , y1 ), . . . , (Xn , yn )] be the given labeled sequential
+P
+training data. Let L(θ) = n1 i L(Xi , yi ; θ) be the loss function with θ = (W, U, v) be the
+parameters of FastRNN architecture (2) with β = 1 − α and α such that
+
+
+1
+1
+1
+1
+α ≤ min
+,
+,
+,
+,
+4T · |DkUk2 − 1| 4T · RU 2T · ∆θ kUk2 T · |kUk2 − 1|
+where D = supθ,k kDθk k2 . Then, randomized stochastic gradient descent [15], a minor variation of
+SGD, when applied to the data for a maximum of M iteration outputs a solution θb such that:
+
+
+)
+b 2 k] ≤ BM := O(αT )L(θ0 ) + D̄ + 4RW RU Rv O(αT
+√
+E[k∇θ L(θ)k
+,
+2
+M
+D̄
+M
+
+where RX = maxX kXkF for X = {U, W, v}, L(θ0 )nis the loss of the
+o initial classifier, and the
+
+step-size of the k-th SGD iteration is fixed as: γk = min
+
+1
+D̄
+√
+O(αT ) , T M
+
+, k ∈ [M ], D̄ ≥ 0.
+
+A.1 Generalization Bound for FastRNN
+In this subsection, we compute the Rademacher complexity of the class of real valued scalar gated
+recurrent neural networks such that kUkF ≤ RU , kWkF ≤ RW . Also the input xt at time step t
+is assumed to be point-wise bounded kxt k2 ≤ Rx The update equation of FastRNN is given by
+ht = ασ(Wxt + Uht−1 ) + βht−1 .
+For the purpose of this section, we use the shorthand hit to denote the hidden vector at time t
+corresponding to the ith data point Xi . We denote the Rademacher complexity of a T layer FastRNN
+16
+
+by Rn (FT ) evaluated using n data points.
+#
+"
+n
+X
+i
+ǫ i hT
+nRn (FT ) = Eǫ sup
+W,U
+
+i=1
+
+"
+
+n
+X
+
+= Eǫ sup
+W,U
+
+ζ1
+
+"
+
+≤ Eǫ sup β
+W,U
+
+ǫi ασ(WxiT
+
+i=1
+n
+X
+i=1
+
+ζ2
+
+ǫi hiT −1
+"
+
+#
+
+ζ3
+
+"
+
+≤ βRn (FT −1 ) + 2αEǫ sup
+ζ4
+
+W
+
+≤ βRn (FT −1 ) + 2αRW Eǫ
+
+..
+.
+
+"
+
++
+
+"
+
+W,U
+
+n
+X
+
+ǫi xiT
+
+T −t
+
+√
+n
+
+i=1
+
+#
+
++
+
+#
+
+ǫi WxiT
+
+i=1
+n
+X
+
+
+
+#
+
+ǫi (σ(WxiT
+
+i=1
+
+ǫi (WxiT
+
+i=1
+n
+X
+
+βhiT −1
+n
+X
+
++ Eǫ sup α
+
+≤ βRn (FT −1 ) + 2Eǫ sup α
+W,U
+
++
+
+UhiT −1 )
+
+UhiT −1 )
+"
+
++
+
+#
+
++ 2αEǫ sup
+W,U
+
+"
+
+UhiT −1 ))
+
++ 2αRU Eǫ sup
+W,U
+
+n
+X
+
+≤ 2αRW RX
+
+T
+−1
+X
+
+(β + 2αRU )
+
+t=0
+
+≤ 2αRW RX
+
+(β + 2αRU )T +1 − 1
+(β + 2αRU ) − 1
+
+≤ 2αRW RX
+
+(1 + α(2RU − 1))
+α(2RU − 1)
+
+!
+
+T +1
+
+ζ5
+
+≤ 2RW RX
+
+
+
+2α(2RU − 1)(T + 1)
+(2RU − 1)
+
+
+
+ǫi UhiT −1 )
+
+i=1
+n
+X
+i=1
+
+√
+≤ (β + 2αRU )Rn (FT −1 ) + 2αRW RX n
+√
+≤ (β + 2αRU )2 Rn (FT −2 ) + 2αRW RX n(1 + (β + 2αRU ))
+
+#
+
+ǫi hiT −1 )
+
+#
+
+#
+
+√
+n
+
+−1
+
+!
+
+√
+n
+
+√
+n,
+
+where ζ1 , ζ3 follows by triangle inequality and noting that the terms in the sum of expectation are
+pointwise bigger than the previous term, ζ2 follows from the Ledoux-Talagrand contraction, ζ4
+follows using an argument similar from Lemma 1 in [16] and ζ5 holds for α ≤ 2(2RU1−1)T .
+Theorem 3.2 (Generalization Error Bound). [6] Let Y, Ŷ ⊆ [0, 1] and let FT denote the class
+of FastRNN with kUkF ≤ RU , kWkF ≤ RW . Let the final classifier be given by σ(v⊤ hT ),
+kvk2 ≤ Rv . Let L : Y × Ŷ → [0, B] be any 1-Lipschitz loss function. Let D be any distribution on
+X × Y such that kxit k2 ≤ Rx a.s. Let 0 ≤ δ ≤ 1. For all β = 1 − α and alpha such that,
+
+
+1
+1
+1
+α ≤ min
+.
+,
+,
+4T · |DkUk2 − 1| 4T · RU T · |kUk2 − 1|
+where D = supθ,k kDθk k2 , we have that with probability at least 1 − δ, all functions f ∈ v ◦ FT
+satisfy,
+s
+n
+ln( δ1 )
+O(αT )
+1X
+L(f (Xi ), yi ) + C √
++B
+,
+ED [L(f (X), y)] ≤
+n i=1
+n
+n
+where C = RW RU Rx Rv represents the boundedness of the parameter matrices and the data.
+
+The Rademacher complexity bounds for the function class FT have been instantiated from the calculations above.
+17
+
+B Dataset Information
+Google-12 & Google-30: Google Speech Commands dataset contains 1 second long utterances of
+30 short words (30 classes) sampled at 16KHz. Standard log Mel-filter-bank featurization with 32
+filters over a window size of 25ms and stride of 10ms gave 99 timesteps of 32 filter responses for
+a 1-second audio clip. For the 12 class version, 10 classes used in Kaggle’s Tensorflow Speech
+Recognition challenge1 were used and remaining two classes were noise and background sounds
+(taken randomly from remaining 20 short word utterances). Both the datasets were zero mean - unit
+variance normalized during training and prediction.
+Wakeword-2: Wakeword-2 consists of 1.63 second long utterances sampled at 16KHz. This dataset
+was featurized in the same way as the Google Speech Commands dataset and led to 162 timesteps
+of 32 filter responses. The dataset was zero mean - unit variance normalized during training and
+prediction.
+HAR-22 : Human Activity Recognition (HAR) dataset was collected from an accelerometer and
+gyroscope on a Samsung Galaxy S3 smartphone. The features available on the repository were
+directly used for experiments. The 6 activities were merged to get the binarized version. The classes
+{Sitting, Laying, Walking_Upstairs} and {Standing, Walking, Walking_Downstairs} were merged
+to obtain the two classes. The dataset was zero mean - unit variance normalized during training and
+prediction.
+DSA-193 : This dataset is based on Daily and Sports Activity (DSA) detection from a resourceconstrained IoT wearable device with 5 Xsens MTx sensors having accelerometers, gyroscopes and
+magnetometers on the torso and four limbs. The features available on the repository were used for
+experiments. The dataset was zero mean - unit variance normalized during training and prediction.
+Yelp-5: Sentiment Classification dataset based on the text reviews4 . The data consists of 500,000
+train points and 500,000 test points from the first 1 million reviews. Each review was clipped or
+padded to be 300 words long. The vocabulary consisted of 20000 words and 128 dimensional word
+embeddings were jointly trained with the network.
+Penn Treebank: 300 length word sequences were used for word level language modeling task using
+Penn Treebank (PTB) corpus. The vocabulary consisted of 10,000 words and the size of trainable
+word embeddings was kept the same as the number of hidden units of architecture.
+Pixel-MNIST-10: Pixel-by-pixel version of the standard MNIST-10 dataset 5 .The dataset was zero
+mean - unit variance normalized during training and prediction.
+AmazonCat-13K [34, 8]: AmazonCat-13K is an extreme multi-label classification dataset with
+13,330 labels. The raw text from title and content for Amazon products was provided as an input
+with each product being assigned to multiple categories. The input text was clipped or padded to
+ensure that it was 500 words long with a vocabulary of size 267,134. The 50 dimensional trainable
+word embeddings were initialized with GloVe vectors trained on Wikipedia.
+
+Evaluation on Multilabel Dataset
+The models were trained on the AmazonCat-13K dataset using Adam optimizer with a learning
+rate of 0.009 and batch size of 128. Binary Cross Entropy loss was used where the output of each
+neuron corresponds to the probability of a label being positive. 128 hidden units were chosen across
+architectures and were trained using PyTorch framework.
+The results in Table 6 show that FastGRNN-LSQ achieves classification performance similar to stateof-the-art gated architectures (GRU, LSTM) while still having 2-3x lower memory footprint. Note
+that the model size reported doesn’t include the embeddings and the final linear classifier which are
+memory intensive when compared to the model itself. FastRNN, as shown in the earlier experiments,
+stabilizes standard RNN and achieves an improvement of over 50% in classification accuracy (P@1).
+1
+
+https://www.kaggle.com/c/tensorflow-speech-recognition-challenge
+https://archive.ics.uci.edu/ml/datasets/human+activity+recognition+using+smartphones
+3
+https://archive.ics.uci.edu/ml/datasets/Daily+and+Sports+Activities
+4
+https://www.yelp.com/dataset/challenge
+5
+http://yann.lecun.com/exdb/mnist/
+2
+
+18
+
+Table 6: Extreme Multi Label Classification
+AmazonCat - 13K
+
+Dataset
+
+GRU
+RNN
+FastGRNN-LSQ
+FastRNN
+UGRNN
+
+C
+
+P@1
+
+P@2
+
+P@3
+
+P@4
+
+P@5
+
+Model Size RNN (KB)
+
+92.82
+40.24
+92.66
+91.03
+92.84
+
+85.18
+28.13
+84.67
+81.75
+84.93
+
+77.09
+22.83
+76.19
+72.37
+76.33
+
+69.42
+20.29
+66.67
+64.13
+68.27
+
+61.85
+18.25
+60.63
+56.81
+60.63
+
+268
+89.5
+90.0
+89.5
+179
+
+Supplementary Experiments
+
+Accuracy vs Model Size: This paper evaluates the trade-off between model size (in the range 0128Kb) and accuracy across various architectures.
+Google-12 - Accuracy vs Model Size
+
+95
+
+Accuracy
+
+90
+
+FastGRNN
+
+85
+
+FastGRNN - LSQ
+SpectralRNN
+UGRNN
+GRU
+LSTM
+
+80
+
+0
+
+20
+
+40
+
+60
+
+80
+
+100
+
+120
+
+Model Size (KB)
+
+Figure 3: Accuracy vs Model Size
+Google-30 - Accuracy vs Model Size
+
+95
+
+Accuracy
+
+90
+
+85
+FastGRNN
+FastGRNN - LSQ
+
+80
+
+SpectralRNN
+UGRNN
+GRU
+LSTM
+
+75
+
+0
+
+20
+
+40
+
+60
+80
+Model Size (KB)
+
+100
+
+120
+
+Figure 4: Accuracy vs Model Size
+Figures 3, 4 show the plots for analyzing the model-size vs accuracy trade-off for FastGRNN,
+FastGRNN-LSQ along with leading unitary method SpectralRNN and the gated methods like
+UGRNN, GRU, and LSTM. FastGRNN is able to achieve state-of-the-art accuracies on Google-12
+and Google-30 datasets at significantly lower model sizes as compared to other baseline methods.
+Bias due to the initial hidden states: In order to understand the bias induced at the output by the
+initial hidden state h0 , we evaluated a trained FastRNN classifier on the Google-12 dataset with 3
+different initializations sampled from a standard normal distribution. The resulting accuracies had
+a mean value of 92.08 with a standard deviation of 0.09, indicating that the initial state does not
+induce a bias in FastRNN prediction in the learning setting. In the non-learning setting, the initial
+state can bias the final solution for very small values of α. Indeed, setting α = 0 and β = 1 will
+bias the final output to the initial state. However, as Figure 5indicates, such an effect is observed
+only for extremely small values of α ∈ (0, 0.005). In addition, there is a large enough range for
+α ∈ (0.005, 0.08) where the final output of FastRNN is not biased and is easily learnt by FastRNN.
+19
+
+Google-30
+Google-12
+
+Accuracy
+
+0.92
+0.9
+0.88
+0.86
+0.84
+0.82
+0.8
+
+0.005
+
+0.02
+
+0.04
+
+0.06
+
+0.08
+
+0.1
+
+0.12
+
+Figure 5: Accuracy vs α in non-learning setting where the parameters of the classifier was learnt
+and evaluated for a range of fixed α values (using 99 timesteps).
+
+α and β of FastRNN: α and β are the trainable weights of the residual connection in FastRNN.
+Section 3.1.1 shows that FastRNN has provably stable training for the setting of α/β = O(1/T ).
+Table 7 shows the learnt values of α and β for various timesteps (T ) across 3 datasets.
+Table 7: Scaling of α and β vs Timesteps for FastRNN with tanh non-linearity: With α set as a
+trainable parameter, it scales as O(1/T ) with the number of timesteps as suggested by Theorem 3.1.
+Google-12
+HAR-2
+MNIST-10
+Timesteps
+
+α
+
+β
+
+Timesteps
+
+α
+
+β
+
+Timesteps
+
+α
+
+β
+
+99
+33
+11
+9
+3
+
+0.0654
+0.2042
+0.5319
+0.5996
+0.6878
+
+0.9531
+0.8898
+0.7885
+0.7926
+0.8246
+
+128
+64
+32
+16
+8
+
+0.0643
+0.1170
+0.1641
+0.2505
+0.3618
+
+0.9652
+0.9505
+0.9606
+0.9718
+0.9678
+
+112
+56
+28
+14
+7
+
+0.0617
+0.1193
+0.2338
+0.3850
+0.5587
+
+0.9447
+0.9266
+0.8746
+0.8251
+0.8935
+
+D
+
+Compression Components of FastGRNN
+
+The Compression aspect of FastGRNN has 3 major components: 1) Low-rank parameterization
+(L) 2) Sparsity (S) and 3) Byte Quantization (Q). The general trend observed across dataset is that
+low-rank parameterization increase classification accuracies while the sparsity and quantization help
+reduced the model sizes by 2x and 4x respectively across datasets.
+Tables 8, 9 and 10 show the trend when each of the component is gradually removed from FastGRNN
+to get to FastGRNN-LSQ. Note that the hyperparameters have been re-tuned along with the relevant
+constraints to obtain each model in the table. Figure 6 shows the effect of each of LSQ components
+for two Google datasets.
+
+E Hyperparameters of FastGRNN for reproducibility:
+Table 11 lists the hyperparameters which were used to run the experiments with a random-seed
+of 42 on a P40 GPU card with CUDA 9.0 and CuDNN 7.1. One can use the Piece-wise linear
+approximations of tanh or sigmoid if they wish to quantize the weights.
+
+F Timing Experiments on more IoT boards
+Table 12 summarizes the timing results on the Raspberry Pi which has a more powerful processor as
+compared with Arduino Due. Note that the Raspberry Pi has special instructions for floating point
+arithmetic and hence quantization doesn’t provide any benefit with respect to compute in this case,
+apart from bringing down the model size considerably.
+20
+
+Dataset
+
+FastGRNN
+
+Google-12
+Google-30
+HAR-2
+DSA-19
+Yelp-5
+Pixel-MNIST-10
+
+Table 8: Components of Compression
+FastGRNN-Q
+FastGRNN-SQ
+
+FastGRNN-LSQ
+
+Accuracy
+(%)
+
+Model
+Size (KB)
+
+Accuracy
+(%)
+
+Model
+Size (KB)
+
+Accuracy
+(%)
+
+Model
+Size (KB)
+
+Accuracy
+(%)
+
+92.10
+90.78
+95.59
+83.73
+59.43
+98.20
+
+5.50
+6.25
+3.00
+3.25
+8.00
+6.00
+
+92.60
+91.18
+96.37
+83.93
+59.61
+98.58
+
+22
+25
+17
+13
+30
+25
+
+93.76
+91.99
+96.81
+85.67
+60.52
+98.72
+
+41
+38
+28
+22
+130
+37
+
+93.18
+92.03
+95.38
+85.00
+59.51
+98.72
+
+Model
+Size (KB)
+57
+45
+29
+208
+130
+71
+
+Table 9: Components of Compression for Wakeword-2
+
+Dataset
+
+FastGRNN
+
+Wakeword-2
+Dataset
+
+FastGRNN-Q
+
+FastGRNN-SQ
+
+F1
+Score
+
+Model
+Size (KB)
+
+F1
+Score
+
+Model
+Size (KB)
+
+F1
+Score
+
+Model
+Size (KB)
+
+F1
+Score
+
+Model
+Size (KB)
+
+97.83
+
+1
+
+98.07
+
+4
+
+98.27
+
+8
+
+98.19
+
+8
+
+FastGRNN
+
+Table 10: Components of Compression for PTB
+FastGRNN-Q
+FastGRNN-SQ
+
+FastGRNN-LSQ
+
+Test
+Perplexity
+
+Model
+Size (KB)
+
+Test
+Perplexity
+
+Model
+Size (KB)
+
+Test
+Perplexity
+
+Model
+Size (KB)
+
+Test
+Perplexity
+
+Model
+Size (KB)
+
+116.11
+
+38.5
+
+115.71
+
+154
+
+115.23
+
+384
+
+115.92
+
+513
+
+PTB-10000
+
+Google-12 - Effect of Compression
+
+95
+
+FastGRNN-LSQ
+
+Google-30 - Effect of Compression
+
+93
+
+94
+92
+
+Accuracy
+
+Accuracy
+
+93
+92
+91
+90
+
+FastGRNN
+FastGRNN - Q
+FastGRNN - SQ
+FastGRNN - LSQ
+
+89
+88
+
+0
+
+10
+
+20
+
+30
+
+40
+
+50
+
+91
+
+90
+FastGRNN
+FastGRNN - Q
+FastGRNN - SQ
+FastGRNN - LSQ
+
+89
+
+88
+
+60
+
+Model Size (KB)
+
+0
+
+10
+
+20
+
+30
+
+40
+
+50
+
+60
+
+Model Size (KB)
+
+(a)
+(b)
+Figure 6: Figures (a) and (b) show the effect of LSQ components over the model size range of 0-64KB.
+
+G Vectorized FastRNN
+As a natural extension of FastRNN, this paper also benchmarked FastRNN-vector wherein the scalar
+α in FastRNN was extended to a vector and β was substituted with ζ(1 − α) + ν with ζ and ν are
+trainable scalars in [0, 1]. Tables 13, 14 and 15 summarize the results for FastRNN-vector and a
+direct comparison shows that the gating enable FastGRNN is more accurate than FastRNN-vector.
+FastRNN-vector used tanh as the non-linearity in most cases except for a few (indicated by + ) where
+ReLU gave slightly better results.
+21
+
+Dataset
+
+Table 11: Hyperparameters for reproducibility - FastGRNN-Q
+Hidden
+rw ru
+sw
+su
+Nonlinearity Optimizer
+Units
+
+Google-12
+Google-30
+Wakeword-2
+Yelp-5
+HAR-2
+DSA-19
+Pixel-MNIST-10
+PTB-10000
+
+100
+100
+32
+128
+80
+64
+128
+256
+
+16
+16
+10
+16
+5
+16
+1
+64
+
+25
+35
+15
+32
+40
+20
+30
+64
+
+0.30
+0.20
+0.20
+0.30
+0.20
+0.15
+1.00
+0.30
+
+0.30
+0.20
+0.30
+0.30
+0.30
+0.05
+0.30
+0.30
+
+sigmoid
+tanh
+tanh
+sigmoid
+tanh
+sigmoid
+sigmoid
+sigmoid
+
+Momentum
+Momentum
+Momentum
+Adam
+Momentum
+Adam
+Adam
+Adam
+
+Table 12: Prediction Time on Raspberry Pi 3 (ms)
+Google-12 HAR-2 Wakeword-2
+Method
+FastGRNN
+RNN
+UGRNN
+SpectralRNN
+
+7.7
+15.7
+29.7
+123.2
+
+1.8
+2.9
+5.6
+391.0
+
+Table 13: FastRNN Vector - 1
+
+Dataset
+Google-12
+Google-30
+HAR-2
+DSA-19
+Yelp-5
+Pixel-MNIST-10
+
+Accuracy
+(%)
+
+Model
+Size (KB)
+
+Train
+Time (hr)
+
+92.98+
+91.68+
+95.24+
+83.24
+57.19
+97.27
+
+57
+64
+19
+322
+130
+44
+
+0.71
+1.63
+0.06
+0.04
+3.73
+13.75
+
+2.5
+3.6
+9.5
+17.2
+
+Table 14: FastRNN Vector - 2
+F1
+Model
+Train
+Dataset
+Score Size (KB) Time (hr)
+
+Wakeword-2
+
+97.82
+
+8
+
+0.86
+
+Table 15: FastRNN Vector - 3
+Dataset
+PTB-300
+
+Test
+Perplexity
+
+Train
+Perplexity
+
+Model
+Size (KB)
+
+Train
+Time (min)
+
+126.84
+
+98.29
+
+513
+
+11.7
+
+H Effects of Regularization for Language Modeling Tasks
+This section studies the effect of various regularizations for Language Modeling tasks with the PTB
+dataset. [36] achieved state-of-the-art performance on the PTB dataset using a variety of different
+regularizations and this sections combines those techniqeus with FastGRNN and FastGRNN-LSQ.
+Table 16 summarizes the train and test perplexity of FastGRNN. The addition of an extra layer leads
+to a reduction of 10 points on the test perplexity score as compared to a single layer architecture of
+FastGRNN. Other regularizations like weight decay and weight dropping also lead to gains of upto
+8 points in test perplexity as compared to the baseline FastGRNN architecture, exhibiting that such
+regularization techniques can be combined with the proposed architectures to obtain better dataset
+specific performance, especially on the language modelling tasks of the PTB dataset.
+The experiments carried out in this paper on the PTB dataset use a sequence length of 300 as compared to those used in [38, 53, 21, 35, 36] which are generally in the range of 35-70. While standard
+recurrent architectures are known to work with such short sequence lengths, they typically exhibit
+unstable behavior in the regime where the sequence lengths are longer. These experiments exhibit
+the stability properties of FastGRNN (with 256 hidden units) in this regime of long sequence lengths
+with limited compute and memory resources.
+
+22
+
+Table 16: Language Modeling on PTB - Effect of regularization on FastGRNN
+Hidden Units Test Perplexity Train Perplexity
+Method
+1-layer
+2-layer
+1-layer + Weight decay
+1-layer + Weight-dropping
+1-layer + AR/TAR
+
+256
+256
+256
+256
+256
+
+116.11
+106.23
+111.57
+108.56
+112.78
+
+23
+
+81.31
+69.37
+76.89
+72.46
+78.79
+
+

@@ -1,0 +1,1228 @@
+adaQN: An Adaptive Quasi-Newton Algorithm for Training RNNs
+Nitish Shirish Keskar∗
+
+Albert S. Berahas†
+
+arXiv:1511.01169v5 [cs.LG] 23 Feb 2016
+
+February 25, 2016
+
+Abstract
+Recurrent Neural Networks (RNNs) are powerful models that achieve exceptional performance on
+a plethora pattern recognition problems. However, the training of RNNs is a computationally difficult
+task owing to the well-known “vanishing/exploding” gradient problem. Algorithms proposed for training
+RNNs either exploit no (or limited) curvature information and have cheap per-iteration complexity, or
+attempt to gain significant curvature information at the cost of increased per-iteration cost. The former
+set includes diagonally-scaled first-order methods such as Adagrad and Adam, while the latter consists
+of second-order algorithms like Hessian-Free Newton and K-FAC. In this paper, we present adaQN, a
+stochastic quasi-Newton algorithm for training RNNs. Our approach retains a low per-iteration cost
+while allowing for non-diagonal scaling through a stochastic L-BFGS updating scheme. The method uses
+a novel L-BFGS scaling initialization scheme and is judicious in storing and retaining L-BFGS curvature
+pairs. We present numerical experiments on two language modeling tasks and show that adaQN is
+competitive with popular RNN training algorithms.
+
+1
+
+Introduction
+
+Recurrent Neural Networks (RNNs) have emerged as one of the most powerful tools for modeling sequences
+[27, 8]. They are extensively used in a wide variety of applications including language modeling, speech
+recognition, machine translation and computer vision [7, 24, 1, 18, 9]. RNNs are similar to the popular
+Feed-Forward Networks (FFNs), but unlike FFNs, allow for cyclical connectivity in the nodes. This enables
+them to have exceptional expressive ability, permitting them to model highly complex sequences. This
+expressiveness, however, comes at the cost of training difficulty, especially in the presence of long-term
+dependencies [23, 3]. This difficulty, commonly termed as the “vanishing/exploding” gradient problem,
+arises due to the recursive nature of the network. Depending on the eigenvalues of the hidden-to-hidden
+node connection matrix during the Back Propagation Through Time (BPTT) algorithm, the errors either
+get recursively amplified or diminished making the training problem highly ill-conditioned. Consequently,
+this issue precludes the use of methods which are unaware of the curvature of the problem, such as Stochastic
+Gradient Descent (SGD), for RNN training tasks.
+Many attempts have been made to address the problem of training RNNs. Some propose the use of
+alternate architectures; for e.g. Gated Recurrent Units (GRUs) [5] and Long Short-Term Memory (LSTM)
+[10] models. These network architectures do not suffer as severely from gradient-related problems, and hence,
+it is possible to use simple and well-studied methods like SGD for training, thus obviating the need for more
+sophisticated methods. Other efforts for alleviating the problem of training RNNs have been centered around
+designing training algorithms which incorporate curvature information in some form; see for e.g. Hessian-Free
+Newton [17, 14] and Nesterov Accelerated Gradient [21].
+First-order methods such as Adagrad [6] and Adam [12], employ diagonal scaling of the gradients and
+consequently achieve invariance to diagonal re-scaling of the gradients. These methods have low per-iteration
+cost and have demonstrated good performance on a large number of deep learning tasks. Second-order
+methods like Hessian-Free Newton [14] and K-FAC [16], allow for non-diagonal-scaling of the gradients using
+highly expressive Hessian information, but tend to either have higher per-iteration costs or require non-trivial
+∗ Department
+† Department
+
+of Industrial Engineering and Management Sciences, Northwestern University, Evanston, IL, USA.
+of Engineering Sciences and Applied Mathematics, Northwestern University Evanston, IL, USA.
+
+1
+
+information about the structure of the graph. We defer the discussion of these algorithms to the following
+section.
+In this paper, we present adaQN, a novel (stochastic) quasi-Newton algorithm for training RNNs. The
+algorithm attempts to reap the merits of both first- and second-order methods by judiciously incorporating
+curvature information while retaining a low per-iteration cost. Our algorithmic framework is inspired by
+that of Stochastic Quasi-Newton (SQN) [4], which is designed for stochastic convex problems. The proposed
+algorithm is designed to ensure practical viability for solving RNN training problems.
+The paper is organized as follows. We end the introduction by establishing notation that will be used
+throughout the paper. In Section 2, we discuss popular algorithms for training RNNs and also discuss
+stochastic quasi-Newton methods. In Section 3, we describe our proposed algorithm in detail and emphasize
+its distinguishing features. We present numerical results on language modeling tasks in Section 4. Finally,
+we discuss possible extensions of this work and present concluding remarks in Sections 5 and 6 respectively.
+
+1.1
+
+Notation
+
+The problem of training RNNs can be stated as the following optimization problem,
+m
+
+minn f (w) =
+
+w∈R
+
+1 X
+fi (w).
+m i=1
+
+(1.1)
+
+Here, fi is the RNN training error corresponding to a data point denoted by index i. We assume there are
+m data points. During each iteration, the algorithm samples data points Bk ⊆ {1, 2, · · · , m}. The iterate at
+the k th iteration is denoted by wk and the (stochastic) gradient computed on this mini-batch is denoted by
+ˆ B f (wk ). In particular, the notation ∇
+ˆ Bj f (wk ) can be verbally stated as the gradient computed at wk using
+∇
+k
+the mini-batch used for gradient computation during iteration j. For ease of notation, we may eliminate the
+subscript Bk whenever the batch and the point of gradient evaluation correspond to the iterate index; in
+ˆ (wk ) to mean ∇
+ˆ B f (wk ). Unless otherwise specified, Hk denotes any positive-definite
+other words, we use ∇f
+k
+matrix and the step-length is denoted by αk . The positive-definiteness of a matrix H is expressed using the
+notation H ≻ 0. Lastly, we denote the ith component of a vector v ∈ Rn by [v]i and use v 2 to represent
+element-wise square.
+
+2
+
+Related Work
+
+In this section, we discuss several methods that have been proposed for training RNNs. In its most general
+form, the update equation for these methods can be expressed as
+ˆ (wk ) + vk pk )
+wk+1 = wk − αk Hk (∇f
+
+(2.2)
+
+ˆ (wk ) is a stochastic gradient computed using batch Bk ; Hk is a positive-definite matrix representing
+where ∇f
+an approximation to the inverse-Hessian matrix; pk is a search direction (usually wk − wk−1 ) associated with
+a momentum term; and vk ≥ 0 is the relative scaling of the direction pk .
+
+2.1
+
+Stochastic First-Order Methods
+
+Inarguably, the simplest stochastic first-order method is SGD whose updates can be represented in the form
+of (2.2) by setting Hk = I and vk , pk = 0. Momentum-based variants of SGD (such as Nesterov Accelerated
+Gradient [21]) use pk = (wk − wk−1 ) with a tuned value of vk . While SGD has demonstrated superior
+performance on a multitude of neural network training problems [2], in the specific case of RNN training,
+SGD has failed to stay competitive owing to the “vanishing/exploding” gradients problem [23, 3].
+There are diagonally-scaled first-order algorithms that perform well on the RNN training task. These
+algorithms can be interpreted as attempts to devise second-order methods via inexpensive diagonal Hessian
+approximations. Adagrad [6] allows for the independent scaling of each variable, thus partly addressing
+the issues arising from ill-conditioning. Adagrad can be written in the general updating form by setting
+
+2
+
+vk , pk = 0 and by updating Hk (which is a diagonal matrix) as
+1
+
+[Hk ]ii = qP
+k
+
+2
+ˆ
+j=0 [∇f (wj )]i
+
+,
++ǫ
+
+where ǫ > 0 is used to prevent numerical instability arising from dividing by small quantities.
+Another first-order stochastic method that is known to perform well empirically in RNN training is Adam
+[12]. The update, which is a combination of RMSProp [29] and momentum, can be represented as follows
+in the form of (2.2),
+vk = β1 ,
+
+pk =
+
+k−1
+X
+
+(k−j−1)
+
+β1
+
+ˆ (wj ) − ∇f
+ˆ (wk ),
+(1 − β1 )∇f
+
+j=0
+
+rk =
+
+k
+X
+j=0
+
+(k−j)
+
+β2
+
+ˆ (wj )2 ,
+(1 − β2 )∇f
+
+1
+[Hk ]ii = p
+.
+[rk ]i + ǫ
+
+The diagonal scaling of the gradient elements in Adagrad and Adam allows for infrequently occurring
+features (with low gradient components) to have larger step-sizes in order to be effectively learned, at a rate
+comparable to that of frequently occurring features. This causes the iterate updates to be more stable by
+controlling the effect of large (in magnitude) gradient components, to some extent reducing the problem of
+“vanishing/exploding” gradients. However, these methods are not completely immune to curvature problems.
+This is especially true when the eigenvectors of ∇2 f (wk ) do not align with the co-ordinate axes. In this
+case, the zig-zagging (or bouncing) behavior commonly observed for SGD may occur even for methods like
+Adagrad and Adam.
+
+2.2
+
+Stochastic Second-Order Methods
+
+Let us first consider the Hessian-Free Newton methods (HF) proposed in [14, 17]. These methods can
+be represented in the form of (2.2) by setting Hk to be an approximation to the inverse of the Hessian
+matrix (∇2 f (wk )), as described below, with the circumstantial use of momentum to improve convergence.
+HF is a second-order optimization method that has two major ingredients: (i) it implicitly creates and
+solves quadratic models using matrix-vector products with the Gauss-Newton matrix obtained using the
+“Pearlmutter trick” and (ii) it uses the Conjugate Gradient method (CG) for solving the sub-problems
+inexactly. Recently, [16] proposed K-FAC, a method that computes a second-order step by constructing an
+invertible approximation of a neural networks’ Fisher information matrix in an online fashion. The authors
+claim that the increased quality of the step offsets the increase in the per-iteration cost of the algorithm.
+Our algorithm adaQN belongs to the class of stochastic quasi-Newton methods which use a non-diagonal
+scaling of the gradient, while retaining low per-iteration cost. We begin by briefly surveying past work in
+this class of methods.
+
+2.3
+
+Stochastic Quasi-Newton Methods
+
+Recently, several stochastic quasi-Newton algorithms have been developed for large-scale machine learning
+problems: oLBFGS [25, 19], RES [20], SDBFGS [30], SFO [26] and SQN [4]. These methods can be represented in the form of (2.2) by setting vk , pk = 0 and using a quasi-Newton approximation for the matrix Hk .
+The methods enumerated above differ in three major aspects: (i) the update rule for the curvature pairs used
+in the computation of the quasi-Newton matrix, (ii) the frequency of updating, and (iii) the applicability to
+non-convex problems. With the exception of SDBFGS, all aforementioned methods have been designed to
+solve convex optimization problems. In all these methods, careful attention must be taken to monitor the
+quality of the curvature information that is used.
+The RES and SDBFGS algorithms control the quality of the steps by modifying the BFGS update rule
+
+3
+
+[22]. Specifically, the update equations take on the following form,
+sk = wk+1 − wk ,
+ˆ B f (wk+1 ) − ∇
+ˆ B f (wk ) − δsk ,
+yk = ∇
+k
+k
+−1
+Hk+1
+= Bk+1 = Bk +
+
+ykT yk
+ykT sk
+
+−
+
+Bk sk sTk Bk
+sTk Bk sk
+
+(2.3)
+(2.4)
+
++ δI.
+
+(2.5)
+
+This ensures that the Hessian approximations are uniformly bounded away from singularity, thus preventing
+the steps from becoming arbitrarily large. Further, in these methods, the line-search is replaced by a decaying
+step-size rule. Note that at the k th iteration, the gradients used during updates (2.4) are both evaluated on
+Bk . oLBFGS, is similar to the above methods except no δ-modification is used. In the equations above, Bk
+and Hk denote approximations to the Hessian and inverse-Hessian matrices respectively.
+Finally, in [4], the authors propose a novel quasi-Newton framework, SQN, in which they recommend the
+decoupling of the stochastic gradient calculation from the curvature estimate. The BFGS matrix is updated
+once every L iterations as opposed to every iteration, which is in contrast to other methods described above.
+The authors prescribe the following curvature pair updates,
+st = w̄t − w̄t−1 ,
+
+where w̄t =
+
+ˆ 2H F (w̄t )st ,
+yt = ∇
+t
+
+1
+L
+
+tL
+X
+
+wi ,
+
+(2.6)
+
+i=(t−1)L
+
+(2.7)
+
+where t is the curvature pair update counter, L is the update frequency (also called the aggregation length)
+and Ht is a mini-batch used for computing the sub-sampled Hessian matrix. The iterate difference, s, is based
+on the average of the iterates over the last 2L iterations, intuitively allowing for more stable approximations.
+On the other hand, the gradient differences, y, are not computed using gradients at all, rather they are
+computed using a Hessian-vector product representing the approximate curvature along the direction s.
+The structure of the curvature pair updates proposed in SQN has several appealing features. Firstly,
+updating curvature information, and thus the Hessian approximation, every L iterations (where L is typically
+between 2 and 20) considerably reduces the computational cost. Additionally, more computational effort
+can be expended for the curvature computation since this cost is amortized over L iterations. Further, as
+explained in [4], the use of the Hessian-vector product in lieu of gradient differences allows for a more robust
+estimation of the curvature, especially in cases when ksk is small and the gradients are noisy.
+The SQN algorithm was designed specifically for convex optimization problems arising in machine learning, and its extension to RNN training is not trivial. In the following section, we describe adaQN, our
+proposed algorithm, which uses the algorithmic framework of SQN as a foundation. More specifically, it
+retains the ability to decouple the iterate and update cycles along with the associated benefit of investing
+more effort in gaining curvature information.
+
+3
+
+adaQN
+
+In this section, we describe the proposed algorithm in detail. Specifically, we address key ingredients of the
+algorithm, including (i) the initial L-BFGS scaling, (ii) step quality control, (iii) choice of Hessian matrix
+for curvature pair computation, and (iv) the suggested choice of hyper-parameters. The pseudo-code for
+adaQN is given in Algorithm 1.
+
+4
+
+Algorithm 1 adaQN
+Inputs: w0 , L, α, sequence of batches Bk with |Bk | = b for all k, mL = 10, mF = 100, ǫ = 10−4 , γ = 1.01
+1:
+2:
+3:
+4:
+5:
+6:
+7:
+8:
+9:
+10:
+11:
+12:
+13:
+14:
+15:
+16:
+17:
+18:
+19:
+20:
+21:
+22:
+23:
+24:
+25:
+26:
+27:
+28:
+
+Set t ← 0 and w̄o , ws = 0
+Initialize accumulated Fisher Information matrix FIFO container F̃ of maximum size mF and L-BFGS
+curvature pair containers S, Y of maximum size mL .
+Randomly choose a mini-batch as monitoring set M
+for k = 0, 1, 2, ... do
+ˆ (wk )
+⊲ Compute adaQN updates using two-loop recursion
+wk+1 = wk − αHk ∇f
+ˆ
+ˆ
+Store ∇f (wk )∇f (wk )T in F̃
+ws = ws + wk+1
+⊲ Running sum of iterates for average computation
+if mod (k, L) = 0 then
+w̄n = wLs
+⊲ Compute average iterate
+ws = 0
+⊲ Clear accumulated sum of iterates
+if t > 0 then
+if fM (w̄n ) > γfM (w̄o ) then
+⊲ Check for step rejection
+Clear L-BFGS memory and the accumulated Fisher Information container F̃ .
+wk = w̄o
+⊲ Return to previous aggregated point
+continue
+end if
+s = w̄n − w̄o
+⊲ Compute curvature pair
+P|F̃ |
+⊲ Compute curvature pair
+y = |F̃1 | ( i=1 F̃i · s)
+
+if sT y > ǫ · sT s then
+⊲ Check for sufficient curvature
+Store curvature pairs st and yt in containers S and Y respectively
+w̄o = w̄n
+end if
+else
+w̄o = w̄n
+end if
+t←t+1
+end if
+end for
+
+ˆ (wk )∇f
+ˆ (wk )T ) in Step 6 is for ease of notation; in practice it is
+We emphasize that the storage of (∇f
+ˆ
+sufficient to store ∇f (wk ) and compute y in Step 18 without explicitly constructing the matrix. Also, the
+ˆ k is computed via the two-loop recursion using the available curvature pairs
+search direction pk = −Hk ∇f
+(S, Y ), and thus the matrix Hk (the approximation to the inverse-Hessian matrix) is never constructed; refer
+to Section A.1. Further, in Algorithm 1, we specify a fixed monitoring set M, a feature of the algorithm
+that was set for ease of exposition. In practice, this set can be changed to allow for lower bias in the step
+acceptance criterion.
+
+3.1
+
+(0)
+
+Choice of Hk
+
+for L-BFGS
+
+Firstly, we discuss the most important ingredient of the proposed algorithm: the initial scaling of the L-BFGS
+(0)
+matrix. For L-BFGS, in both the deterministic and stochastic settings, a matrix Hk must be provided,
+which is an estimate of the scale of the problem. This choice is crucial since the relative scale of the step (in
+each direction) is directly related to it. In deterministic optimization,
+(0)
+
+Hk
+
+=
+
+sTk yk
+I
+ykT yk
+
+(3.8)
+
+is found to work well on a wide variety of applications, and is often prescribed [22]. Stochastic variants
+of L-BFGS, including oBFGS, RES and SQN, prescribe the use of this initialization ((3.8)). However,
+this is dissatisfying in the context of RNN training for two reasons. Firstly, as mentioned in the previous
+5
+
+sections, the issue of “vanishing/exploding” gradients makes the problems highly ill-conditioned; using a
+scalar initialization of the L-BFGS matrix does not address this issue. Secondly, since s and y are noisy
+estimates of the true iterate and gradient differences, the scaling suggested in (3.8) could introduce adversarial
+scale to the problem, causing performance deterioration.
+To counter these problems, we suggest an initialization of the inverse-Hessian matrix based on accumulated gradient information. Specifically, we set
+(0)
+[Hk ]ii = qP
+k
+
+1
+
+2
+ˆ
+j=0 [∇f (wj )]i + ǫ
+
+, ∀i = 1, ..., n.
+
+(3.9)
+
+We direct the reader to Section A.1 for details on how the above initialization is used as part of the L-BFGS
+two-loop recursion. We emphasize that this initialization is: (i) a diagonal matrix with non-constant diagonal
+entries, (ii) has a cost comparable to (3.8), and (iii) is identical to the scaling matrix used by Adagrad at
+each iteration. This choice is motivated by our observation of Adagrad’s stable performance on many RNN
+learning tasks. By initializing L-BFGS with an Adagrad-like scaling matrix, we impart a better scale in
+the L-BFGS matrix, and also allow for implicit safeguarding of the proposed method. Indeed, in iterations
+where no curvature pairs are stored, the adaQN and Adagrad steps are identical in form.
+
+3.2
+
+Step Acceptance and Control
+
+While curvature information can be used to improve convergence rates, noisy or stale curvature information
+may in fact deteriorate performance [4]. SQN attempts to prevent this problem by using large-batch Hessianvector products in (2.7). Other methods attempt to control the quality of the steps by modifying the L-BFGS
+update rule to ensure that Hk ≻ 0 for all k. However, we have found that these do not work well in practice.
+Instead, we control the quality of the steps by judiciously choosing the curvature pairs used by L-BFGS.
+We attempt to store curvature pairs during each cycle but skip the updating if the calculated curvature is
+small; see [22] for details regarding skipping in quasi-Newton methods. Further, we flush the memory when
+the step quality deteriorates, allowing for more reliable steps till the memory builds up again.
+The proposed criterion (Line 12 of Algorithm 1) is an inexpensive heuristic wherein the functions are
+evaluated on a monitoring set, and γ approximates the effect of noise on the function evaluations. A step
+is rejected if the function value of the new aggregated point is significantly worse (measured by γ) than
+the previous. In this case, we reset the memory of L-BFGS which allows the algorithm to preclude the
+deteriorating effect of any stored curvature pairs. The algorithm resumes to take Adagrad steps and
+build up the curvature estimate again. We report that, as an alternative to the proposed criterion, a more
+sophisticated criterion such as relative improvement,
+fM (w̄n ) − fM (w̄o )
+> γ̃ ∈ (0, 1)
+fM (w̄o )
+delivered similar performance on our test problems.
+In the case when the sufficient curvature condition (Line 19 of Algorithm 1) is not satisfied, the storage
+of the curvature pair is skipped. In deterministic optimization, this problem is avoided by conducting a
+Wolfe line-search. If the curvature information for a given step is inadequate, the line-search attempts to
+look for points further along the search path. We extend this idea to the RNN setting by not updating w̄o
+when this happens. This allows us to move further, and possibly glean curvature information in subsequent
+update attempts. We have experimentally found this safeguarding to be crucial for the robust performance
+of adaQN. That being said, such rejection happens infrequently and the average L-BFGS memory per epoch
+remains high for all of our reported experiments (see Section 4).
+
+3.3
+
+Choice of Curvature Information Matrix
+
+As in SQN, the iterate difference s in our algorithm is computed using aggregated iterates and the gradient
+difference y is computed through a matrix-vector product; refer to equations (2.6) and (2.7). The choice
+of curvature matrix for the computation of y must address the trade-off between obtaining informative
+curvature information and the computational expense of its acquisition. Recent work suggests that the
+6
+
+Fisher Information matrix (FIM) yields a better estimate of the curvature of the problem as compared to
+the true Hessian matrix (which is a natural choice); see for e.g. [15].
+Given a function f parametrized by a random variable X , the (true) FIM at a point w is given by
+F (w) = EX [∇fX (w)∇fX (w)T ].
+Since the distribution for X is almost never known, the empirical Fisher Information matrix (eFIM) is often
+used in practice. The eFIM can be expressed as follows
+F̂ (w) =
+
+1 X
+∇i f (w)∇i f (w)T ,
+|H|
+
+(3.10)
+
+i∈H
+
+where H ⊆ {1, 2, · · · , m}.
+Notice from equation (3.10) that the eFIM is guaranteed to be positive semi-definite, a property that
+does not hold for the true Hessian matrix. The use of the FIM (or eFIM) in second-order methods allows
+for attractive theoretical and practical properties. We exclude these results for brevity and refer the reader
+to [15] for a detailed survey regarding this topic.
+Given these observations and results, the use of the eFIM may seem like a reasonable choice for the
+Hessian matrix approximation used in the computation of yt (see equation (2.7)). However, the use of this
+matrix, even infrequently, increases the amortized per-iteration cost as compared to state-of-the-art firstorder stochastic methods. Further, unlike second-order methods which rely on relatively accurate curvature
+information to generate good steps, quasi-Newton methods are able to generate high-quality steps even with
+crude curvature information [22]. In this direction, we propose the use of a modified version of the empirical
+Fisher Information matrix that uses historical values of stochastic gradients, which were already computed
+as part of the step, thus reducing the computational cost considerably. This reduction, comes at the expense
+of storage and potentially noisy estimates due to stale gradient approximations. We call this approximation
+of the eFIM the accumulated Fisher Information matrix (aFIM) and denote it by F̄ . Given a memory budget
+of mF , the aFIM at the k th iteration is given by
+F̄ (wk ) = Pk
+
+k
+X
+
+1
+
+j=k−mF +1 |Bj | j=k−mF +1
+
+∇Bj f (wj )∇Bj f (wj )T .
+
+(3.11)
+
+For the purpose of our implementation, we maintain a finite-length FIFO container F̃ for storing the
+stochastic gradients as they are computed. Whenever the algorithm enters lines 12–16, we reject the step,
+and the contents of F̃ along with the L-BFGS memory are cleared. By clearing F̃ , we also allow for additional
+safeguarding of future iterates against noisy gradients in the F̃ container that may have contributed in the
+generation of the poor step.
+
+3.4
+
+Choice of Hyper-Parameters
+
+adaQN has a set of hyper-parameters that require tuning for competitive performance. Other than the
+step-size and batch-size, which needs to be tuned for all aforementioned methods, the only hyper-parameter
+exposed to the user is L. We prescribe L to be chosen from {2, 5, 10, 20}. We experimentally observed that
+the performance was not highly sensitive to the choice of α and L. Often, L = 5 and the same step-length
+as used for Adagrad gave desirable performance. The other hyper-parameters have intuitive default values
+which we have found to work well for a variety of applications. Additional details about the offline tuning
+costs of adaQN as compared to Adagrad and Adam can be found in Section 4.
+
+3.5
+
+Cost
+
+Given the nature of the proposed algorithm, a reasonable question is about the per-iteration cost. Let us
+begin by first considering the per-iteration cost of other popular methods. For simplicity, we assume that the
+cost of the gradient computation is O(n), which is a reasonable assumption in the context of deep learning.
+SGD has one of the cheapest per-iteration costs, with the only significant expense being the computation
+of the mini-batch stochastic gradient. Thus, SGD has a per-iteration complexity of O(n). Adagrad and
+7
+
+Adam also have the same per-iteration complexity since the auxiliary operations only involve dot-products
+and elementary vector operations. Further, these algorithms have O(1) space complexity. On the other
+hand, second-order methods have higher per-iteration complexity since each iteration requires an inexact
+solution of a linear system, and possibly, storage of the pre-conditioning matrices.
+The per-iteration time complexity of our algorithm consists of three components: (i) the cost of gradient
+computation, (ii) the cost of the L-BFGS two-loop recursion, and (iii) the amortized cost of computing the
+curvature pair. Thus, the overall cost can be written as
+O(n)
+| {z }
+
+gradient computation
+
++
+
+4m n
+| {zL }
+
++
+
+two-loop recursion
+
+m nL−1
+| F {z }
+
+.
+
+(3.12)
+
+cost of computing curvature pair
+
+Given the prescription of L ≈ 5, mF = 100 and mL = 10, the cost per-iteration remains at O(n). The
+memory requirement of our algorithm is also O(n) since we require the storage of up to mF + 2mL vectors
+of size n.
+This result is similar to the one presented in [4]. The difference in the complexity arises in the third term
+of (3.12) due to our choice of the accumulated Fisher Information matrix as opposed to using a sub-sampled
+Hessian approximation. It is not imperative for our algorithm to use aFIM for the computation of yt (2.7).
+We can instead use the eFIM (3.10), which would allow for a lower memory requirement (from (mF +mL )n to
+mL n) at the expense of added computation during curvature pair estimation. However, the time complexity
+would remain linear in n for either choice. As we mention in Section 3.3, by using the accumulated Fisher
+Information matrix, we avoid the need for additional computation at the expense of memory; a choice we
+have found to work well in practice.
+
+4
+
+Numerical Results
+
+In this section, we present numerical evidence demonstrating the viability of the proposed algorithm for
+training RNNs. We also present meta-data regarding the experiments which suggests that the performance
+difference between adaQN and its competitors (and Adagrad in particular) can be attributed primarily
+to the incorporation of curvature.
+
+4.1
+
+Language Modeling
+
+For benchmarking, we compared the performance of adaQN against Adagrad and Adam on two language
+modeling (LM) tasks: character-level LM and word-level LM. For the character-level LM task [11], we report
+results on two data sets: The Tale of Two Cities (Dickens) and The Complete Works of Friedrich Nietzsche
+(Nietzsche) . The former has 792k characters while the latter has 600k. We used the Penn-Tree data set for
+the word-level LM task [31]. This data set consists of 929k training words with 10k words in its vocabulary.
+For all tasks, we used an RNN with 5 recurrent layers. The input and output layer sizes were determined
+by the vocabulary of the data set. The character-level and word-level LMs were constructed with 100 and
+400 nodes per layer respectively. The weights were randomly initialized from N (0, 0.01). Unless otherwise
+specified, the activation function used was tanh. The sequence length was chosen to be 50 for both cases. For
+readability, we exclude other popular methods that did not consistently perform competitively. In particular,
+SGD (with or without momentum) was not found to be competitive despite significant tuning. For adaQN,
+Adagrad and Adam, all hyper-parameters were set using a grid-search. In particular, step-sizes were tuned
+for all three methods. Adam needed coarse-tuning for (β1 , β2 ) in the vicinity of the suggested values. For
+adaQN, the value of L was chosen from {2, 5, 10, 20}. The rest of the hyper-parameters (mF , mL , ǫ, γ) were
+set at their recommended values for all experiments (refer to Algorithm 1). It can thus be seen that the
+offline tuning costs of adaQN are comparable to those of Adagrad and Adam. We ran all experiments
+for 100 epochs and present the results (testing error) in Figure 1.
+
+8
+
+Character−level LM − Dickens
+
+Character−level LM − Nietzsche
+0.6
+
+0.6
+
+10
+
+ADAM
+ADAGRAD
+adaQN
+
+log10 (Error)
+
+0.4
+
+10
+
+log
+
+10
+
+(Error)
+
+10
+
+0.4
+
+10
+
+0.2
+
+10
+
+0.2
+
+10
+
+0
+
+50
+Epochs
+Word−level LM − tanh
+
+100
+
+100
+
+0
+
+50
+Epochs
+
+100
+
+0.9
+
+log10 (Error)
+
+0.8
+
+10
+
+10
+
+(Error)
+
+50
+Epochs
+Word−level LM − ReLU
+
+10
+
+0.9
+
+10
+
+log
+
+0
+
+0.7
+
+10
+
+0.6
+
+10
+0
+
+50
+Epochs
+
+100
+
+Character−level LM − Dickens
+10
+8
+6
+4
+2
+0
+0
+
+50
+Epochs
+Word−level LM − tanh
+
+100
+
+10
+8
+6
+4
+2
+0
+0
+
+50
+Epochs
+
+100
+
+Average L−BFGS memory/epoch Average L−BFGS memory/epoch
+
+Average L−BFGS memory/epoch Average L−BFGS memory/epoch
+
+Figure 1: Numerical Results on LM Tasks
+
+Character−level LM − Nietzsche
+10
+8
+6
+4
+2
+0
+0
+
+50
+Epochs
+Word−level LM − ReLU
+
+100
+
+0
+
+50
+Epochs
+
+100
+
+10
+8
+6
+4
+2
+0
+
+Figure 2: Average L-BFGS Memory Per Epoch
+It is clear from Figure 1 that adaQN presents a non-trivial improvement over both Adagrad and
+Adam on all tasks with tanh activation function. Specifically, we emphasize the performance gain over
+Adagrad, the method which adaQN is safeguarded by. On the character-level task with ReLU activation,
+9
+
+adaQN performed better than Adam but worse than Adagrad. We point out that experiments with other
+(including larger) data sets yielded results of similar nature.
+
+4.2
+
+Average L-BFGS Memory per Epoch
+
+Given the safeguarded nature of our algorithm, a natural question regarding the numerical results presented
+pertains to the effect of the safeguarding on the performance of the algorithm. To answer this question, we
+report the average L-BFGS memory per epoch in Figure 2. This is computed by a running sum initialized at
+0 at the start of each new epoch. A value greater than 1 indicates that at least one curvature pair was present
+in the memory (in expectation) during a given epoch. Higher average values of L-BFGS memory suggest that
+more directions of curvature were successfully explored; thus, the safeguarding was less necessary. Lower
+values, on the other hand, suggest that the curvature information was either not informative (leading to
+skipping) or led to deterioration of performance (leading to step rejection).
+The word-level LM task with the ReLU activation function has interesting outcomes. It can be seen from
+Figure 1 that the performance of Adagrad is similar to that of adaQN for the first 50 epochs but then
+Adagrad continues to make progress while the performance of adaQN stagnates. During the same time,
+the average L-BFGS memory drops significantly suggesting that safeguarding was necessary and that, the
+curvature information was not informative enough and even caused deterioration in performance (evidenced
+by occasional increase in the function value).
+
+4.3
+
+MNIST Classification from Pixel Sequence
+
+A challenging toy problem for RNNs is that of image classification given pixel sequences [13]. For this
+problem, the image pixels are presented sequentially to the network one-at-a-time and the network must
+predict the corresponding category. This long range dependency makes the RNN difficult to train. We
+report results for the popular MNIST data set. For this experiment, we used a setup similar to that of [13]
+with two modifications: we used tanh activation function instead of ReLU and initialized all weights from
+N (0, 0.01) instead of using their initialization trick. The results are reported in Figure 3.
+log
+
+10
+
+(Error)
+
+ADAM
+ADAGRAD
+adaQN
+
+0
+
+10
+
+0
+
+10
+
+20
+
+30
+
+40
+
+50
+60
+Accuracy
+
+70
+
+80
+
+90
+
+100
+
+0
+
+10
+
+20
+
+30
+40
+50
+60
+70
+Average L−BFGS memory/epoch
+
+80
+
+90
+
+100
+
+0
+
+10
+
+20
+
+30
+
+80
+
+90
+
+100
+
+100
+50
+0
+
+10
+5
+0
+40
+
+50
+Epochs
+
+60
+
+70
+
+Figure 3: Numerical Results on MNIST with Sequence of Pixels
+
+10
+
+As can be seen from the Figure 3, Adam and Adagrad struggle to make progress and stagnate at an
+error value close to that of the initial point. On the other hand, adaQN is able to significantly improve
+the error values, and also achieves superior classification accuracy rates. Experiments on other toy problems
+with long range dependencies, such as the addition problem [10], yielded similar results.
+
+4.4
+
+LSTMs
+
+In order to ascertain the viability of adaQN on other architectures, we conducted additional experiments
+using the LSTM models. The experimental setup is similar to the one discussed in Section 4.1 with the
+modification that 2 recurrent (LSTM) layers were used instead of 5. The results are reported in Figure 4.
+
+Dickens − Av. L−BFGS memory/epoch
+10
+
+log10 (Error)
+
+Character level LM − Dickens
+0.6
+
+10
+
+ADAM
+ADAGRAD
+adaQN
+
+5
+
+0.1
+
+10
+
+0
+10
+15
+20
+Epochs
+Character level LM − Nietzsche
+
+log10 (Error)
+
+0
+
+10
+15
+20
+Epochs
+Nietzsche − Av. L−BFGS memory/epoch
+10
+
+0.6
+
+10
+
+0
+
+5
+
+0
+
+5
+
+0
+
+5
+
+5
+0.1
+
+10
+
+0
+0
+
+log10 (Error)
+
+5
+
+5
+
+10
+15
+Epochs
+Word−level Penn−Tree
+
+20
+
+10
+15
+20
+Epochs
+Penn−Tree − Av. L−BFGS memory/epoch
+10
+
+0.9
+
+10
+
+5
+0.4
+
+10
+
+0
+0
+
+5
+
+10
+Epochs
+
+15
+
+20
+
+10
+Epochs
+
+15
+
+20
+
+Figure 4: Numerical Results on LSTMs
+The results in Figure 4 suggest mixed results. For the character-level LM tasks, the performance of
+Adagrad and adaQN was comparable while the performance of Adam was better. For the word-level LM
+task, the performance of adaQN was superior to that of both Adagrad and Adam.
+
+5
+
+Discussion
+
+The results presented in the previous section suggest that adaQN is competitive with popular algorithms for
+training RNNs. However, adaQN is not restricted to this class of problems. Indeed, preliminary results on
+other architectures (such as Feed-Forward Networks) delivered promising performance. It may be possible
+to further improve the performance of the algorithm by modifying the update rule and frequency. In this
+direction, we discuss the practicality of using momentum in such an algorithm and possible heuristics to
+allow the algorithm to adapt the cycle length L as opposed to tuning it to a constant value.
+Recent work by [28] suggests superior performance of momentum-based methods on a wide variety of
+learning tasks. These methods, with the right initialization, have been shown to outperform sophisticated
+methods such as the Hessian-Free Newton method. However, recent efforts suggest the use of second-order
+methods in conjunction with momentum [16, 15]. In this case, one interpretation of momentum is that
+of providing a pre-conditioner to the CG sub-solver. Significant performance gains through the inclusion
+
+11
+
+of momentum have been reported when the gradients are reliable [15]. We hypothesize that performance
+gains can be obtained through careful inclusion of momentum for methods like adaQN as well. However,
+the design of such an algorithm, and efficacy of using momentum-like ideas is an open question for future
+research.
+Lastly, we discuss the role of the aggregation cycle length L on the performance of the algorithm. If L is
+chosen to be too large, the aggregation points will be too far-apart possibly leading to incorrect curvature
+estimation. If L is too small, then the iterates change insufficiently before an update attempt is made leading
+to skipping of update pairs. Besides the issue of curvature quality, the choice of L also has ramifications on the
+cost of the algorithm as discussed in Section 3.5. Thus, a natural extension of adaQN is an algorithm where
+L can be allowed to adapt during the course of the algorithm. L could be increased or decreased depending
+on the quality of the estimated curvature, while being bounded to ensure that the cost of updating is kept
+at a reasonable level. The removal of this hyper-parameter will not only obviate the need for tuning, but
+will also allow for a more robust performance.
+
+6
+
+Conclusions
+
+In this paper, we present a novel quasi-Newton method, adaQN, for training RNNs. The algorithm judiciously incorporates curvature information while retaining a low per-iteration cost. The algorithm builds
+upon the framework proposed in [4], which was designed for convex optimization problems. We discuss
+the key ingredients of our algorithm, such as, the scaling of the L-BFGS matrices using historical gradients, curvature pair updating and step acceptance criterion, and, suggest the use of an accumulated Fisher
+Information matrix during the computation of a curvature pair. We examine the per-iteration time and
+space complexity of adaQN and show that it is of the same order of magnitude as popular first-order methods. Finally, we present numerical results for two language modeling tasks and demonstrate competitive
+performance of adaQN as compared to popular algorithms used for training RNNs.
+
+12
+
+References
+[1] Yoshua Bengio, Réjean Ducharme, Pascal Vincent, and Christian Janvin. A neural probabilistic language model.
+The Journal of Machine Learning Research, 3:1137–1155, 2003.
+[2] Yoshua Bengio, Ian J Goodfellow, and Aaron Courville. Deep learning, 2015.
+[3] Yoshua Bengio, Patrice Simard, and Paolo Frasconi. Learning long-term dependencies with gradient descent is
+difficult. Neural Networks, IEEE Transactions on, 5(2):157–166, 1994.
+[4] Richard H Byrd, SL Hansen, Jorge Nocedal, and Yoram Singer. A stochastic quasi-newton method for large-scale
+optimization. arXiv preprint arXiv:1401.7020, 2014.
+[5] Kyunghyun Cho, Bart Van Merriënboer, Caglar Gulcehre, Dzmitry Bahdanau, Fethi Bougares, Holger Schwenk,
+and Yoshua Bengio. Learning phrase representations using rnn encoder-decoder for statistical machine translation. arXiv preprint arXiv:1406.1078, 2014.
+[6] John Duchi, Elad Hazan, and Yoram Singer. Adaptive subgradient methods for online learning and stochastic
+optimization. The Journal of Machine Learning Research, 12:2121–2159, 2011.
+[7] Alan Graves, Abdel-rahman Mohamed, and Geoffrey Hinton. Speech recognition with deep recurrent neural
+networks. In Acoustics, Speech and Signal Processing (ICASSP), 2013 IEEE International Conference on, pages
+6645–6649. IEEE, 2013.
+[8] Alex Graves. Supervised sequence labelling with recurrent neural networks, volume 385. Springer, 2012.
+[9] Alex Graves and Jürgen Schmidhuber. Offline handwriting recognition with multidimensional recurrent neural
+networks. In Advances in Neural Information Processing Systems, pages 545–552, 2009.
+[10] Sepp Hochreiter and Jürgen Schmidhuber. Long short-term memory. Neural computation, 9(8):1735–1780, 1997.
+[11] Andrej Karpathy, Justin Johnson, and Fei-Fei Li. Visualizing and understanding recurrent networks. arXiv
+preprint arXiv:1506.02078, 2015.
+[12] Diederik Kingma and Jimmy Ba. Adam: A method for stochastic optimization. arXiv preprint arXiv:1412.6980,
+2014.
+[13] Quoc V Le, Navdeep Jaitly, and Geoffrey E Hinton. A simple way to initialize recurrent networks of rectified
+linear units. arXiv preprint arXiv:1504.00941, 2015.
+[14] James Martens. Deep learning via hessian-free optimization. In Proceedings of the 27th International Conference
+on Machine Learning (ICML-10), pages 735–742, 2010.
+[15] James Martens. New perspectives on the natural gradient method. arXiv preprint arXiv:1412.1193, 2014.
+[16] James Martens and Roger Grosse. Optimizing neural networks with kronecker-factored approximate curvature.
+arXiv preprint arXiv:1503.05671, 2015.
+[17] James Martens and Ilya Sutskever. Learning recurrent neural networks with hessian-free optimization. In
+Proceedings of the 28th International Conference on Machine Learning (ICML-11), pages 1033–1040, 2011.
+[18] Tomas Mikolov, Stefan Kombrink, Anoop Deoras, Lukar Burget, and Jan Cernocky. Rnnlm-recurrent neural
+network language modeling toolkit. In Proc. of the 2011 ASRU Workshop, pages 196–201, 2011.
+[19] Aryan Mokhtari and Alejandro Ribeiro. Global convergence of online limited memory bfgs. arXiv preprint
+arXiv:1409.2045, 2014.
+[20] Aryan Mokhtari and Alejandro Ribeiro. RES: Regularized stochastic bfgs algorithm. Signal Processing, IEEE
+Transactions on, 62(23):6089–6104, 2014.
+[21] Yurii Nesterov. A method of solving a convex programming problem with convergence rate o (1/k2). In Soviet
+Mathematics Doklady, volume 27, pages 372–376, 1983.
+[22] Jorge Nocedal and Stephen Wright. Numerical optimization. Springer Science & Business Media, 2006.
+[23] Razvan Pascanu, Tomas Mikolov, and Yoshua Bengio. On the difficulty of training recurrent neural networks.
+arXiv preprint arXiv:1211.5063, 2012.
+[24] Tony Robinson, Mike Hochberg, and Steve Renals. The use of recurrent neural networks in continuous speech
+recognition. In Automatic speech and speaker recognition, pages 233–258. Springer, 1996.
+[25] Nicol N Schraudolph, Jin Yu, and Simon Günter. A stochastic quasi-newton method for online convex optimization. In International Conference on Artificial Intelligence and Statistics, pages 436–443, 2007.
+[26] Jascha Sohl-Dickstein, Ben Poole, and Surya Ganguli. Fast large-scale optimization by unifying stochastic
+gradient and quasi-newton methods. arXiv preprint arXiv:1311.2115, 2013.
+
+13
+
+[27] Ilya Sutskever. Training recurrent neural networks. PhD thesis, University of Toronto, 2013.
+[28] Ilya Sutskever, James Martens, George Dahl, and Geoffrey Hinton. On the importance of initialization and
+momentum in deep learning. In Proceedings of the 30th international conference on machine learning (ICML13), pages 1139–1147, 2013.
+[29] Tijmen Tieleman and Geoffrey Hinton. Lecture 6.5-rmsprop: Divide the gradient by a running average of its
+recent magnitude. COURSERA: Neural Networks for Machine Learning, 4, 2012.
+[30] Xiao Wang, Shiqian Ma, and Wei Liu. Stochastic quasi-newton methods for nonconvex stochastic optimization.
+arXiv preprint arXiv:1412.1196, 2014.
+[31] Wojciech Zaremba, Ilya Sutskever, and Oriol Vinyals. Recurrent neural network regularization. arXiv preprint
+arXiv:1409.2329, 2014.
+
+14
+
+A
+A.1
+
+Appendix
+L-BFGS Two-Loop Recursion
+
+We describe the two-loop recursion used to compute the step pk in Algorithm 2. We refer the reader to [22]
+for additional details.
+Algorithm 2 Two Loop Recursion
+ˆ (wk )
+Inputs: Curvature pair containers S and Y , ∇f
+1: τ = length(S)
+⊲ Compute the number of curvature pairs in memory
+ˆ (wk )
+2: q ← ∇f
+3: for i = τ, τ − 1, ..., 1 do
+⊲ Backward Loop
+4:
+αi ← ρi sTi q
+5:
+q ← q − αi yi
+6: end for
+(0)
+7: r ← Hk q
+8: for i = 1, 2, ..., τ do
+⊲ Forward Loop
+9:
+β ← ρi yiT r
+10:
+r ← r + si (αi − β)
+11: end for
+ˆ (wk ) = r
+12: Hk ∇f
+ˆ (wk )
+⊲ Output the quasi-Newton search direction
+Output: pk = −Hk ∇f
+(0)
+
+L-BFGS is an overwriting process as opposed to an updating process; each curvature pair modifies Hk via
+(0)
+a rank-2 update. Thus, it is possible to reduce the effect of an incorrect estimation of Hk through sufficient
+(0)
+curvature pair updates. However, the initial estimate of scaling Hk remains an important ingredient of
+L-BFGS updating, especially when the L-BFGS memory is low. If this value is incorrectly estimated, not
+only does it affect the scale of step, it also affects its quality. If the L-BFGS memory τ is low, it presents
+(0)
+limited avenue for the algorithm to overwrite the poor scale imparted by Hk . Indeed, if τ is 0, i.e. no
+(0) ˆ
+curvature pairs are stored, the step that is returned by the two-loop recursion is pk = −Hk ∇f
+(wk ). This
+(0)
+necessitates the choice of a good scaling matrix for Hk in the case of stochastic quasi-Newton methods. As
+(0)
+we mention in Section 3.1, adaQN uses an Adagrad-like scaling matrix for Hk .
+
+15
+
+

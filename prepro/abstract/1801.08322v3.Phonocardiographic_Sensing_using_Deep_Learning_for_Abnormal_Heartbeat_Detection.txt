@@ -1,0 +1,20 @@
+cardiac auscultation involves expert interpretation
+of abnormalities in heart sounds using stethoscope. deep learning based cardiac auscultation is of significant interest to the
+healthcare community as it can help reducing the burden of
+manual auscultation with automated detection of abnormal heartbeats. however, the problem of automatic cardiac auscultation
+is complicated due to the requirement of reliability and high
+accuracy, and due to the presence of background noise in the
+heartbeat sound. in this work, we propose a recurrent neural
+networks (rnns) based automated cardiac auscultation solution.
+our choice of rnns is motivated by the great success of deep
+learning in medical applications and by the observation that
+rnns represent the deep learning configuration most suitable for
+dealing with sequential or temporal data even in the presence
+of noise. we explore the use of various rnn models, and
+demonstrate that these models deliver the abnormal heartbeat
+classification score with significant improvement. our proposed
+approach using rnns can be potentially be used for real-time
+abnormal heartbeat detection in the internet of medical things
+for remote monitoring applications.
+
+i. 

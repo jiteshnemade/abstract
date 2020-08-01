@@ -1,0 +1,12 @@
+ it is known that recurrent neural networks (rnns) can
+remember, in their hidden layers, part of the semantic information expressed by a sequence (e.g., a sentence) that is being processed. different types of recurrent units have been designed to enable rnns to
+remember information over longer time spans. however, the memory
+abilities of different recurrent units are still theoretically and empirically unclear, thus limiting the development of more effective and
+explainable rnns. to tackle the problem, in this paper, we identify
+and analyze the internal and external factors that affect the memory
+ability of rnns, and propose a semantic euclidean space to represent the semantics expressed by a sequence. based on the semantic euclidean space, a series of evaluation indicators are defined to
+measure the memory abilities of different recurrent units and analyze their limitations. these evaluation indicators also provide a useful guidance to select suitable sequence lengths for different rnns
+during training.
+
+1
+

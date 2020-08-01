@@ -1,0 +1,26 @@
+
+objective: predict individual septic children’s personalized physiologic responses to vasoactive titrations by training
+a recurrent neural network (rnn) using emr data.
+materials and methods: this study retrospectively analyzed emr of patients admitted to a pediatric icu from 2009
+to 2017. data included charted time series vitals, labs, drugs, and interventions of children with septic shock treated
+with dopamine, epinephrine, or norepinephrine. a rnn was trained to predict responses in heart rate (hr), systolic
+blood pressure (sbp), diastolic blood pressure (dbp) and mean arterial pressure (map) to 8,640 titrations during 652
+septic episodes and evaluated on a holdout set of 3,883 titrations during 254 episodes. a linear regression model using
+titration data as its sole input was also developed and compared to the rnn model. evaluation methods included the
+correlation coefficient between actual physiologic responses and rnn predictions, mean absolute error (mae), and
+area under the receiver operating characteristic curve (auc).
+results: the actual physiologic responses displayed significant variability and were more accurately predicted by
+the rnn model than by titration alone (r = 0.20 vs r = 0.05, p < 0.01). the rnn showed mae and auc
+improvements over the linear model. the rnn’s maes associated with dopamine and epinephrine were 1-3% lower
+than the linear regression model mae for hr, sbp, dbp, and map. across all vitals vasoactives, the rnn achieved
+1-19% auc improvement over the linear model.
+discussion: the wide variability of observed responses indicates that many factors other than dose change affect the
+response. not surprisingly, a linear model whose sole input is dose change does not adequately capture the physiologic
+changes associated with vasoactive titrations, and is no better than chance in predicting individual patient responses.
+the rnn model showed improvement over the linear model in predicting titration response.
+conclusion: this initial attempt in pediatric critical care to predict individual physiologic responses to vasoactive dose
+changes in children with septic shock demonstrated an rnn model showed some improvement over a linear model.
+while not yet clinically applicable, further development may assist clinical administration of vasoactive medications
+in children with septic shock.
+
+

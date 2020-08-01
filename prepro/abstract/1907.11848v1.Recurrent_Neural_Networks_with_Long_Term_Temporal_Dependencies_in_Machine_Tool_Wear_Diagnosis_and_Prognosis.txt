@@ -1,0 +1,20 @@
+
+data-driven approaches to automated machine condition monitoring are gaining popularity due to
+advancements made in sensing technologies and computing algorithms. this paper proposes the use of a
+deep learning model, based on long short-term memory (lstm) architecture for a recurrent neural
+network (rnn) which captures long term dependencies for modeling sequential data. in the context of
+estimating cutting tool wear amounts, this lstm based rnn approach utilizes a system transition and
+system observation function based on a minimally intrusive vibration sensor signal located near the
+workpiece fixtures. by applying an lstm based rnn, the method helps to avoid building an analytic
+model for specific tool wear machine degradation, overcoming the assumptions made by hidden markov
+models, kalman filter, and particle filter based approaches. the proposed approach is tested using
+experiments performed on a milling machine. we have demonstrated one-step and two-step look ahead
+cutting tool state prediction using online indirect measurements obtained from vibration signals.
+additionally, the study also estimates remaining useful life (rul) of a machine cutting tool insert
+through generative rnn. the experimental results show that our approach, applying the lstm to model
+system observation and transition function is able to outperform the functions modeled with a simple
+rnn.
+keywords: recurrent neural networks, long term temporal dependencies, long short term memory,
+tool wear, remaining useful life
+
+1. 

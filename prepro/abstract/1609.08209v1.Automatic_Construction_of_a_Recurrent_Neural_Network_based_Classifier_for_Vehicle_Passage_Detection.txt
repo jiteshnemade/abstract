@@ -1,0 +1,10 @@
+
+recurrent neural networks (rnns) are extensively used for time-series modeling and prediction. we propose an
+approach for automatic construction of a binary classifier based on long short-term memory rnns (lstm-rnns) for
+detection of a vehicle passage through a checkpoint. as an input to the classifier we use multidimensional signals of various
+sensors that are installed on the checkpoint. obtained results demonstrate that the previous approach to handcrafting a
+classifier, consisting of a set of deterministic rules, can be successfully replaced by an automatic rnn training on an
+appropriately labelled data.
+keywords: recurrent neural networks, classification, time-series
+
+1. 

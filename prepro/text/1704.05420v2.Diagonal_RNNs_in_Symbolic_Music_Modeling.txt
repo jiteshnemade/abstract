@@ -1,0 +1,1121 @@
+2017 IEEE Workshop on Applications of Signal Processing to Audio and Acoustics
+
+October 15-18, 2017, New Paltz, NY
+
+DIAGONAL RNNS IN SYMBOLIC MUSIC MODELING
+Y. Cem Subakan♭, Paris Smaragdis♭,♯,♮
+
+arXiv:1704.05420v2 [cs.NE] 19 Apr 2017
+
+♭
+
+University of Illinois at Urbana-Champaign,
+Computer Science Department, ♯ Electrical and Computer Engineering Department,
+♮
+Adobe Systems, Inc.
+{subakan2, paris}@illinois.edu
+
+ABSTRACT
+In this paper, we propose a new Recurrent Neural Network
+(RNN) architecture. The novelty is simple: We use diagonal
+recurrent matrices instead of full. This results in better test
+likelihood and faster convergence compared to regular full
+RNNs in most of our experiments. We show the benefits of
+using diagonal recurrent matrices with popularly used LSTM
+and GRU architectures as well as with the vanilla RNN architecture, on four standard symbolic music datasets.
+Index Terms— Recurrent Neural Networks, Symbolic
+Music Modeling
+1. INTRODUCTION
+During the recent resurgence of neural networks in 2010s,
+Recurrent Neural Networks (RNNs) have been utilized in a
+variety of sequence learning applications with great success.
+Examples include language modeling [1], machine translation [2], handwriting recognition [3], speech recognition [4],
+and symbolic music modeling [5].
+In this paper, we empirically show that in symbolic music
+modeling, using a diagonal recurrent matrix in RNNs results
+in significant improvement in terms of convergence speed
+and test likelihood.
+The inspiration for this idea comes from multivariate
+Gaussian Mixture Models: In Gaussian mixture modeling
+(or Gaussian models in general) it is known that using a diagonal covariance matrix often results in better generalization
+performance, increased numerical stability and reduced computational complexity [6, 7]. We adapt this idea to RNNs by
+using diagonal recurrent matrices.
+We investigate the consequences of using diagonal recurrent matrices for the vanilla RNNs, and for more popular Long Short Term Memory Networks (LSTMs) [8, 9] and
+Gated Recurrent Units (GRUs) [10]. We empirically observe
+that using diagonal recurrent matrices results in an improvement in convergence speed in training and the resulting test
+likelihood for all three models, on four standard symbolic
+music modeling datasets.
+This work was supported by NSF grant #1453104.
+
+2. RECURRENT NEURAL NETWORKS
+The vanilla RNN (VRNN) recursion is defined as follows:
+ht =σ1 (W ht−1 + U xt + b),
+
+(1)
+
+where ht ∈ RK is the hidden state vector with K hidden
+units, and xt ∈ RL is the input vector at time t (which has
+length L). The U ∈ RK×L is the input matrix that transforms the input xt from an L to K dimensional space and
+W ∈ RK×K is the recurrent matrix (factor) that transforms
+the previous state. Finally, b ∈ RK is the bias vector. Note
+that, in practice this recursion is either followed by an output
+stage on top of ht to get the outputs as yt = σ2 (V ht ) ∈ RL ,
+or another recursion to obtain a multi-layer recurrent neural network. The hidden layer non-linearity σ1 (.) is usually
+chosen as hyperbolic tangent. The choice of the output nonlinearity σ2 (.) is dependent on the application, and is typically softmax or sigmoid function.
+Despite its simplicity, RNN in its original form above is
+usually not preferred in practice due to the well known gradient vanishing problem [11]. People often use the more involved architectures such as LSTMs and GRUs, which alleviate the vanishing gradient issue using gates which filter the
+information flow to enable the modeling of long-term dependencies.
+2.1. LSTM and GRU
+The GRU Network is defined as follows:
+ft =σ(Wf ht−1 + Uf xt ),
+wt =σ(Ww ht−1 + Uw xt ),
+ct = tanh(W (ht−1 ⊙ wt ) + U xt ),
+ht =ht−1 ⊙ ft + (1 − ft ) ⊙ ct ,
+
+(2)
+
+where ⊙ denotes element-wise (Hadamard) product, σ(.)
+is the sigmoid function, ft ∈ RK is the forget gate, and
+wt ∈ RK is the write gate: If ft is a zeros vector, the current
+state ht depends solely on the candidate vector ct . On the
+other extreme where ft is a ones vector, the state ht−1 is
+
+2017 IEEE Workshop on Applications of Signal Processing to Audio and Acoustics
+
+carried over unchanged to ht . Similarly, wt determines how
+much ht−1 contributes to the candidate state ct . Notice that
+if wt is a ones vector and ft is a zeros vector, the GRU
+architecture reduces to the VRNN architecture in Equation
+(1). Finally, note that we have omitted the biases in the
+equations for ft , wt , and ct to reduce the notation clutter.
+We will omit the bias terms also in the rest of this paper.
+The LSTM Network is very much related to the GRU
+network above. In addition to the gates in GRU, there is the
+output gate ot to control the output of the RNN, and the forget gate is decoupled into gates ft and wt , which blend the
+previous state and the candidate state ct :
+ft =σ(Wf ht−1 + Uf xt ),
+wt =σ(Ww ht−1 + Uw xt ),
+
+where Wf , Ww , W ∈ RK . Similarly for LSTM, we obtain
+the following:
+ft =σ(Wf ⊙ ht−1 + Uf xt ),
+wt =σ(Ww ⊙ ht−1 + Uw xt ),
+ot =σ(Wo ⊙ ht−1 + Uo xt ),
+ct = tanh(W ⊙ ht−1 + U xt ),
+h′t =h′t−1 ⊙ ft + wt ⊙ ct ,
+ht =ot ⊙ tanh(h′t ),
+
+(6)
+
+where again Wf , Ww , Wo , W ∈ RK . One more thing to
+note is that the total number of trainable parameters in this
+model scales as O(K) and not O(K 2 ) like the regular full
+architectures, which implies lower memory and computation
+requirements.
+2.3. Intuition on Diagonal RNNs
+
+ot =σ(Wo ht−1 + Uo xt ),
+ct = tanh(W ht−1 + U xt ),
+h′t =h′t−1 ⊙ ft + wt ⊙ ct ,
+ht =ot ⊙ tanh(h′t ),
+
+October 15-18, 2017, New Paltz, NY
+
+(3)
+
+Also notice the application of the tangent hyperbolic on h′t
+before yielding the output. This prevents the output from
+assuming values with too large magnitudes. In [12] it is experimentally shown that this output non-linearity is crucial
+for the LSTM performance.
+
+2.2. Diagonal RNNs
+We define the Diagonal RNN as an RNN with diagonal recurrent matrices. The simplest case is obtained via the modification of the VRNN. After the modification, the VRNN
+recursion becomes the following:
+
+In order to gain some insight on how diagonal RNNs differ
+from regular full RNNs functionally, let us unroll the VRNN
+recursion in Equation 1:
+ht = σ(W σ(W ht−2 + U xt−1 ) + U xt )
+
+(7)
+
+=σ(W σ(W σ(W ht−3 + U xt−2 ) + U xt−1 ) + U xt )
+=σ(W σ(W σ(. . . W σ(W h0 + U x1 ) + . . . ) + U xt−1 ) + U xt )
+So, we see that the RNN recursion forms a mapping from
+x1:t = (x1 , . . . , xt−1 , xt ) to ht . That is, the state ht is a
+function of all past inputs and the current input. To get an
+intuition on how the recurrent matrix W interacts with the
+inputs x1:t functionally, we can temporarily ignore the σ(.)
+non-linearities:
+ht =W t h0 + W t−1 U x1 + W t−2 U x2 + · · · + U xt
+=W t h0 +
+
+t
+X
+
+W t−k U xk .
+
+(8)
+
+k=1
+
+ht =σ1 (W ⊙ ht−1 + U xt ),
+
+(4)
+
+where this time the recurrent term W is a length K vector,
+instead of a K × K matrix. Note that element wise multiplying the previous state ht−1 with the W vector is equivalent
+to having a matrix-vector multiplication Wdiag ht−1 where
+Wdiag is a diagonal matrix, with diagonal entries set to the
+W vector, and hence the name for Diagonal RNNs. For the
+more involved GRU and LSTM architectures, we also modify the recurrent matrices of the gates. This results in the
+following network architecture for GRU:
+ft =σ(Wf ⊙ ht−1 + Uf xt ),
+wt =σ(Ww ⊙ ht−1 + Uw xt ),
+ct = tanh(W ⊙ ht−1 ⊙ wt + U xt ),
+ht =ht−1 ⊙ ft + (1 − ft ) ⊙ ct ,
+
+(5)
+
+Although this equation sacrifices from generality, it gives a
+notion on how the W matrix effects the overall transformation: After the input transformation via the U matrix, the
+inputs are further transformed via multiple application of W
+matrices: The exponentiated W matrices act as “weights” on
+the inputs. Now, the question is, why are the weights applied via W are the way they are? The input transformations
+via U are sensible since we want to project our inputs to a
+K dimensional space. But the transformations via recurrent
+weights W are rather arbitrary as there are multiple plausible
+forms for W .
+We can now see that a straightforward alternative to the
+RNN recursion in equation (1) is considering linear transformations via diagonal, scalar and constant alternatives for the
+recurrent matrix W , similar to the different cases for Gaussian covariance matrices [7]. In this paper, we explore the
+diagonal alternative to the full W matrices.
+
+2017 IEEE Workshop on Applications of Signal Processing to Audio and Acoustics
+
+One last thing to note is that using a diagonal matrix does
+not completely eliminate the ability of the neural network
+to model inter-dimensional correlations since the projection
+matrix U gets applied on each input xt , and furthermore, most
+networks typically has a dense output layer.
+3. EXPERIMENTS
+
+October 15-18, 2017, New Paltz, NY
+
+• Number of hidden units per hidden layer: Uniform Samples from {50,. . . ,300} for LSTM, and uniform samples
+from {50,. . . ,350} for GRU, and uniform samples from
+{50,. . . ,400} for VRNN.
+• Learning rate: Log-uniform samples from the range
+[10−4 , 10−2 ].
+• Momentum (For RMS-Prop): Uniform samples from the
+range [0, 1].
+
+We trained VRNNs, LSTMs and GRUs with full and
+As noted in the aforementioned url, we used the perdiagonal recurrent matrices on the symbolic midi
+frame negative log-likelihood measure to evaluate our modmusic datasets.
+We downloaded the datasets from
+els. The negative log-likelihood is essentially the crosshttp://www-etud.iro.umontreal.ca/˜boulanni/icml2012
+entropy between our predictions and the ground truth. Per
+which are originally used in the paper [5]. The learning
+frame negative log-likelihood is given by the following exgoal is to predict the next frame in a given sequence using
+pression:
+the past frames. All datasets are divided into training, test,
+T
+1X
+and validation sets. The performance is measured by the
+Per Frame Negative Log-Likelihood = −
+yt log ŷt ,
+per-frame negative log-likelihood on the sequences in the
+T t=1
+test set.
+where yt is the ground truth for the predicted frames and ŷt
+The datasets are ordered in increasing size as, JSB
+is
+the output of our neural network, and T is the number of
+Chorales, Piano-Midi, Nottingham and MuseData. We did
+time steps (frames) in a given sequence.
+not apply any transposition to center the datasets around a
+In Figures 1, 2, 3, and 4 we show the training iterations vs
+key center, as this is an optional preprocessing as indicated
+negative
+test log-likelihoods for top 6 hyperparameter conin [5]. We used the provided piano roll sequences provided
+figurations on JSB Chorales, Piano-midi, Nottingham and
+in the aforementioned url, and converted them into binary
+MuseData datasets, respectively. That is, we show the negamasks where the entry is one if there is a note played in the
+tive log-likelihoods obtained on the test set with respect to the
+corresponding pitch and time. We also eliminated the pitch
+training iterations, for top 6 hyper-parameter configurations
+bins for which there is no activity in a given dataset. Due to
+ranked on the validation set according to the performance atthe large size of our experiments, we limited the maximum
+tained at the last iteration. The top rows show the training
+sequence length to be 200 (we split the sequences longer than
+iterations for the Adam optimizer and the bottom rows show
+200 into sequences of length 200 at maximum) to take adthe iterations for the RMSprop optimizer. The curves show
+vantage of GPU parallelization, as we have noticed that this
+the negative log-likelihood averaged over the top 6 configuraoperation does not alter the results significantly.
+tions, where cyan curves are for full model and black curves
+We randomly sampled 60 hyper-parameter configuraare for diagonal models. We use violin plots, which show
+tions for each model in each dataset, and for each optimizer.
+the distribution of the test negative log-likelihoods of the top
+We report the test accuracies for the top 6 configurations,
+6 configurations. We also show the average number of paranked according to their performance on the validation set.
+rameters used in the models corresponding to top 6 configuFor each random hyper-parameter configuration, we trained
+rations in the legends of the figures. The minimum negative
+the given model for 300 iterations. We did these experiments
+log-likelihood values obtained with each model using Adam
+for two different optimizers. Overall, we have 6 different
+and RMSprop optimizers are summarized in Table 1.
+models (VRNN full, VRNN diagonal, LSTM full, LSTM diWe implemented all models in Tensorflow [17],
+agonal, GRU full, GRU diagonal), and 4 different datasets,
+and our code can be downloaded from our github page
+and 2 different optimizers, so this means that we obtained
+https://github.com/ycemsubakan/diagonal_rnns.
+6 × 4 × 2 × 60 = 2880 training runs, 300 iterations each. We
+All of the results presented in this paper are reproducible
+trained our models on Nvidia Tesla K80 GPUs.
+with the provided code.
+As optimizers, we used the Adam optimizer [13] with the
+4. CONCLUSIONS
+default parameters as specified in the corresponding paper,
+and RMSprop [14]. We used a sigmoid output layer for all
+• We see that using diagonal recurrent matrices results in
+models. We used mild dropout in accordance with [15] with
+an improvement in test likelihoods in almost all cases
+keep probability 0.9 on the input and output of all layers.
+we have explored in this paper. The benefits are exWe used Xavier initialization [16] for all cases. The sampled
+tremely pronounced with the Adam optimizer, but with
+hyper-parameters and corresponding ranges are as follows:
+RMSprop optimizer we also see improvements in train• Number of hidden layers: Uniform Samples from {2,3}.
+ing speed and the final test likelihoods. The fact that this
+
+2017 IEEE Workshop on Applications of Signal Processing to Audio and Acoustics
+
+October 15-18, 2017, New Paltz, NY
+
+Table 1: Minimum Negative Log-Likelihoods on Test Data (Lower is better) with Adam and RMSProp optimizers. F stands
+for Full models and D stands for Diagonal models.
+Dataset/Optimizer
+RNN-F RNN-D LSTM-F LSTM-D GRU-F GRU-D
+JSB Chorales/Adam
+8.91
+8.12
+8.56
+8.23
+8.64
+8.21
+Piano-Midi/Adam
+7.74
+7.53
+8.83
+7.59
+8.28
+7.54
+Nottingham/Adam
+3.57
+3.69
+3.90
+3.74
+3.57
+3.61
+MuseData/Adam
+7.82
+7.26
+8.96
+7.08
+7.52
+7.20
+JSB Chorales/RMSprop
+8.72
+8.22
+8.51
+8.14
+8.53
+8.22
+Piano-Midi/RMSprop
+7.65
+7.51
+7.84
+7.49
+7.62
+7.48
+Nottingham/RMSprop
+3.40
+3.67
+3.54
+3.65
+3.45
+3.62
+MuseData/RMSprop
+7.14
+7.23
+7.20
+7.09
+7.11
+6.96
+
+100
+150
+200
+Training iteration
+
+250
+
+300
+
+80
+
+50
+
+100
+150
+200
+Training iteration
+
+250
+
+modification results in an improvement for three different models and two different optimizers strongly suggests that using diagonal recurrent matrices is suitable
+for modeling symbolic music datasets, and is potentially
+useful in other applications.
+• Except the Nottingham dataset, using the diagonal recurrent matrix results in an improvement in final test likelihood in all cases. Although the final negative likelihoods
+on the Nottingham dataset are larger for diagonal models, we still see some improvement in training speed in
+some cases, as we see that the black curves lie below the
+cyan curves for the most part.
+• We see that the average number of parameters utilized
+by the top 6 diagonal models is in most cases smaller
+than that of the top 6 full models: In these cases, we
+observe that the diagonal models achieve comparable (if
+not better) performance by using fewer parameters.
+
+50
+
+100
+150
+200
+Training iteration
+
+250
+
+9
+8
+70
+
+-Log Likelihood
+
+-Log Likelihood
+
+10
+
+50
+
+100
+150
+200
+Training iteration
+
+250
+
+8
+70
+
+300
+
+50
+
+100
+150
+200
+Training iteration
+
+300
+
+F,#p=6.9e5
+D,#p=3.6e5
+
+11
+10
+9
+8
+70
+
+300
+
+250
+
+GRU
+
+12
+-Log Likelihood
+
+F,#p=4.8e5
+D,#p=4.2e5
+
+11
+
+300
+
+250
+
+LSTM
+
+12
+-Log Likelihood
+
+-Log Likelihood
+
+70
+
+300
+
+Figure 1: Training iterations vs test negative log-likelihoods
+on JSB Chorales dataset for full and diagonal models. Top
+row is for the Adam optimizer and the bottom row is for RMSProp. Black curves are for the diagonal models and cyan
+(gray in grayscale) curves are for full (regular) models. Left
+column is for VRNN, middle column is for LSTM and right
+column is for GRU. Legends show the average number of
+parameters used by top 6 models (F is for Full, D is for Diagonal models). This caption also applies to Figures 2, 3, 4,
+with corresponding datasets.
+
+8
+
+100
+150
+200
+Training iteration
+
+9
+
+50
+
+100
+150
+200
+Training iteration
+
+250
+
+300
+
+Figure 2: Training iterations vs test negative log-likelihoods
+on Piano-midi dataset.
+Vanilla RNN
+
+8
+
+F,#p=4.2e5
+D,#p=2.5e5
+
+7
+6
+5
+
+6
+
+50
+
+100
+150
+200
+Training iteration
+
+250
+
+300
+
+Vanilla RNN
+
+F,#p=4.1e5
+D,#p=1.9e5
+
+7
+6
+5
+
+30
+
+100
+150
+200
+Training iteration
+
+250
+
+100
+150
+200
+Training iteration
+
+250
+
+F,#p=4.9e5
+D,#p=3.6e5
+
+7
+6
+
+300
+
+30
+
+6
+
+300
+
+LSTM
+
+8
+
+F,#p=8.3e5
+D,#p=4.9e5
+
+30
+
+50
+
+100
+150
+200
+Training iteration
+
+GRU
+
+8
+7
+6
+
+250
+
+300
+
+F,#p=8.2e5
+D,#p=2.6e5
+
+5
+
+4
+
+50
+
+7
+
+4
+
+50
+
+5
+
+4
+
+GRU
+
+8
+
+5
+
+4
+
+8
+
+30
+
+F,#p=7.1e5
+D,#p=4.4e5
+
+7
+
+5
+
+4
+30
+
+LSTM
+
+8
+
+-Log Likelihood
+
+50
+
+9
+
+9
+
+50
+
+10
+
+-Log Likelihood
+
+80
+
+10
+
+70
+
+300
+
+F,#p=8.3e5
+D,#p=3.0e5
+
+11
+
+4
+
+50
+
+100
+150
+200
+Training iteration
+
+250
+
+300
+
+30
+
+50
+
+100
+150
+200
+Training iteration
+
+250
+
+300
+
+Figure 3: Training iterations vs test negative log-likelihoods
+on Nottingham dataset.
+Vanilla RNN
+
+12
+
+F,#p=4.1e5
+D,#p=2.8e5
+
+11
+10
+9
+8
+70
+
+50
+
+100
+150
+200
+Training iteration
+
+250
+
+F,#p=4.3e5
+D,#p=1.9e5
+
+11
+10
+9
+8
+70
+
+50
+
+100
+150
+200
+Training iteration
+
+250
+
+F,#p=7.0e5
+D,#p=4.0e5
+
+11
+10
+9
+8
+70
+
+300
+
+Vanilla RNN
+
+12
+
+LSTM
+
+12
+
+50
+
+250
+
+F,#p=3.9e5
+D,#p=3.0e5
+
+11
+10
+9
+8
+70
+
+50
+
+100
+150
+200
+Training iteration
+
+250
+
+F,#p=8.2e5
+D,#p=4.8e5
+
+11
+10
+9
+8
+70
+
+300
+
+LSTM
+
+12
+
+300
+
+100
+150
+200
+Training iteration
+
+GRU
+
+12
+-Log Likelihood
+
+300
+
+9
+
+250
+
+F,#p=1.4e5
+D,#p=1.7e5
+
+11
+
+10
+
+100
+150
+200
+Training iteration
+
+Vanilla RNN
+
+12
+
+F,#p=6.4e5
+D,#p=2.3e5
+
+11
+
+50
+
+8
+
+GRU
+
+12
+
+50
+
+250
+
+300
+
+F,#p=9.7e5
+D,#p=2.6e5
+
+11
+10
+
+300
+
+100
+150
+200
+Training iteration
+
+GRU
+
+12
+-Log Likelihood
+
+250
+
+GRU
+
+12
+
+70
+
+300
+
+9
+
+-Log Likelihood
+
+100
+150
+200
+Training iteration
+
+250
+
+10
+
+-Log Likelihood
+
+50
+
+100
+150
+200
+Training iteration
+
+F,#p=6.2e5
+D,#p=3.0e5
+
+11
+
+-Log Likelihood
+
+11
+
+50
+
+8
+
+LSTM
+
+12
+
+-Log Likelihood
+
+F,#p=6.5e5
+D,#p=4.2e5
+
+80
+
+300
+
+LSTM
+
+12
+
+10
+
+9
+80
+
+250
+
+-Log Likelihood
+
+10
+
+100
+150
+200
+Training iteration
+
+9
+
+-Log Likelihood
+
+11
+
+50
+
+9
+
+-Log Likelihood
+
+F,#p=0.4e5
+D,#p=1.8e5
+
+80
+
+300
+
+10
+
+-Log Likelihood
+
+250
+
+Vanilla RNN
+
+12
+-Log Likelihood
+
+100
+150
+200
+Training iteration
+
+F,#p=4.0e5
+D,#p=1.6e5
+
+11
+
+10
+
+9
+
+Vanilla RNN
+
+12
+
+F,#p=9.9e5
+D,#p=4.3e5
+
+11
+
+-Log Likelihood
+
+50
+
+GRU
+
+12
+-Log Likelihood
+
+10
+
+9
+80
+
+F,#p=4.4e5
+D,#p=3.2e5
+
+11
+
+-Log Likelihood
+
+-Log Likelihood
+
+10
+
+LSTM
+
+12
+-Log Likelihood
+
+F,#p=2.8e5
+D,#p=2.4e5
+
+11
+
+-Log Likelihood
+
+Vanilla RNN
+
+12
+
+9
+8
+70
+
+50
+
+100
+150
+200
+Training iteration
+
+250
+
+300
+
+Figure 4: Training iterations vs test negative log-likelihoods
+on MuseData dataset.
+Overall, in this paper we provide experimental data which
+strongly suggests that the diagonal RNNs can be a great alternative for regular full-recurrent-matrix RNNs.
+
+2017 IEEE Workshop on Applications of Signal Processing to Audio and Acoustics
+
+5. REFERENCES
+[1] T. Mikolov, M. Karafit, L. Burget, J. Cernock, and
+S. Khudanpur, “Recurrent neural network based language model,” in INTERSPEECH. ISCA, 2010, pp.
+1045–1048.
+[2] I. Sutskever, O. Vinyals, and Q. V. Le, “Sequence to sequence learning with neural networks,” in Proceedings
+of the 27th International Conference on Neural Information Processing Systems, ser. NIPS’14. Cambridge,
+MA, USA: MIT Press, 2014, pp. 3104–3112.
+
+October 15-18, 2017, New Paltz, NY
+
+[13] D. P. Kingma and J. Ba, “Adam: A method for stochastic optimization,” CoRR, vol. abs/1412.6980, 2014.
+[Online]. Available: http://arxiv.org/abs/1412.6980
+
+[14] “Root mean square propagation (rmsprop),”
+http://web.archive.org/web/20080207010024/http://www.808multim
+accessed: 2017-April-12.
+[15] W. Zaremba, I. Sutskever, and O. Vinyals,
+“Recurrent neural network regularization,” CoRR,
+vol. abs/1409.2329, 2014. [Online]. Available:
+http://arxiv.org/abs/1409.2329
+
+[4] A. Graves, A. Mohamed, and G. E. Hinton, “Speech
+recognition with deep recurrent neural networks,”
+CoRR, vol. abs/1303.5778, 2013. [Online]. Available:
+http://arxiv.org/abs/1303.5778
+
+[16] X. Glorot and Y. Bengio, “Understanding the difficulty
+of training deep feedforward neural networks,” in
+Proceedings of the Thirteenth International Conference
+on Artificial Intelligence and Statistics, AISTATS
+2010, Chia Laguna Resort, Sardinia, Italy, May
+13-15, 2010, 2010, pp. 249–256. [Online]. Available:
+http://www.jmlr.org/proceedings/papers/v9/glorot10a.html
+
+[5] N. Boulanger-Lewandowski, Y. Bengio, and P. Vincent,
+“Modeling temporal dependencies in high-dimensional
+sequences: Application to polyphonic music generation
+and transcription.” in ICML, 2012.
+
+[17] M. Abadi et al., “TensorFlow: Large-scale machine
+learning on heterogeneous systems,” 2015, software
+available from tensorflow.org. [Online]. Available:
+http://tensorflow.org/
+
+[3] A. Graves, “Generating sequences with recurrent neural
+networks,” CoRR, vol. abs/1308.0850, 2013.
+
+[6] D. Reynolds, Gaussian Mixture Models. Boston, MA:
+Springer US, 2015, pp. 827–832. [Online]. Available:
+http://dx.doi.org/10.1007/978-1-4899-7488-4 196
+[7] E. Alpaydin, Introduction to Machine Learning, 2nd ed.
+The MIT Press, 2010.
+[8] S. Hochreiter and J. Schmidhuber, “Long short-term
+memory,” Neural Comput., vol. 9, no. 8, pp. 1735–
+1780, Nov. 1997.
+[9] A. Graves and J. Schmidhuber, “Framewise phoneme
+classification with bidirectional LSTM and other neural
+network architectures,” Neural Networks, vol. 18, no.
+5-6, pp. 602–610, 2005.
+[10] J. Chung, Ç. Gülçehre, K. Cho, and Y. Bengio, “Empirical evaluation of gated recurrent neural networks on
+sequence modeling,” CoRR, 2014. [Online]. Available:
+http://arxiv.org/abs/1412.3555
+[11] R. Pascanu, T. Mikolov, and Y. Bengio, “On the
+difficulty of training recurrent neural networks,” in Proceedings of the 30th International Conference on Machine Learning (ICML) 2013, Atlanta, GA, USA, 16-21
+June 2013, 2013, pp. 1310–1318. [Online]. Available:
+http://jmlr.org/proceedings/papers/v28/pascanu13.html
+[12] K. Greff, R. K. Srivastava, J. Koutnı́k, B. R.
+Steunebrink, and J. Schmidhuber, “LSTM: A search
+space odyssey,” CoRR, vol. abs/1503.04069, 2015.
+[Online]. Available: http://arxiv.org/abs/1503.04069
+
+

@@ -1,0 +1,15 @@
+
+recurrent neural networks (rnns) are now widely used on sequence generation tasks due to their ability to
+learn long-range dependencies and to generate sequences of arbitrary length. however, their left-to-right generation
+procedure only allows a limited control from a potential user which makes them unsuitable for interactive and creative
+usages such as interactive music generation.
+this paper introduces a novel architecture called anticipation-rnn which possesses the assets of the rnn-based
+generative models while allowing to enforce user-defined positional constraints. we demonstrate its efficiency on the
+task of generating melodies satisfying positional constraints in the style of the soprano parts of the j.s. bach chorale
+harmonizations.
+sampling using the anticipation-rnn is of the same order of complexity than sampling from the traditional rnn
+model. this fast and interactive generation of musical sequences opens ways to devise real-time systems that could
+be used for creative purposes.
+
+1
+

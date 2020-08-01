@@ -1,0 +1,17 @@
+recurrent neural networks (rnns) based automatic
+speech recognition has nowadays become prevalent on mobile
+devices such as smart phones. however, previous rnn compression techniques either suffer from hardware performance
+overhead due to irregularity or significant accuracy loss due
+to the preserved regularity for hardware friendliness. in this
+work, we propose rtmobile that leverages both a novel blockbased pruning approach and compiler optimizations to accelerate
+rnn inference on mobile devices. our proposed rtmobile is the
+first work that can achieve real-time rnn inference on mobile
+platforms. experimental results demonstrate that rtmobile can
+significantly outperform existing rnn hardware acceleration
+methods in terms of inference accuracy and time. compared with
+prior work on fpga, rtmobile using adreno 640 embedded
+gpu on gru can improve the energy-efficiency by about 40×
+while maintaining the same inference time.
+index terms—rnn, pruning, real-time acceleration, mobile
+
+i. 

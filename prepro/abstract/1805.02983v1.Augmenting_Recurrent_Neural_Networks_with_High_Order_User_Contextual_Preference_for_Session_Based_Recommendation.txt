@@ -1,0 +1,43 @@
+
+
+attempts that explicitly consider the static user-side contexts(e.g.,
+age, gender, location), which are readily available in commercial
+systems. in terms of session modeling, explicit modeling of static
+user contexts is important because user navigation paths of items
+during sessions are dependent on static contexts, due to the fact
+that users with different static contexts have different preferences
+with respect to the same items. for example, when recommended a
+job position in paris during a session, a user living in new york will
+tend to look for alternative positions in new york in the following
+searches, while a user living in paris will tend to look for the similar
+positions.
+therefore, in order to seamlessly integrate static user-side contexts into rnn session models, we propose an augmented rnn
+(arnn), which is an augmented version of rnn that can improve
+on any existing rnn session model. the unique feature of arnn is
+that it estimates user-contextual preference by modeling high-order
+interaction between static user context and the previous item using a product-based neural network (pnn)[11], which is a neural
+network (nn) variant of the factorization machine (fm)[13]. by
+integrating this contextual preference with the hidden states of
+an rnn session model, the arnn makes more personalized recommendations than the plain rnn session models that does not
+consider user contexts.
+we evaluated the arnn on two datasets: a job recommendation
+dataset and a standard e-commerce dataset. through an experiment,
+we verified that the arnn successfully captured user-contextual
+preference when abundant user contexts were available, which
+led to a substantial improvement in the recommendation quality
+against an rnn baseline.
+
+the recent adoption of recurrent neural networks (rnns) for session modeling has yielded substantial performance gains compared
+to previous approaches. in terms of context-aware session modeling,
+however, the existing rnn-based models are limited in that they
+are not designed to explicitly model rich static user-side contexts
+(e.g., age, gender, location). therefore, in this paper, we explore
+the utility of explicit user-side context modeling for rnn session
+models. specifically, we propose an augmented rnn (arnn) model
+that extracts high-order user-contextual preference using the productbased neural network (pnn) in order to augment any existing rnn
+session model. evaluation results show that our proposed model
+outperforms the baseline rnn session model by a large margin
+when rich user-side contexts are available.
+
+
+

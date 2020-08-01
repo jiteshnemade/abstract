@@ -1,0 +1,14 @@
+
+the inherent transient dynamics of recurrent neural networks (rnns) have been exploited as a
+computational resource in input-driven rnns. however, the information processing capability varies
+from rnn to rnn, depending on their properties. many authors have investigated the dynamics
+of rnns and their relevance to the information processing capability. in this study, we present a
+detailed analysis of the information processing capability of an rnn optimized by recurrent infomax
+(ri), which is an unsupervised learning scheme that maximizes the mutual information of rnns
+by adjusting the connection strengths of the network. thus, we observe that a delay-line structure
+emerges from the ri and the network optimized by the ri possesses superior short-term memory,
+which is the ability to store the temporal information of the input stream in its transient dynamics.
+pacs numbers: 89.75.fb, 84.35.+i, 87.19.lv
+
+i.
+

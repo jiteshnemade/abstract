@@ -1,0 +1,14 @@
+
+we propose an experimental comparison between deep
+echo state networks (deepesns) and gated recurrent neural networks
+(rnns) on multivariate time-series prediction tasks. in particular, we
+compare reservoir and fully-trained rnns able to represent signals featured by multiple time-scales dynamics. the analysis is performed in terms
+of efficiency and prediction accuracy on 4 polyphonic music tasks. our results show that deepesn is able to outperform esn in terms of prediction
+accuracy and efficiency. whereas, between fully-trained approaches, gated
+recurrent units (gru) outperforms long short-term memory (lstm)
+and simple rnn models in most cases. overall, deepesn turned out
+to be extremely more efficient than others rnn approaches and the best
+solution in terms of prediction accuracy on 3 out of 4 tasks.
+
+1
+

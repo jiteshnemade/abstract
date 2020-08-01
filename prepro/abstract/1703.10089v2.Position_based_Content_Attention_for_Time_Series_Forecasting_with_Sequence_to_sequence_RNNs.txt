@@ -1,0 +1,9 @@
+ we propose here an extended attention model for sequence-to-sequence
+recurrent neural networks (rnns) designed to capture (pseudo-)periods in time
+series. this extended attention model can be deployed on top of any rnn and is
+shown to yield state-of-the-art performance for time series forecasting on several
+univariate and multivariate time series.
+keywords: recurrent neural networks, attention model, time series
+
+1
+

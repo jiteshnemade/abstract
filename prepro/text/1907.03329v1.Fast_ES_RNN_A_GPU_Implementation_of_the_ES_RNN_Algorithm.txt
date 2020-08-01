@@ -1,0 +1,683 @@
+Fast ES-RNN: A GPU Implementation of the ES-RNN
+Algorithm
+Andrew Redd∗
+aredd@andrew.cmu.edu
+Carnegie Mellon University
+Pittsburgh, PA, USA
+
+arXiv:1907.03329v1 [cs.LG] 7 Jul 2019
+
+Kaung Khin∗
+kkhin@andrew.cmu.edu
+Carnegie Mellon University
+Pittsburgh, PA, USA
+
+Aldo Marini∗
+amirinim@andrew.cmu.edu
+Carnegie Mellon University
+Pittsburgh, PA, USA
+
+Abstract
+Due to their prevalence, time series forecasting is crucial in multiple domains. We seek to make
+state-of-the-art forecasting fast, accessible, and generalizable. ES-RNN is a hybrid between classical state space forecasting models and modern RNNs that achieved a 9.4% sMAPE improvement
+in the M4 competition. Crucially, ES-RNN implementation requires per-time series parameters.
+By vectorizing the original implementation and porting the algorithm to a GPU, we achieve up
+to 322x training speedup depending on batch size with similar results as those reported in the
+original submission. Our code can be found at: https://github.com/damitkwr/ESRNN-GPU
+
+1. Introduction
+Time series are ubiquitous. Data from diverse sources such as sensors, financial markets, demographics, audio and Uber rides have a time component. Time series’ prevalence implies a need to
+develop powerful forecasting methods. However, there are two major reasons why popular machine
+learning algorithms have failed to outperform as they have in other domains. First, the time component breaks the independent and identically distributed assumption by introducing auto-correlation.
+Machine learning has struggled overcome this assumption gap and offer step-wise improvement over
+pure statistical methods. Second, data on many of these processes is prohibitively expensive (or
+impossible) to obtain and so at most a handful of observations will exist in a given time as in the
+case of a country’s GDP or a company’s sales. Hence, theres a strong need to develop methods that
+can cope with these two difficulties.
+The M4-Competition –the continuation of three previous ones organized by Spyros Makridakis–
+is the latest challenge on time series forecasting for different types of time series (MCo). These
+competitions have attracted great interest in both the academic literature and among practitioners
+and have provided objective evidence of the most appropriate way of forecasting various variables
+of interest. The purpose of the M4-Competition is to replicate the results of the previous three ones
+and extend them in two directions. First, the number of series is increased to 100,000, and second,
+Machine Learning (Neural Network) forecasting methods are included.
+∗. All three authors contributed equally
+
+1
+
+The recurring result of the M Competitions is that simple methods outperform complex ones.
+This year’s M4 competition generally reproduced this result with one exception: the winner of the
+competition, by a significant margin, was Slawek Smyls hybrid Exponential Smoothing-Recurrent
+Neural Network (ES-RNN) method a synthesis of exponential smoothing techniques with recurrent
+nueral networks (RNN). (Smyl et al., 2018)
+Our task is to make state-of-the-art forecasting fast, accessible, and generalizable. First, we
+achieve fast training by porting Smyl’s original C++ submission to Pytorch. This vectorization
+enables the use of a GPU, providing up to a 322x training speedup. Second, Python code makes
+the model more accessible to the forecasting and machine learning community.1 Finally, the use of
+Pytorch allows easier generalization of the model as the library contains several architectures that
+could complement the ES-RNN for application in non-M4 time-series. We expect our contribution
+to speed up the adoption of hybrid models in time-series forecasting.
+
+2. Related Work
+The field of time series analysis has not strongly deviated from statistical foundations laid in the
+1950s. Seminal among these are the ARIMA method (Box et al., 2008) and the Exponential Smoothing method (Brown) (Winters and R., 1960). In addition to innovations resulting from the M4
+competition, there has been research into using deep neural network (DNN) architectures for time
+series forecasting. The primary focus of this research has been to transfer techniques from other
+non-temporal DNN structures to time series forecasting.
+Qin et al. (2017) have added attention to the prediction algorithm by developing a dual-stage
+architecture. Others have incorporated learnings from the field of computer vision by implementing
+residual LSTMs (Kim et al.). as well as dilated LSTMs (Chang et al.). The latter having seen
+significant success in its CNN formulation (Yu and Koltun).
+The popularity of DNNs in time series forecasting has also been verified by the development
+pre-trained weights that leverage a large number of time series. (Malhotra et al., 2017) This latter
+development has not only shown strong generalization but also has enabled DNNs to be applied
+to environments with relatively fewer training samples. The applications of such improvements in
+DNN, time series architectures has been leveraged heavily in a myriad of industries from predicting
+power demand (Torres et al., 2019) to predicting extreme events at Uber (Laptev et al.).
+
+3. Model Description
+Our main contribution is a new ES-RNN implementation. In order to achieve our objective of a fast,
+accessible, and general forecasting engine, we re-engineer the Smyl’s M4 Competition C++ submission for GPU computation. In contrast to the first version of ES-RNN, we exploit PyTorch’s eager
+execution by initializing per-series parameters which are dynamically included in the computational
+graph.2 This technique enables us to vectorize ES-RNN and train on a GPU using the Nvidia CUDA
+library. The results in Section 6 show an important reduction in computation times. Furthermore,
+accessibility and generality are derived from the use of Python and PyTorch, respectively.
+While the hybrid ES-RNN algorithm is discussed in detail in a blog post by Smyl et al. (2018), we
+provide a condensed description of the learning process. The algorithm is divided into two distinct
+layers: a pre-processing layer that uses exponential smoothing and a LSTM layer that updates the
+per-series parameters of the Holts-Winter model.
+1. Python is not only more popular (38.8% vs 25.4%) but also the most wanted language for two years in a row
+(Stack Overflow, 2018).
+2. We can see the parameters required for each series in Equations 1, 2 and 3.
+
+2
+
+3.1 Pre-processing layer
+In the pre-processing layer, Holts-Winter exponential smoothing (Winters and R., 1960) with multiplicative seasonality and trend is applied via
+yt
+) + (1 − α)lt−1 bt−1
+st−m
+lt
+bt = β(
+) + (1 − β)bt−1
+lt−1
+yt
+st = γ
++ (1 − γ)st−m
+lt−1 bt−1
+lt = α(
+
+ŷt+h = lt bht st−m+h+
+m
+
+(1)
+(2)
+(3)
+(4)
+
+where l is a state variable for level, b is a state variable for trend and s is a multiplicative
+seasonality coefficient. α, β and γ are smoothing coefficients between zero and one. An h step
+forecast is given by Equation 4.
+Smyl et al. (2018) used constant size input and output windows. The output windows were
+defined by the prediction horizon. Conversely, the input window was determined heuristically as
+described in Smyl et al. (2018).
+Smyl et al. (2018) further details how the Holt-Winters and the RNN methods were merged to
+create the final model. Since the model no longer considers local linear trend, Equation 2 is replaced
+by an RNN from the model as follows:
+ŷt+1...t+h = RN N (Xt ) ∗ lt ∗ st+1...t+h
+yi
+xi =
+lt si
+
+(5)
+(6)
+
+Xt is a vector of normalized, de-seasonalized features of which a scalar component xt is calculated
+via Equation 6.
+3.2 Deep Learning Layer
+The neural network architectures used by Smyl et al. (2018) are detailed in Figure 1. A summary
+of the different models for quarterly, monthly and yearly time periods is presented in Table 1. The
+model at its base consists of a LSTM layer with skip connections to form the Dilated LSTM network
+as described in Chang et al.. The main advantages of this LSTM structure, when compared to
+a vanilla LSTM, are that it greatly increases computational efficiency and allows the network to
+remember information from earlier time instances. For example, in Figure 1, the RNN has dilations
+(1, 2) and (4, 8). This means that the first LSTM hidden weights are inputs to the next cell in the
+layer, however the second layer has a dilation of two which means that the hidden weights and the
+bias weights are forwarded two cells forward and so on and so forth. The RNN layers also have a
+residual connections that helps stabilize the network’s training. Finally, we have a simple linear layer
+at the end for adapting the RNN output to the output prediction window in the form of normalized
+and de-seasonalized data, an important distinction which we discuss further in subsection 3.4.
+It is important to note that the RNN and the classical Holts-Winters parameters detailed in
+Section 3.1 are jointly trained. The power of Smyl et al. (2018) lies in the co-training of both the
+per-time series Holts-Winters parameters and the general RNN parameters.
+3.3 Training of the network
+The training of this hybrid model is different from most neural network training. First, in order
+to have an initial estimate of the level and seasonality coefficients, we compute a primer estimate
+3
+
+Time Frame
+Monthly
+Quarterly
+Yearly
+
+Dilations
+
+LSTM Size
+
+(1, 3), (6, 12)
+(1, 2), (4, 8)
+(1, 2), (2, 6)
+
+50
+40
+30
+
+Table 1: Summary of network parameters
+
+Figure 1: NN Architecture by Smyl et al. (2018)
+following the classical Holts-Winters equations 1 and 3. Note that if we have N series in our dataset,
+the model will store N ∗ (2 + S) Holt-Winters parameters, where S is the length of the seasonality,
+as each series have its own level and seasonality smoothing parameters along with initial seasonality
+values (S).
+In Smyl et al. (2018)’s CPU implementation, the network is trained per series However, the
+use of dynamic GPU computational frameworks such as PyTorch and, recently, Tensorflow enable
+batching. In Figure 1, the input to the left most input box can be thought of as a matrix of Batch
+Size x Longest Input Window Length in Batch. We will discuss further in Sections 4 and 5 why we
+need to pad and chunk each time-series into windows.
+3.4 Testing of the network
+For generating the output of the network, we feed the output of the LSTM through a non-linear
+layer with a TanH activation function and finally through a final linear layer to get our predictions.
+This output is a de-seasonlized and normalized output which is not the case of our truth data. To
+4
+
+re-seasonalized and de-normalize our outputs, we use the Holts-Winters equations and the parameter
+estimates we have for each series to arrive at the desired output.
+3.5 Loss metrics
+To calculate our loss, we first unpad and mask the output as we do not include these loss values in
+our calculation. The metrics used in the M4 competition were Symmetric Mean Absolute Percent
+Error (sMAPE) and Mean Absolute Scaled Error (MASE). Detailed explanations of these metrics are
+included in referenced post by (Smyl et al., 2018). However, since the metrics are non-differentiable,
+we employ a surrogate loss function called Pin-ball loss as defined in (Takeuchi et al., 2006).
+
+4. Data Description
+The M4 competition data comprises 100K time-series with Yearly, Quarterly, Monthly, Weekly,
+Daily and Hourly data. Moreover, the dataset was sampled from real data – categories encompass
+Demographic, Financial, Industrial, Macro- and Micro-economic and Other. The series counts
+broken out by frequency and type are in Table 2. However, the competition is more heavily focused
+on Yearly, Quarterly and Monthly data frequencies. We are of the opinion that this data is commonly
+generated from expensive or irreplicable processes, such as census or financial data.
+Frequency
+
+Demographic
+
+Finance
+
+Industry
+
+Macro
+
+Micro
+
+Other
+
+Total
+
+Yearly
+Quarterly
+Monthly
+Weekly
+Daily
+Hourly
+Total
+
+1,088
+1,858
+5,728
+24
+10
+0
+8,708
+
+6,519
+5,305
+10,987
+164
+1,559
+0
+24,534
+
+3,716
+4,637
+10,017
+6
+422
+0
+18,798
+
+3,903
+5,315
+10,016
+41
+127
+0
+19,402
+
+6,538
+6,020
+10,975
+112
+1,476
+0
+25,121
+
+1,236
+865
+277
+12
+633
+414
+3,437
+
+23,000
+24,000
+48,000
+359
+4,227
+414
+100,000
+
+Table 2: M4 data by type and series frequency
+The dataset has two significant characteristics: First, the data is purely uni-variate with no
+guaranteed links between series other than broad sampling category. This lack of temporal or other
+connections between observations makes the forecasting challenge more difficult for complex methods
+as the sample itself is the only representation of signal. Second, each series is not only variable length
+but at times very small for an appropriate input window into the output forecasting horizon.
+
+5. Data Preparation
+5.1 Validation Data Sets
+In time series analysis the prediction is defined as the most likely output given the series data. This
+means that to maximize the training data utilization we must use the latter part of our data for
+hold-out validation. We extracted the last OutputSize time steps from the end of our training set
+to create a validation set. Thus our data set takes the following form:
+
+T rain1...N −O∗2−1 , V alN −O∗2...N −O−1 , T estN −O...N
+Where O is the size of the forecast horizon and N is the length of the dataset.
+
+5
+
+(7)
+
+5.2 Series Length Equalization
+The series in the M4 data are variable length. To simplify the vectorization implementation, we
+equalize all series to a fixed length by frequency. We further disregard all series below that specific
+length. In Section 8, we discuss future work that will enable use of variable length series.
+Key in determining an appropriate length to equalize series is the trade-off between removing
+too many series as a result of setting the minimum length too high or removing too much series
+history by making the minimum length too low. Hence, we visualized a histogram of all frequency
+series’ length to understand what may be be best threshold by frequency. Table 3 shows statistics
+around series length in the M4 dataset.
+The heuristic we used to determine an appropriate threshold was one that maximized the data
+retention. This value usually fell somewhere in the second quartile. We used 72 as minimum series
+value for both quarterly and monthly time series frequencies. The cut-off value also provided several
+years of observed seasonality for both frequencies.
+
+Yearly
+Quarterly
+Monthly
+Weekly
+Daily
+Hourly
+
+Mean
+
+Std-Dev
+
+Min
+
+25%
+
+50%
+
+75%
+
+Max
+
+25
+84
+198
+1009
+2343
+805
+
+24
+51
+137
+707
+1756
+127
+
+7
+8
+24
+67
+79
+652
+
+14
+54
+64
+366
+309
+652
+
+23
+80
+184
+921
+2926
+912
+
+34
+107
+288
+1590
+4183
+912
+
+829
+858
+2776
+2584
+9905
+912
+
+Table 3: Frequency series length statistics
+After equalizing the series length within frequency our full set of data is as follows:
+T rainN −O∗2−C...N −O∗2−1 , V alN −O∗2...N −O−1 , T estN −O...N
+
+(8)
+
+Where C is the minimum length threshold.
+5.3 Data Windowing
+Prior to passing the data through the second, RNN layer defined in section 3.2. We perform a
+windowing over the dataset, normalizing and deseasonalizing using the output from the ES layer
+defined in section 3.1, as shown in Figure 2.
+In addition to the input window, we concatenate a one-hot representation of the time series
+category.
+
+6. Results
+Ever since the first M competition, simple models such as Exponential Smoothing (ES) and ARIMA
+have outperformed more complex ones – including machine learning. These type of models were also
+the benchmark for the M4 competition: a simple average of Simple, Holt and Damped ES models
+Makridakis et al. (2018) named Comb. The Comb model is a tough-to-beat benchmark, with a
+Rank of 19 in the M4 competition. Moreover, the second best submission by Hyndman (2018) in
+the M4 competition is a meta-learner that ensembles classical statistical model selection based on
+the R forecast package routines for automatic ARIMA, automatic ES, Theta, Naive, Seasonal Naive,
+Random Walk, TBATS from De Livera et al. (2010) and a shallow MLP.
+Table 4 shows the results of the ES-RNN model by Smyl et al. (2018), that of Hyndman (2018)
+and our implementation of Smyl et al. (2018)’s ES-RNN on the GPU. Furthermore, Table 5 shows
+6
+
+Figure 2: Time series normalization and deseasonalization as defined in Smyl et al. (2018)
+the running times of our implementation on the GPU and the running time of Smyl et al. (2018)
+on CPU. Note that for monthly data, Smyl et al. (2018) were running the algorithm of 6 pairs of 2
+workers and for quarterly data, 4 pairs of 2 workers were used.3 Finally, Table 6 breaks down the
+sMAPE achieved by our implementation in each of the frequencies (and corresponding models) for
+the six different data categories.
+Model
+Benchmark
+Smyl et al. (2018)
+Hyndman (2018)
+Our implementation
+
+Yearly
+
+sMAPE by Frequency
+Quarterly Monthly Average
+
+14.848
+13.176
+13.528
+14.42
+
+10.175
+9.679
+9.733
+10.09
+
+13.434
+12.126
+12.639
+10.81
+
+12.95
+11.76
+11.86
+11.50
+
+% improvement
+
+9.2%
+8.4%
+11.2%
+
+Table 4: Comparison of results to the M4 baseline model
+
+Time Period
+Yearly
+Quarterly
+Monthly
+
+Time taken for 15 epochs (mins)
+Smyl et al. (2018) Our implementation
+2880
+3600
+
+9.33
+8.94
+31.91
+
+Speed Improvement
+322x
+113x
+
+Table 5: Comparison of run-times for 15 epochs
+
+7. Discussion
+Most significant to this project is the increase in speed. We observe that our GPU implementation
+performs up to 322x faster on the quarterly dataset over the CPU approach. This speed up is driven
+3. We were not able to get the running time on yearly data from Smyl et al. (2018) at this time and we will update
+the table when we have their reports.
+
+7
+
+Data Category
+Demographic
+Finance
+Industry
+Macro
+Micro
+Other
+Overall
+
+Yearly
+
+Quarterly
+
+Monthly
+
+11.6
+15.86
+19.57
+15.68
+11.35
+14.33
+14.42
+
+10.78
+10.74
+7.44
+9.57
+11.63
+7.87
+10.1
+
+6.31
+11.58
+12.38
+12.45
+9.94
+12.51
+10.81
+
+Table 6: Breakdown of sMAPE by time period and category
+by the vectorized implementation, which enables batching and parallelization.4 Our implementation
+no longer requires running each time series data individually. As a result we could use batch sizes
+up to 2048 time series.
+As shown in Table 4, Smyl et al. (2018) achieved superior results over the yearly and quarterly
+time interval. However, for monthly data our implementation surpasses the original model and
+benchmark by a strong margin. We believe there are two possible reasons for such a result. First,
+the longer training times of the original implementation likely made iteration over the parameter
+space prohibitive. Second, the series length equalization discussed in Subsection 5.2 likely simplified
+the problem to the model in some instances and omitted harder, shorter sequences in others. Overall,
+our implementation has the lowest weighted sMAPE score due to the mentioned improvement on
+the monthly dataset.
+We are pleased to see that our implementation is close to the M4 implementation for most
+frequencies. However, the large disparity in scores achieved by Smyl et al. (2018) for the yearly
+dataset could be attributed to the original author’s use of attentive LSTM on top of the residual
+and dilated LSTM, which our current implementation does not include. Furthermore, Smyl et al.
+(2018) did not use any seasonality parameters for the yearly data which our implementation was
+not designed to handle.
+
+8. Future Work/Extensions
+8.1 Variable Length Series
+In section 5.2, we discussed how we equalized series length by frequency to simplify batch implementation. The next step is to support variable length series. This feature is critical as results both
+improve with the addition of more data and weaken as shorter series are introduced. The result of
+these competing effects will better inform whether batching is appropriate for this model structure
+We anticipate this feature will require the use of padded sequences together with masking just
+before the loss function aggregation. This mask will zero those gradients that are derived from
+padded observations outside the series’ real data. We recognize that there is risk to this approach
+as series reaches the frequency maximum length as padding will dramatically increase the number
+of required iterations when performing the exponential smoothing pre-processing. Therefore further development in this area may require a smaller batch size to hedge risk against unnecessary
+computation.
+4. Our implementation is in Pytorch, but is possible in any other deep learning framework with similar dynamic
+graph computation features.
+
+8
+
+8.2 Multiple Seasonality
+Smyl’s M4 submission uses more than one seasonality. This is particularly important in the hourly
+frequency as the data may follow both a 24 and 168- hour cycles. Gould et al. (2008) demonstrated
+that multiplicative multiple seasonality is achieved by maintaining a second set of seasonality smoothing and initial values, and when de-seasonalizing the data dividing by the corresponding seasonalities
+one-after-the-other.
+Secondarily, the model needs to be tuned to handle no seasonality in situations where no obvious
+cycle exists (i.e. yearly data).
+8.3 Hyper-parameter Tuning
+One major purpose of this work was to validate that the primary components of ES-RNN can
+be vectorized and ported to dynamic frameworks. As a result, we kept all of Smyl’s M4-winning
+parameters wherever possible. However, we don’t know which parameters were set out of necessity
+given the CPU training structure and which were actually tuned in preparation for the competition.
+For example, in the winning submission, the hidden size for all RNNs was no more than 50. As a
+result, our GPU utilization was very low relative to other deep learning tasks that are often tuned
+to values in the hundreds.
+8.4 Additional Penalization
+The M4-winning, DyNet/C++ model includes several layers of loss penalization that were not
+included in our work.
+First, as the RNN is modeling the series trend (i.e. the change in level from t to t + 1), the
+likelihood of over-fitting could be reduced by penalizing dramatic changes in the level. This change
+would causes the model to favor a smoother forecast over a more variant forecast ceteris paribus.
+Second, Krueger and Memisevic have shown that penalizing abrupt movements in the hidden
+state can encourage a model to be more stable over long forecast horizons. Rather than penalizing
+the change from t to t + 1, Smyl’s model penalized the average squared magnitude of the first layer’s
+cell state within each stack. These penalties applied to the internals of the model favor a model that
+will likely be more stable after appropriate training, and could improve ES-RNN performance.
+8.5 Additional Frequencies
+We built out vectorized, ES-RNN functionality for a subset of M4 competition dataset as a proof of
+concept, but our approach will hypothetically scale to other time series provided we overcome the
+challenges presented by section 8.2 as well as implement the other network structures Smyl used for
+the various frequencies shown in Figure 3
+Noteworthy differences between already the implemented quarterly and monthly frequencies and
+yearly, weekly, daily and hourly frequencies are the use of attention in yearly and weekly and the
+multiple seasonalities defined in hourly series. (Note: Daily is the same structure as quarterly and
+monthly).
+
+9. Conclusion
+In this project, we successfully implement the state-of-the-art ES-RNN algorithm in a fast, accessible,
+and generalizable forecasting framework. The main challenge we overcame was the training of
+per-time series parameters. This proved difficult due to the direct implementation of the original
+submission on a CPU. Our work focused on the vectorization of the per-time series parameters to
+enable GPU computation in a framework that supports eager execution (e.g. Pytorch). We obtained
+similar results to those of the original submission, but with orders of magnitude less training time.
+
+9
+
+Figure 3: NN Architecture by Smyl et al. (2018)
+We anticipate that our contribution will enable a strong adoption of state-of-the-art algorithms over
+univariate series, and facilitate the generalization of the model towards specific problems where
+covariates are available.
+
+References
+M Competition The M (Makridakis 4) Forecasting Competition. URL https://www.m4.unic.ac.
+cy/.
+George E. P. Box, Gwilym M. Jenkins, and Gregory C. Reinsel. Time series analysis : forecasting
+and control. John Wiley, 2008. ISBN 9781118619193.
+Robert B. Brown.
+Exponential Smoothing for Predicting Demand.
+industrydocumentslibrary.ucsf.edu/tobacco/docs/#id=jzlc0130.
+
+URL https://www.
+
+Shiyu Chang, Yang Zhang, Wei Han, Mo Yu, Xiaoxiao Guo, Wei Tan, Xiaodong Cui, Michael
+Witbrock, Mark Hasegawa-Johnson, and Thomas S Huang. Dilated Recurrent Neural Networks.
+Technical report. URL https://github.com/code-terminator/DilatedRNN.
+Alysha M De Livera, Rob J Hyndman, and Ralph D Snyder. Forecasting time series with complex
+seasonal patterns using exponential smoothing. Technical report, 2010. URL http://www.buseco.
+monash.edu.au/depts/ebs/pubs/wpapers/.
+Phillip G. Gould, Anne B. Koehler, J. Keith Ord, Ralph D. Snyder, Rob J. Hyndman, and Farshid
+Vahid-Araghi. Forecasting time series with multiple seasonal patterns. European Journal of
+Operational Research, 191(1):207–222, 11 2008. ISSN 0377-2217. doi: 10.1016/J.EJOR.2007.08.
+024. URL https://www.sciencedirect.com/science/article/pii/S0377221707008740?via%
+3Dihub.
+Rob Hyndman. M4: Forecasting Metalearning, 2018. URL https://github.com/robjhyndman/
+M4metalearning/blob/master/docs/metalearning_example.md.
+
+10
+
+Jaeyoung Kim, Mostafa El-Khamy, and Jungwon Lee. Residual LSTM: Design of a Deep Recurrent
+Architecture for Distant Speech Recognition. Technical report. URL https://arxiv.org/pdf/
+1701.03360.pdf.
+David Krueger and Roland Memisevic. REGULARIZING RNNS BY STABILIZING ACTIVATIONS. Technical report. URL https://arxiv.org/pdf/1511.08400.pdf.
+Nikolay Laptev, Jason Yosinski, Li Erran Li, and Slawek Smyl. Time-series Extreme Event
+Forecasting with Neural Networks at Uber. Technical report. URL http://roseyu.com/
+time-series-workshop/submissions/TSW2017_paper_3.pdf.
+Spyros Makridakis, Evangelos Spiliotis, and Vassilios Assimakopoulos. The M4 Competition:
+Results, findings, conclusion and way forward. International Journal of Forecasting, 34(4):
+802–808, 10 2018. ISSN 0169-2070. doi: 10.1016/J.IJFORECAST.2018.06.001. URL https:
+//www.sciencedirect.com/science/article/pii/S0169207018300785.
+Pankaj Malhotra, Vishnu TV, Lovekesh Vig, Puneet Agarwal, and Gautam Shroff. TimeNet: Pretrained deep recurrent neural network for time series classification. 6 2017. URL http://arxiv.
+org/abs/1706.08838.
+Yao Qin, Dongjin Song, Haifeng Chen, Wei Cheng, Guofei Jiang, and Garrison Cottrell. A DualStage Attention-Based Recurrent Neural Network for Time Series Prediction. 4 2017. URL
+http://arxiv.org/abs/1704.02971.
+Slawek Smyl, Jai Ranganathan, and Andrea Pasqua.
+Introducing a New Hybrid ES-RNN Model, 2018.
+m4-forecasting-competition/.
+
+M4 Forecasting Competition:
+URL https://eng.uber.com/
+
+Stack Overflow. Stack Overflow Developer Survey 2018, 2018. URL https://insights.
+stackoverflow.com/survey/2018/#most-popular-technologies.
+Ichiro Takeuchi, Quoc V Le, Timothy D Sears, and Alexander J Smola. Nonparametric Quantile
+Estimation. Technical report, 2006. URL http://www-stat.stanford.edu/ElemStatlearn.
+J. F. Torres, A. Troncoso, I. Koprinska, Z. Wang, and F. Martı́nez-Álvarez. Deep Learning for
+Big Data Time Series Forecasting Applied to Solar Power. pages 123–133. Springer, Cham,
+6 2019. doi: 10.1007/978-3-319-94120-2{\ }12. URL http://link.springer.com/10.1007/
+978-3-319-94120-2_12.
+Peter R. Winters and Peter R. Forecasting Sales by Exponentially Weighted Moving Averages.
+Management Science, 6(3):324–342, 4 1960. ISSN 0025-1909. doi: 10.1287/mnsc.6.3.324. URL
+http://pubsonline.informs.org/doi/abs/10.1287/mnsc.6.3.324.
+Fisher Yu and Vladlen Koltun. MULTI-SCALE CONTEXT AGGREGATION BY DILATED CONVOLUTIONS. Technical report. URL https://arxiv.org/pdf/1511.07122.pdf.
+
+11
+
+

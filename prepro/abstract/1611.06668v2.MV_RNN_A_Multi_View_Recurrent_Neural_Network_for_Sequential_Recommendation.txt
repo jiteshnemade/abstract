@@ -1,0 +1,19 @@
+sequential recommendation is a fundamental task for network applications, and it usually suffers from the item cold start
+problem due to the insufficiency of user feedbacks. there are currently three kinds of popular approaches which are respectively based
+on matrix factorization (mf) of collaborative filtering, markov chain (mc), and recurrent neural network (rnn). although widely used,
+they have some limitations. mf based methods could not capture dynamic user’s interest. the strong markov assumption greatly limits
+the performance of mc based methods. rnn based methods are still in the early stage of incorporating additional information. based
+on these basic models, many methods with additional information only validate incorporating one modality in a separate way. in this
+work, to make the sequential recommendation and deal with the item cold start problem, we propose a multi-view rrecurrent neural
+network (mv-rnn) model. given the latent feature, mv-rnn can alleviate the item cold start problem by incorporating visual and
+textual information. first, at the input of mv-rnn, three different combinations of multi-view features are studied, like concatenation,
+fusion by addition and fusion by reconstructing the original multi-modal data. mv-rnn applies the recurrent structure to dynamically
+capture the user’s interest. second, we design a separate structure and a united structure on the hidden state of mv-rnn to explore a
+more effective way to handle multi-view features. experiments on two real-world datasets show that mv-rnn can effectively generate
+the personalized ranking list, tackle the missing modalities problem and significantly alleviate the item cold start problem.
+index terms—multi-view, sequential recommendation, recurrent neural network, cold start
+
+f
+
+1
+

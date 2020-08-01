@@ -1,0 +1,17 @@
+convolutional neural networks (cnns) attained a
+good performance in hyperspectral sensing image (hsi) classification, but cnns consider spectra as orderless vectors. therefore,
+considering the spectra as sequences, recurrent neural networks
+(rnns) have been applied in hsi classification, for rnns is
+skilled at dealing with sequential data. however, for a longsequence task, rnns is difficult for training and not as effective as
+we expected. besides, spatial contextual features are not considered in rnns. in this study, we propose a shorten spatial-spectral
+rnn with parallel-gru (st-ss-pgru1 ) for hsi classification. a
+shorten rnn is more efficient and easier for training than bandby-band rnn. by combining converlusion layer, the st-sspgru
+model considers not only spectral but also spatial feature, which
+results in a better performance. an architecture named parallelgru is also proposed and applied in st-ss-pgru. with this
+architecture, the model gets a better performance and is more
+robust.
+index terms—deep learning, gated recurrent unit (gru), long
+short-term memory (lstm), recurrent neural networks (rnn),
+hyperspectral image classification
+
+i. 

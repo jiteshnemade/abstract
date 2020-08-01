@@ -1,0 +1,16 @@
+
+this paper develops the fastrnn and fastgrnn algorithms to address the twin
+rnn limitations of inaccurate training and inefficient prediction. previous approaches have improved accuracy at the expense of prediction costs making them
+infeasible for resource-constrained and real-time applications. unitary rnns
+have increased accuracy somewhat by restricting the range of the state transition matrix’s singular values but have also increased the model size as they require a larger number of hidden units to make up for the loss in expressive power.
+gated rnns have obtained state-of-the-art accuracies by adding extra parameters thereby resulting in even larger models. fastrnn addresses these limitations
+by adding a residual connection that does not constrain the range of the singular values explicitly and has only two extra scalar parameters. fastgrnn then
+extends the residual connection to a gate by reusing the rnn matrices to match
+state-of-the-art gated rnn accuracies but with a 2-4x smaller model. enforcing
+fastgrnn’s matrices to be low-rank, sparse and quantized resulted in accurate
+models that could be up to 35x smaller than leading gated and unitary rnns.
+this allowed fastgrnn to accurately recognize the "hey cortana" wakeword
+with a 1 kb model and to be deployed on severely resource-constrained iot microcontrollers too tiny to store other rnn models. fastgrnn’s code is available
+at [30].
+
+1 

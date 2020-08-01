@@ -1,0 +1,26 @@
+ with the advantages of high modeling accuracy
+and large bandwidth, recurrent neural network (rnn) based
+inversion model control has been proposed for output tracking.
+however, some issues still need to be addressed when using
+the rnn-based inversion model. first, with limited number
+of parameters in rnn, it cannot model the low-frequency
+dynamics accurately, thus an extra linear model has been
+used, which can become an interference for tracking control
+at high frequencies. moreover, the control speed and the rnn
+modeling accuracy cannot be improved simultaneously as the
+control sampling speed is restricted by the length of the rnn
+training set. therefore, this article focuses on addressing these
+limitations of rnn-based inversion model control. specifically,
+a novel modeling method is proposed to incorporate the linear
+model in a way that it does not affect the existing highfrequency control performance achieved by rnn. additionally,
+an interpolation method is proposed to double the sampling
+frequency (compared to the rnn training sampling frequency).
+analysis on the stability issues which may arise when the
+proposed new model is used for predictive control is presented
+along with the instructions on determining the parameters
+for ensuring the closed-loop stability. finally, the proposed
+approach is demonstrated on a commercial piezo actuator, and
+the experiment results show that the tracking performances can
+be significantly improved.
+
+i. 

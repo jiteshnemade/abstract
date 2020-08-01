@@ -1,0 +1,9 @@
+
+due to their prevalence, time series forecasting is crucial in multiple domains. we seek to make
+state-of-the-art forecasting fast, accessible, and generalizable. es-rnn is a hybrid between classical state space forecasting models and modern rnns that achieved a 9.4% smape improvement
+in the m4 competition. crucially, es-rnn implementation requires per-time series parameters.
+by vectorizing the original implementation and porting the algorithm to a gpu, we achieve up
+to 322x training speedup depending on batch size with similar results as those reported in the
+original submission. our code can be found at: https://github.com/damitkwr/esrnn-gpu
+
+1. 

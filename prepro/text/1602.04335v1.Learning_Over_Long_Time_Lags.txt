@@ -1,0 +1,1236 @@
+Learning Over Long Time Lags
+
+arXiv:1602.04335v1 [cs.NE] 13 Feb 2016
+
+Hojjat Salehinejad
+University of Ontario Institute of Technology
+hojjat.salehinejad@uoit.net
+
+Abstract
+The advantage of recurrent neural networks (RNNs) in learning dependencies between time-series data has
+distinguished RNNs from other deep learning models. Recently, many advances are proposed in this emerging
+field. However, there is a lack of comprehensive review on memory models in RNNs in the literature. This
+paper provides a fundamental review on RNNs and long short term memory (LSTM) model. Then, provides a
+surveys of recent advances in different memory enhancements and learning techniques for capturing long term
+dependencies in RNNs.
+Keywords: Long-short term memory, Long-term dependency, Recurrent neural networks, Time-series data.
+
+1. Introduction
+With the explosion of large data sets, known as “big data”, the conventional machine learning methods have
+hardship to process data for further processing and decision making tasks. The development of computational
+machines such as cluster computers and graphical processing units (GPUs) have facilitated advances in novel
+machine learning methods, such as deep neural networks (ANNs).
+The multi-layer perceptron artificial neural networks (MLP-ANNs) are promising methods for non-linear
+temporal applications [37]. Deep learning in neural networks is a representation technique with the ability of
+receiving input data and finding its representation for further processing and decision making. Such machines
+are made from non-linear but simple units, which can provide different levels of data representation through
+their multi-layer architecture. The higher layers provide a more abstract representation of data and suppresses
+irrelevant variations [33]. Many naturally occurring phenomena are complex and non-local sequences such as
+music, speech, or human motion are inherently sequential [7].
+Feed forward sequential memory networks (FSMN) model long term dependencies for time series data using
+feed forward neural networks (FFNNs). The memory blocks in FSMN use a short-term memory mechanism.
+These blocks in hidden layers use a tapped-delay line structure to encode the long context information into
+a fixed-size representation [63]. The modified version of FFNNs by adding recurrent connections is called
+recurrent neural networks (RNNs), which are capable of modelling sequential data for sequence recognition,
+sequence production, and time series prediction [3].
+The RNNs are made of high dimensional hidden states with non-linear dynamic [52]. The structure of
+hidden states work as the memory of network. The state of the hidden layer at a time is dependent on its state at
+previous time step [41]. This enables the RNNs to store, remember, and process past complex inputs for long
+time periods. The RNN can map an input sequence to the output sequence at the current time step and predict
+the sequence in the next time step. The speech processing and predicting the next term in a language modelling
+task are examples of this approach [32].
+Development of gradient descent-based optimization algorithms has provided a good opportunity for training RNN. The gradient descent is simple to implement and has accelerated practical achievements in developing
+RNNs [52]. However, gradient descent comes with some challenges and difficulties such as vanishing and exploding gradient problems, which are discussed in detail in the next sections.
+The ability to learn long term dependencies through time is the key factor that distinguishes RNNs from
+other deep learning models. This paper provides an overview in this emerging field with focus on the recent
+advances in memory models in RNNs. We believe this article can facilitate the research path for new comers as
+well as professionals in the filed.
+The rest of the paper overviews the conventional RNNs in Section 2 and a basic model of long-short term
+memory (LSTM) model in Section 3. Recent advances in LSTM are discussed in Section 4 and the structurally
+Preprint submitted to arxive.org as a draft. The author welcomes reader’s comments.
+
+February 16, 2016
+
+constrained RNNs are reviewed in Section 5. The gated recurrent unit and memory networks are discussed in
+Section 6 and 7, respectively. The paper is concluded in Section 8.
+2. Conventional Recurrent Neural Network
+y1
+
+Output Layer
+
+y1
+
+y2
+
+yP
+WHO
+
+Hidden Layer
+
+h1
+
+h2
+
+WHH
+
+h1
+
+h2
+
+hM
+
+x1
+
+hM
+
+x2
+
+xN
+
+yP
+WHO
+
+h1
+
+h2
+
+WHH
+hM
+
+y1
+
+y2
+
+x1
+
+x2
+
+t
+
+h1
+
+h2
+
+hM
+WIH
+
+xN
+
+x1
+
+t+1
+
+(a) Fodled SRNN.
+
+yP
+WHO
+
+WIH
+
+WIH
+Input Layer
+
+y2
+
+WHH
+
+x2
+t+2
+
+xN
+Time
+
+(b) Unfolded SRNN through time.
+
+Figure 1: A simple recurrent neural network (SRNN) and its unfolded structure through time. To keep the figure
+simple, biases are not shown.
+A RNN is a FFNN with recurrent cycles over time. A simple RNN (SRNN), also known as Elman network,
+refers to a one step RNN, [13], [39]. As it is illustrated in Figure 1a, a folded SRNN with one hidden layer
+has a recurrent loop over its hidden layer. As the learning procedure proceeds through time, the weight of this
+connection WHH updates at every step, Figure 1b. The RNNs are classified as supervised machine learning
+algorithms [6]. To train such learning machines, we need a training dataset such as X and a disjoint test dataset
+such as Z. The training and test sets are made of input-target pairs, where we train the network with the training
+set X and evaluate it with the test set Z. The objective of training procedure is to minimize the error between
+the input-target pairs by optimizing the weights of connections in the learning machine.
+2.1. Model Architecture
+A SRNN is made of three type of layers which are input, hidden, and output layers. Each layer is consisted
+of some units, as shown in Figure 1a. The input layer is consisted of N input units, defined as a sequence of
+vectors through time t. The vectors at each time-step {..., xt−1 , xt , xt+1 ...} are consisted of N elements such as
+xt = (x1 , x2 , ..., xN ). The input units are fully connected to hidden units in the hidden layer in a SRNN [44].
+The connections from input layer to hidden layer are defined with a weight matrix WIH . The hidden layer is
+consisted of M hidden units ht = (h1 , h2 , ..., hM ). As Figure 1b shows, the hidden units are connected to each
+other through time with recurrent connections. These units are initiated before training the machine, such that
+can address the network state before seeing the input sequences [21]. In practice, non-zero elements improve
+overall performance and stability of the learning machine [65]. The hidden layer structure (i.e. the memory of
+state space or “memory” of the system), is defined as:
+ht = fH (ot )
+
+(1)
+
+ot = WIH xt + WHH ht−1 + bh
+
+(2)
+
+where
+and fH (·) is the hidden layer activation function and bh is the bias vector of the hidden units1 . The hidden
+units are connected to the output layer with weighted connections WHO . The output layer has P units yt =
+(y1 , y2 , ..., yP ) which are computed as:
+yt = fO (WHO ht + bo )
+
+(3)
+
+where fO (·) is the activations functions and bo is the bias vector in the output layer. The input-target pairs are
+sequences through time and the above steps are repeated consequently over time t = (1, ..., T ).
+The RNNs are dynamic systems consisted of certain non-linear state equations, as in Eqs. (1) and (3). This
+dynamic system iterates through time and in each time-step, it receives the input vector and updates the current
+1 The hidden state model in Eq. 1 is sometimes mentioned as h = W
+t
+IH xt + WHH fH (ht−1 ) + bh , where both equations are
+equivalent
+
+2
+
+0.5
+
+0.5
+
+0.5
+
+0
+
+−0.5
+
+0
+
+−0.5
+
+−2
+
+0
+net
+
+2
+
+−1
+−4
+
+4
+
+(a) Linear.
+
+−0.5
+
+−2
+
+0
+net
+
+2
+
+−1
+−4
+
+4
+
+−2
+
+(b) Piecewise linear.
+1
+
+0.5
+
+0.5
+
+out
+
+1
+
+out
+
+0
+
+0
+
+0
+net
+
+2
+
+4
+
+2
+
+4
+
+(c) tanh(net).
+1
+0.8
+
+out
+
+−1
+−4
+
+out
+
+1
+
+out
+
+1
+
+out
+
+1
+
+0
+
+0.6
+0.4
+
+−0.5
+
+−0.5
+0.2
+
+−1
+−4
+
+−2
+
+0
+net
+
+(d) Threshold.
+
+2
+
+4
+
+−1
+−4
+
+−2
+
+0
+net
+
+2
+
+4
+
+0
+−4
+
+(e) sin(net) until saturation.
+
+−2
+
+0
+net
+
+(f) Logistic 1/(1+exp(-net)).
+
+Figure 2: Most common activation functions.
+hidden states. The updated values are then used to provide a prediction at the output layer. The hidden state of
+RNN is a set of values that summarizes all the unique necessary features about the past states of the machine
+over a number of time-steps. This integrated features help the machine to define future behaviour of the output
+parameters at the output layer, [52]. The non-linearity structure in each unit of the RNN is simple. This structure
+is capable of modelling rich dynamics, if it is well designed and trained with proper hyper-parameters setting.
+2.2. Activation Function
+The non-linear functions are more powerful than linear functions due to their ability to find non-linear
+boundaries. Such non-linearity in hidden layers of RNNs empowers them to learn input-target relationships.
+This is while multiple linear hidden layers act as a single linear hidden layer in linear models [21], [4], [23].
+Many activation functions are proposed in the literature. The hyperbolic tangent and logistic sigmoid function
+are the most popular ones which are defined as:
+tanh(x) =
+
+e2x − 1
+e2x + 1
+
+(4)
+
+and
+
+1
+,
+1 + e−x
+respectively. These two activation functions are equal as they are related such as:
+σ(x) =
+
+σ(x) =
+
+tanh(x/2) + 1
+.
+2
+
+(5)
+
+(6)
+
+The rectified linear unit (ReLU) is another type of activation function [5]. The ReLU computes the output
+as:
+y(x) = max(x, 0)
+
+(7)
+
+which leads to sparser gradients and faster training [62]. A S-shaped version of ReLU is recently proposed in
+[27] to learn both convex and non-convex function.
+Selection of activation function is mostly dependent on the application. For example for networks where
+the output is in the range [0, 1], the logistic sigmoid is suitable. Some of the most popular activation functions
+are sigmoid, tanh, and ReLU functions. The layout of some activation function is presented in Figure 2. The
+
+3
+
+sigmoid function is a common choice, which takes a real-value as input and squashes it to the range of [0, 1].
+The softmax function is normally used in the output layer for classification applications, where a cross-entropy
+approach is used for training. A detailed analyze of different activation functions is provided in [10].
+2.3. Loss Function
+This error in RNNs is defined by a loss function, that is generally a function of estimated output yt and the
+target value zt at time t:
+T
+X
+L(y, z) =
+Lt (yt , zt )
+(8)
+t=1
+
+which is an overall summation of losses in each time-step [51]. Some popular loss function are Euclidean
+distance, Hamming distance, and maximum-likelihood, where the proper loss function is mostly selected based
+on the application and nature of data sequence.
+2.4. Back-propagation through time (BPTT)
+Back-propagation through time (BPTT) is a generalization of back-propagation for FFNNs, [58]. This
+method is originated from optimal control theories such as Automatic differentiation in the reverse accumulation
+mode and Pontryagin’s minimum principle for optimal control of dynamical systems from one state to another
+under constraints [58]. The standard BPTT method for learning RNNs “unfolds” the network in time and
+propagates error signals backwards through time, Figure 1b.
+By considering the network parameters as the set θ = {WHH , WIH , WHO , bH , bI , bO } and ht as the
+hidden state of network at time t, we can write the gradients as:
+∂L X ∂Lt
+=
+.
+∂θ
+∂θ
+t=1
+T
+
+(9)
+
+The expansion of loss function gradients at time t is:
+X ∂Lt ∂ht ∂h+
+∂Lt
+.
+. k)
+=
+(
+∂θ
+∂ht ∂hk ∂θ
+t
+
+(10)
+
+k=1
+
+∂h+
+
+where ∂θk is the partial derivative (“immediate” partial derivative) which describes how the parameters in the
+set θ affect the loss function at the previous time steps (i.e. k < t). In order to transport the error through time
+from time step t back to time-step k we have:
+t
+Y
+∂ht
+∂hi
+=
+∂hk
+∂hi−1
+
+(11)
+
+i=k+1
+
+so that the above term can be seen as a Jacobian matrix for the hidden state parameters in Eq.(1) such as:
+t
+Y
+i=k+1
+
+t
+Y
+′
+∂hi
+=
+WTHH diag|fH (hi−1 )|
+∂hi−1
+
+(12)
+
+i=k+1
+
+′
+
+where the f (·) is the element-wise derivative of function f (·) and diag(·) is the diagonal matrix.
+2.5. Vanishing Gradient Problem
+The most popular method for optimizing connection weights with respect to the loss function is gradient
+descent. The gradients of RNN are computationally cheap, particularly with BPTT [59]. However, training
+RNNs using BPTT to compute error-derivatives has some challenges [32]. It backs to the unstable relationship
+between the dynamics and parameters of RNN that makes gradient descent ineffective.
+Training RNNs with gradient descent has some difficulties in learning long-range temporal dependencies
+[24], [3]. One reason is exponential decay of gradient while back-propagating through time, called vanishing
+gradient problem. The vanishing gradients problem refers to the exponential shrinking of gradients magnitude
+as they are propagated back through time [41]. This phenomena causes the memory to ignore long-term dependencies and hardly learn the correlation between temporally distant events. There are two reasons for that:
+4
+
+1) standard non-linear functions such as sigmoid function have a gradient which is almost everywhere close
+to zero; 2) the magnitude of gradient is multiplied repeatedly by the recurrent matrix as it is back-propagated
+through time [41]. In this case, when the eigenvalues of the recurrent matrix become less than one, the gradient
+converges to zero rapidly. This happens normally after 5∼10 steps of back-propagation [41].
+When the RNN is under training on long sequences (e.g. 100 time steps), the gradients shrink when the
+weights are small. Product of a set of real numbers can shrink/explode to zero/infinity, respectively. In algebra
+we have the same rule for the matrices instead of real numbers along some direction. By considering ρ as the
+spectral radius of the recurrent weight matrix WHH , in the case of long term components, it is necessary for
+′
+ρ > 1 to explode as t → ∞, [43]. Singular values can generalize it for to the non-linear function fH (·) in Eq.
+(1) by bounding it with γ ∈ R such as:
+′
+||diag(fH (hk ))|| ≤ γ.
+(13)
+By considering the bound in Eq. (13), Eq. (12), and the Jacobian matrix
+||
+
+∂hk+1
+∂hk
+
+′
+∂hk+1
+|| ≤ ||WTHH ||.||diag(fH (hk ))|| ≤ 1.
+∂hk
+
+for ∀k we have:
+(14)
+
+∂h
+
+|| ≤ δ < 1 such as δ ∈ R for each step k. By continuing it
+From the other side, we can consider || ∂hk+1
+k
+over different time steps and adding the loss function component we can have:
+∂Lt Y ∂hi+1
+∂Lt
+(
+)|| ≤ δ t−k ||
+||
+∂ht
+∂hi
+∂ht
+t−1
+
+||
+
+(15)
+
+i=k
+
+This equation shows that as t − k gets larger, the long-term dependencies move toward zero and the vanishing
+problem happens. Finally, we can see that the sufficient condition for the gradient vanishing problem to appear
+is that the largest singular value of the recurrent weights matrix WHH (i.e. λ1 ) satisfy λ1 < γ1 [43]. Pascanu
+and et. al. have analyzed the problem in more detail [43].
+2.6. Exploding Gradient Problem
+Another major problem in training RNN using BPTT is the exploding gradient problem [25], [3]. When
+the RNN is under training on long sequences (e.g. 100 time steps), the gradients explode when the weights are
+big. The exploding gradient problem refers to the explosion of long-term components due to the large increase
+in the norm of the gradient during training sequences with long-term dependencies. As it is stated in [43], the
+necessary condition for this problem to happen is λ1 > γ1 .
+In order to overcome the exploding vanishing problem, many methods have been proposed recently. In
+2012, Mikolov proposed a gradient norm-clipping method to avoid the exploding gradient problem [40], [38].
+This approach made it possible to train RNN models with simple tools such as BPTT and stochastic gradient
+descent on large datasets. In a similar approach, Pascanu has proposed an almost similar method to Mikolov,
+by introducing a hyper-parameter as threshold for norm-clipping the gradients whenever required [43]. This
+parameter can be set by heuristics, however, the training procedure is not very sensitive to that and behaves
+well for rather small thresholds [43]. The performance results on Penn Treebank dataset shows that as both the
+training and test error improve in general, the clipping gradients solves an optimization issue and does not act as
+a regularizer. Comparing to other models, this method can manage very abrupt changes in norm. The approach
+in [43] has presents a better theoretical foundation, however, both approaches behave similarly and perform as
+well as the Hessian-Free trained model [40], [38].
+3. Long-Short Term Memory
+The long-short term memory (LSTM) model was proposed in 1997 to deal with the vanishing gradient
+problem [26]. The LSTM model changes the structure of hidden units from logistic or tanh to memory cells.
+Gates control flow of information to hidden neurons by controlling inputs and outputs of memory cells. The
+gates are logistic units with learned weights on connections coming from the input and also the memory cells at
+the previous time-step [26].
+RNNs equipped with LSTM architecture struggle when receive very long data sequences. Process of such
+sequences is time consuming for LSTM model and places high demand of memory on the network. Many
+attempts with focus on LSTM have been made to increase its performance and speed. In a later version of
+
+5
+
+y1
+
+y2
+
+yP
+
+LSTM Memory
+Block 1
+
+x1
+
+LSTM Memory
+Block 2
+
+x2
+
+xN
+
+Figure 3: A LSTM network with N inputs, P outputs, and one hidden layer. The hidden layers is consisted of
+two LSTM memory blocks. For simplicity, only connections for the LSTM memory block 1 is shown.
+LSTM, a forget gate is added to the original structure. This gates learn weights to control the decay rate of
+analogue value stored in the memory cell [14], [15]. If the forget gate does not apply decay and the input and
+output gates are off during different time steps, the memory cell can hold its value. Therefore, the gradient of
+the error with respect to the memory value stays constant [32].
+Despite of major success of LSTM, this method suffers from high complexity in the hidden layer. For
+identical size of hidden layers, the LSTM has about four times more parameter than SRNN model [41]. This is
+understandable, since the objective at the time of proposing this method was to introduce any scheme that could
+learn long-range dependencies rather than to find the minimal or optimal scheme [32]. The other challenge that
+faces LSTM is learning long data sequences. This problem is partly met by developing multi-dimensional and
+grid LSTM networks, which are discussed in the next section.
+The LSTM method has achieved impressive performance in learning long-range dependencies for hand
+writing recognition [19], handwriting generation [16], sequence to sequence mapping [53], speech recognition
+[20], [17], and phoneme classification [18].
+3.1. Standard LSTM Architecture
+A LSTM network with two memory cells is presented in Figure 3, [26]. This network has N inputs, P
+outputs, and one hidden layer (i.e. consisted of the memory cells). Each memory cell is consisted of four inputs
+but one output, Figure 4. A typical LSTM cell is made of input, forget, and output gates and a cell activation
+component [26]. This units receive the activation signals from different sources and control the activation of the
+cell by the designed multipliers. The LSTM gates can prevent the rest of the network from changing the value
+of the memory cells for multiple time-steps. Therefore, LSTM model can preserve signals and propagate errors
+for much longer than SRNNs. Such properties allow LSTM networks to process complex data with separated
+interdependencies. The forget gate multiplies the previous state of the cell. This is while the input and output
+of the cell are multiplied by the input and output gates [21]. The cell does not use any activation function. The
+gate activation function is usually the logistic sigmoid function. Therefore, the gate activations behave between
+zero and one which represent gate close and gate open, respectively [21]. The cell input and output activation
+functions are usually tanh or logistic sigmoid. In some cases the cell activation gate’s function is the identity
+function.
+The input gate in LSTM is defined as [26]:
+c
+gti = σ(WIgi xt + WHgi ht−1 + Wgc gi gt−1
++ bg i )
+
+(16)
+
+where WIgi is the weight matrix from the input layer to the input gate, WHgi is the weight matrix from hidden
+state to the input gate, Wgc gi is the weight matrix from cell activation to the input gate, and bgi is the bias of
+the input gate. The forget gate is defined as:
+c
+gtf = σ(WIgf xt + WHgf ht−1 + Wgc gf gt−1
++ bg f )
+
+(17)
+
+where WIgf is the weight matrix from the input layer to the forget gate, WHgf is the weight matrix from
+6
+
+ff( )
+
+output gate
+fh( )
+
+forget gate
+
+cell
+
+ff( )
+
+ff( )
+
+input gate
+fg( )
+
+Figure 4: The LSTM memory block with one cell.
+hidden state to the forget gate, Wgc gf is the weight matrix from cell activation to the forget gate, and bgf is the
+bias of the forget gate. The cell gate is defined as:
+c
+gtc = gti tanh(WIgc xt + WHgc ht−1 + bgc ) + gtf gt−1
+
+(18)
+
+where WIgc is the weight matrix from the input layer to the cell gate, WHgc is the weight matrix from hidden
+state to the cell gate, and bgc is the bias of the cell gate. The output gate is defined as:
+gto = σ(WIgo xt + WHgo ht−1 + Wgc go gtc + bgo )
+
+(19)
+
+where WIgo is the weight matrix from the input layer to the output gate, WHgo is the weight matrix from
+hidden state to the output gate, Wgc go is the weight matrix from cell activation to the output gate, and bgo is the
+bias of the output gate. The hidden state is computed as:
+ht = gto tanh(gtc ).
+
+(20)
+
+4. Advances in Long-Short Term Memory
+In this section, we discuss recent advances in developing LSTM-based models and other mechanisms for
+learning long term dependencies of data.
+4.1. S-LSTM
+The S-LSTM model is designed to overcome the gradient vanishing problem and learn longer term dependencies from input, compared to the LSTM network. A S-LSTM network is made of S-LSTM memory blocks
+and works based on a hierarchical structure. A typical memory block is made of input and output gates. In
+this tree structure, the memory of multiple descendant cells over time periods are reflected on a memory cell
+recursively. Refer to [64] for more details about S-LSTM memory cell.
+The S-LSTM learns long term dependencies over the input by considering information from long-distances
+on the tree (i.e. branches) to the principal (i.e. root). In practice, a gating signal is working in the range of [0,1],
+enforced with a logistic sigmoid function.
+The S-LSTM method can achieve competitive results comparing with the recursive and LSTM model. However, its performance is not not compared with other state of the art LSTM models. The S-LSTM model has the
+potential of extension to other LSTM models.
+4.2. Stacked LSTM
+Stack of multiple layers in FFNNs results in a deep FFNN. The same idea is applicable to LSTMs by
+stacking different hidden layers of hidden layers with LSTM cells in space [20]. This deep structure of LSTM
+increases the network capacity [20], [28]. In stacking, the same hidden layer in Eq. (1) is used but for L layers
+such as:
+hlt = fH (WI l−1 H l htl−1 + WHl Hl hlt−1 + blh )
+(21)
+7
+
+y(t-1)
+
+y(t)
+
+y(t+1)
+
+h(t-1)
+
+h(t)
+
+h(t+1)
+
+h(t-1)
+
+h(t)
+
+h(t+1)
+
+x(t-1)
+
+x(t)
+
+x(t+1)
+
+Figure 5: Unfolded through time bi-directional recurrent neural network (BRNN).
+where the hidden vector sequence hl is computed over time t = 1, ..., T for l = 1, ..., L. The initial hidden
+vector sequence is defined using the input sequences h0 = (x1 , ..., xT ) [20]. The output of network is then
+computed as:
+yt = fO (WH L O hL
+t + b0 )
+
+(22)
+
+Combination of stack of LSTM layers with different RNN structures for different applications needs investigation. One example is combination of stack of LSTM layers with frequency domain convolutional neural
+networks [1], [20].
+In stacked LSTM a stack pointer can determine which cell in the LSTM provides state and memory cell
+of previous time step [11]. In such control structure for sequence to sequence neural networks, not only the
+controller can push to and pop from the top of the stack in constant time but also an LSTM maintain a continuous
+space embedding of the stack contents [11], [2].
+4.3. Bidirectional LSTM
+The conventional RNNs are only considering previous context for training. This is while in many applications such as speech recognition it is useful to explore the future context as well [20]. Bidirectional RNNs
+(BRNNs) utilize two separate hidden layers at each time step. The network processes input sequence once in
+the forward direction and once in the backward direction as presented in Figure 5.
+→
+
+←
+
+In Figure 5, the forward and backward hidden sequences are denoted by h t and h t at time t, respectively.
+The forward hidden sequence is computed as:
+→
+
+→
+
+ht = fH (W
+
+→
+
+IH
+
+xt + W→→ h t−1 + b→ )
+HH
+
+h
+
+(23)
+
+where it is iterated over t = 1, ..., T . The backward layer is:
+←
+
+←
+
+ht = fH (W
+
+←
+
+IH
+
+xt + W←← h t−1 + b← )
+HH
+
+h
+
+(24)
+
+which is iterated over time t = T, ..., 1 (i.e. backward over time). The output sequence yt at time t is computed
+as:
+→
+←
+yt = W→ ht + W← ht + bo .
+(25)
+HO
+
+HO
+
+BPTT is one option to train BRNNs, however, the forward and backward pass operation is slightly more
+complicated because the update of state and output neurons can no longer be done one at a time [47]. The other
+shortcoming of such networks is their design for input sequences with known starts and ends, such as spoken
+sentences to be labelled by their phonemes [47], [46].
+It is possible to increase capacity of BRNNs by developing its hidden layers in space using stack hidden
+layers with LSTM cells, called deep bidirectional LSTM (BLSTM) [20]. Bidirectional LSTM networks are
+more powerful than unidirectional ones [18].
+BLSTM RNN theoretically associates all information of input sequence during computation. The distributed
+representation feature of BLSTM is crucial for different applications such as language understanding [57].
+
+8
+
+A model is proposed in [12] to detect steps and estimate the correct step length for location estimation and
+navigation applications.
+The sliding window approach in [42] allows online recognition as well as frame wise randomization for
+speech transcription applications. It results in faster and more stable convergence [42].
+4.4. Multidimensional LSTM
+The classical LSTM model has a single self connection which is controlled by a single forget gate. Its activation is considered as one dimensional LSTM. The multi-dimensional LSTM (MDLSTM) uses interconnection
+from previous state of cell to extend the memory of LSTM along every N dimensions [22], [19].
+The MNLSTM receives inputs in a N-dimensional arrangement (e.g. an image). Hidden state vectors
+h1 , ..., hN and memory vectors m1 , ..., mN are fed to each input of the array from the previous state for each
+dimension. The memory vector at each step t is computed as:
+m=
+
+N
+X
+
+gjf ⊙ mj + gju ⊙ gjc
+
+(26)
+
+j=1
+
+where the gates are computed using Eq.(16) to Eq.(20).
+Spatial LSTM (SLSTM) is a particular case of MDLSTM [54]. SLSTM is a two-dimensional grid for image
+modelling. This model generates hidden state vector for a particular pixel by sequentially reading the pixels in
+its small neighbourhood [54]. The state of the pixel is generated by feeding the state hidden vector into a
+factorized mixture of conditional Gaussian scale mixtures (MCGSMs) [54].
+4.5. Grid LSTM
+The MDLSTM model becomes unstable, as the gird size and LSTM depth in space grows. The grid LSTM
+model provides a solution by altering the computation of output memory vectors. This method targets deep
+sequential computation of multi-dimensional data. The model connects LSTM cells along the spatio-temporal
+dimensions of input data and between the layers.
+Unlike the MDLSTM model, the block computes N transforms and outputs N hidden state vectors and N
+memory vectors. The hidden sate vector for dimension j is:
+′
+
+hj = LST M (H, mj , Wju , Wjf , , Wjo , Wjc )
+
+(27)
+
+where LST M is the standard LSTM procedure and H is concatenation of input hidden state vectors:
+H = [h1 , ..., hN ]T .
+
+(28)
+
+A two-dimension grid LSTM network adds LSTM cells along the spatial dimension to a stacked LSTM. A
+three or more dimensional LSTM, is similar to MSLSTM, but has added LSTM cells along the spatial depth and
+performs N -way interaction. More details on grid LSTM are provided in [28]. A key advantage of grid LSTM
+is that its depth, size of short-term memory, and number of parameters are not confounded and independently
+tunable. This is while number of parameters in LSTM grows quadratically with the size of its short term memory
+[31].
+4.6. Differential Recurrent Neural Networks
+The gates in conventional LSTM indecisively consider the dynamic structure of input sequences. This results
+in not capturing importance of spatio-temporal dynamic patters in noticeable motion patterns [56]. Differential
+RNN (dRNN) refers to detecting and capturing of important spatio-temporal sequences to learn dynamics of
+actions in input, [56]. Such LSTM gate monitors alternations in information gain of important motions between successive frames. This change of information is detectable by computing the derivative of hidden states
+(DoS) at time step t such as ∂dht /∂dt. A large DoS reveals sudden change of actions state. This means the
+spatio-temporal structure contains informative dynamics. In this situation, the gates in Figure 6 allow flow of
+information to update the memory cell. Small DoS keeps protects the memory cell from any affect by the input.
+To be more specific, the unit controls the input gate unit as:
+R
+(r)
+X
+ht−1
+(r) ∂
++ Wgi O yt−1 + Wgi I xt + bgi ),
+gti = σ(
+Wg i d
+∂t(r)
+r=0
+
+9
+
+(29)
+
+z(t-1)
+x(t)
+
+z(t)
+
+(t)
+
+s
+dns(t-1)
+dtn
+
+i(t)
+
+dns(t)
+dtn
+
+o(t)
+
+f(t)
+
+Figure 6: Architecture of the dRNN model at time t. The input gate i and the forget gate f are controlled by the
+DoS at times t − 1 and t respectively.
+the forget gate unit as:
+R
+(r)
+X
+ht−1
+(r) ∂
+gtf = σ(
+Wg f d
++ Wgf O yt−1 + Wgf I xt + bgf ),
+(r)
+∂t
+r=0
+
+(30)
+
+and the output gate unit as
+R
+(r)
+X
+ht
+(r) ∂
+gto = σ(
+Wgo d (r) + Wgo O yt−1 + Wgo I xt + bgo )
+∂t
+r=0
+
+(31)
+
+where the DoS has an upper order limit of R. Training of dRNNs is performed using BPTT. This model is
+examined for 1-order and 2-order dRNNs, where better performance is reported compared with the conventional
+LSTM on the MSR Action3D dataset. However, more experiments for different application is necessary. The
+DoS seems to be a valuable intelligence about structure of input sequence.
+An other version of differential RNNs (DRNNs) is proposed in [8], to learn the dynamics described by the
+differential equations. However, this method is not based on LSTM cells.
+4.7. Highway Networks
+The idea behind highway networks is to facilitate training of very deep neural networks using an adaptive
+gating method. This kind of LSTM inspired network helps unlimited information flow across many layers on
+information paths (highways), [49]. A key contribution is training of very deep highway networks with SGD.
+Plain networks (i.e. networks that apply non-liner transform on its input) are hard to optimize in large depths
+[49]. Despite plain networks, specific non-linear transformations and derivation of a suitable initialization
+scheme is not essential in highway networks [49].
+The high networks could successfully train FFN with up to 900 layers of depth [49]. Experimental results
+show well generalization of highway networks to unseen data.
+The highway networks along with convolutional neural networks (CNNs) are examined for neural language
+modelling in [29]. The results show that using more than two highway layers does not improve the performance.
+One of the challenges is using appropriate number of layers with respect to the input data size.
+4.8. Other LSTM Models
+The local-global LSTM (LG-LSTM) architecture is initially proposed for semantic object parsing [36]. The
+objective is to improve exploitation of complex local (i.e. neighbourhood of a pixel) and global (i.e. whole
+image) contextual information on each position of an image. The current version of LG-LSTM has appended
+a stack of LSTM layers to intermediate convolutional layers. This technique directly enhances visual features
+and allows an end-to-end learning of network parameters [36]. Performance comparison of LG-LSTM with a
+variety of CNN models on three public datasets show high test scores [36]. It is expected that by this model can
+achieve more success by replacing all convolutional layers with LG-LSTM layers.
+The matching LSTM (mLSTM) is initially proposed for natural language inference. The matching mechanism stores (remembers) the critical results for the final prediction and forgets the less important matchings
+10
+
+y(t)
+h(t)
+
+R
+
+s(t)
+
+α
+
+x(t)
+Figure 7: Recurrent neural network with context features (longer memory).
+[57]. The last hidden state of the mLSTM is useful to predict the relationship between the premise and the
+hypothesis. The difference with other methods is that instead of a whole sentence embeddings of the premise
+and the hypothesis, the sLSTM performs a word-by-word matching of the hypothesis with the premise [57].
+The proposed model in [34] considers the recurrence in both time and frequency, named F-T-LSTM. This
+model generates a summary of the spectral information by scanning the frequency bands using a frequency
+LSTM. Then, it feeds the output layers activations as inputs to a LSTM. The formulation of frequency LSTM
+is similar to the time LSTM [34].
+A convolutional LSTM (ConvLSTM) model with convolutional structures in both the input-to-state and
+state-to-state transitions for precipitation now-casting is proposed in [48]. This model uses a stack of multiple
+ConvLSTM layers to construct an end-to-end trainable model [48].
+5. Structurally Constrained Recurrent Neural Networks
+The fact that the state of the hidden units changes fast at every time-step is used to propose a novel approach
+to overcome vanishing gradient descent problem by learning longer memory and learn contextual features using stochastic gradient descent, called structurally constrained recurrent network (SCRN) [41], Figure 7. In
+this approach, the SRN structure is extended by adding a specific recurrent matrix equal to identity to detect
+longer term dependencies. The fully connected recurrent matrix (called hidden layer) produces a set of quickly
+changing hidden units while the diagonal matrix (called context layer) support slow change of the state of the
+context units [41]. In this way, state of the hidden layer stays static and changes are fed from external inputs.
+Even-though this model can prevent gradient of the recurrent matrix vanishing, but is not efficient in training
+[41]. In this model, for a dictionary of size d, st is the state of the context units which is defined as:
+st = (1 − α)Bxt + αst−1
+
+(32)
+
+where α is the context layer weight, normally set to 0.95, Bd×s is the context embedding matrix, and xt is the
+input. The hidden layer is defined as:
+ht = σ(P st + Axt + Rht−1 )
+
+(33)
+
+where Ad×m is the token embedding matrix, Pp×m is the connection matrix between hidden and context layers,
+Rm×m is the hidden layer (ht−1 ) weights matrix, and σ(.) is the sigmoid functions defined as:
+1
+.
+1 + exp(x)
+
+(34)
+
+yt = f (U ht + V st )
+
+(35)
+
+σ(x) =
+Finally, the output yt is defined as:
+
+where f is the soft-max function, U and V are the output weight matrices of hidden and context layers, respectively. It is interesting that there is no non-linearity applied to the state of the context units in this model.
+
+11
+
+C
+
+h
+
+h
+C
+
+Input
+Output
+
+Figure 8: Gated recurrent unit (GRU).
+In adaptive context features the weights of the context layer are learned for each unit to capture context from
+different time delays. The analysis shows as long as the standard hidden layer is utilized in the model, learning
+of the self-recurrent weights does not seem to be important. This is while fixing the weights of the context
+layer to be constant, forces the hidden units to capture information on the same time scale. The SCRN model
+is evaluated on Penn Treebank dataset. The presented results in [41] show that the SCRN method has bigger
+gains over stronger baseline comparing to the proposed model in [5]. Also, the learning longer memory model
+claims that it has similar performance, but with less complexity, comparing to the LSTM model [41].
+Although the SCRN model can prevent gradient of the recurrent matrix vanishing, but is not efficient in
+training. The analyze of using adaptive context features, where the weights of the context layer are learned for
+each unit to capture context from different time-delays, shows that learning of the self-recurrent weights does
+not seem to be important, as long as one uses also the standard hidden layer in the model [41]. This is while
+fixing the weights of the context layer to be constant, forces the hidden units to capture information on the same
+time scale.
+6. Gated Recurrent Unit
+A gated recurrent unit (GRU) is proposed in [9] to make each recurrent unit to adaptively capture dependencies of different time scales. Both the LSTM unit and the GRU utilize gating units. These units without
+using a separate memory cell modulate the flow of information inside the unit [? ]. Block diagram of a GRU is
+presented in Figure 8. The activation in a GRU is linearly modelled as:
+ht = (1 − zt )ht−1 + zt h̃t
+
+(36)
+
+zt = σ(Wz xt + Uz gt−1 ).
+
+(37)
+
+where the update gate zt is defined as:
+
+The update gate controls update value of the activation. The candidate activation is computed as
+h̃t = tanh(Wxt + U (rt ⊙ ht−1 ))
+
+(38)
+
+where rt is a set of rest gates computed as:
+rt = σ(Wr xt + Ur ht−1 )
+
+(39)
+
+where it allows the unit to forget the previous state by reading the first symbol of an input sequence.
+Similar to LSTM, the GRU computes a linear sum between the existing state and the newly computed state;
+however, the GRU exposes the whole state at each time step [9].
+The graph neural networks (GNNs) are proposed for feature learning of graph-structured inputs [45], [35].
+The GRU is used in [35] to modify the graph neural networks, called gated graph sequence neural networks
+(GGS-NNs). This modified version of GNN unrolls the recurrence for a fixed number of steps and uses BPTT
+in order to compute gradients [35].
+
+12
+
+7. Memory Networks
+The conventional RNNs have small memory size to store and remember facts from past inputs [60], [61].
+Memory networks (MemNNs) utilizes successful learning methods for inference with a readable and writable
+memory component. A MemNN is consisted of input, response, generalization, and output feature map components [60], [30]. This networks is not easy to train using backpropagation and requires supervision at each layer
+[50]. A less supervision oriented version of MemNNs is end-to-end MemNNs, which can be trained end-to-end
+from input-output pairs [50]. It generates an output after a number of time-steps and the intermediary steps use
+memory input/output operations to update the internal state [50]. The MemNN is a promising research pathway
+and needs for establishment.
+Recurrent memory network (RMN) takes advantage of the LSTM as well as memory network [55]. The
+memory block takes the hidden state of the LSTM and compares it to the most recent inputs using an attention
+mechanism. The RMN algorithm analyses the attention weights of trained model and extracts knowledge from
+the retained information in the LSTM over time [55]. This model is developed for language modelling and is
+tested on three large datasets. The results show performance of the algorithm versus LSTM model, however, it
+needs more development.
+The episodic memory is inspired from semantic and episodic memories, which are necessary for complex
+reasoning in brain [30]. The episodic memory is named as the memory of the dynamic memory network
+framework developed for natural language processing [30]. The memory refers to the generated representation
+from some facts. The facts are retrieved from the inputs conditioned on the question. This results in a final
+representation by reasoning on the facts. The module performs several passes over the facts, while focusing on
+different facts. The output of each pass is called an episode, which is summarized into the memory [30].
+A relevant work to MemNNs is the dynamic memory networks (DMNs). The MemNNs in [60] focus on
+adding a memory component for natural language question answering [30]. The generalization and output
+feature map parts of the MemNNs have some similar functionalities with the episodic memory in DMSs. The
+MemNNs process sentences independently [30]. This is while the DMSs process sentences via a sequence
+model [30]. The performance results on the Facebook bAbI dataset show the DMN passes 18 task with accuracy
+of more than %95 while the MemNN passes 16 tasks [30].
+8. Conclusion
+One of the main advances in RNNs is the long short term memory (LSTM) model. This model could
+enhance learning long term dependencies in RNNs drastically. The LSTM model is the core of many developed
+models in RNNs, such as in bidirectional RNNs and grid RNNs. In addition to the introduced potential further
+research pathways in the paper, other research models are under development using memory networks and gates
+recurrent units. These models are recent and need further development in core structure as well as for specific
+applications. The primary results on different tasks show promising performance of these models.
+References
+[1] Abdel-Hamid O, Mohamed Ar, Jiang H, Penn G (2012) Applying convolutional neural networks concepts
+to hybrid nn-hmm model for speech recognition. In: Acoustics, Speech and Signal Processing (ICASSP),
+2012 IEEE International Conference on, IEEE, pp 4277–4280
+[2] Ballesteros M, Dyer C, Smith NA (2015) Improved transition-based parsing by modeling characters instead of words with lstms. arXiv preprint arXiv:150800657
+[3] Bengio Y, Simard P, Frasconi P (1994) Learning long-term dependencies with gradient descent is difficult.
+Neural Networks, IEEE Transactions on 5(2):157–166
+[4] Bengio Y, LeCun Y, et al (2007) Scaling learning algorithms towards ai. Large-scale kernel machines 34(5)
+[5] Bengio Y, Boulanger-Lewandowski N, Pascanu R (2013) Advances in optimizing recurrent networks. In:
+Acoustics, Speech and Signal Processing (ICASSP), 2013 IEEE International Conference on, IEEE, pp
+8624–8628
+[6] Bishop CM (2006) Pattern recognition and machine learning. springer
+
+13
+
+[7] Boulanger-Lewandowski N, Bengio Y, Vincent P (2012) Modeling temporal dependencies in highdimensional sequences: Application to polyphonic music generation and transcription. arXiv preprint
+arXiv:12066392
+[8] Cao Y, Jin Y, Kowalczykiewicz M, Sendhoff B (2008) Prediction of convergence dynamics of design
+performance using differential recurrent neural networks. In: Neural Networks, 2008. IJCNN 2008.(IEEE
+World Congress on Computational Intelligence). IEEE International Joint Conference on, IEEE, pp 528–
+533
+[9] Cho K, van Merriënboer B, Bahdanau D, Bengio Y (2014) On the properties of neural machine translation:
+Encoder-decoder approaches. arXiv preprint arXiv:14091259
+[10] Duch W, Jankowski N (1999) Survey of neural transfer functions. Neural Computing Surveys 2(1):163–
+212
+[11] Dyer C, Ballesteros M, Ling W, Matthews A, Smith NA (2015) Transition-based dependency parsing with
+stack long short-term memory. arXiv preprint arXiv:150508075
+[12] Edel M, Koppe E (2015) An advanced method for pedestrian dead reckoning using blstm-rnns. In: Indoor
+Positioning and Indoor Navigation (IPIN), 2015 International Conference on, IEEE, pp 1–6
+[13] Elman JL (1990) Finding structure in time. Cognitive science 14(2):179–211
+[14] Gers FA, Schmidhuber J, Cummins F (2000) Learning to forget: Continual prediction with lstm. Neural
+computation 12(10):2451–2471
+[15] Gers FA, Schraudolph NN, Schmidhuber J (2003) Learning precise timing with lstm recurrent networks.
+The Journal of Machine Learning Research 3:115–143
+[16] Graves A (2013) Generating sequences with recurrent neural networks. arXiv preprint arXiv:13080850
+[17] Graves A, Jaitly N (2014) Towards end-to-end speech recognition with recurrent neural networks. In:
+Proceedings of the 31st International Conference on Machine Learning (ICML-14), pp 1764–1772
+[18] Graves A, Schmidhuber J (2005) Framewise phoneme classification with bidirectional lstm and other
+neural network architectures. Neural Networks 18(5):602–610
+[19] Graves A, Schmidhuber J (2009) Offline handwriting recognition with multidimensional recurrent neural
+networks. In: Advances in Neural Information Processing Systems, pp 545–552
+[20] Graves A, Mohamed Ar, Hinton G (2013) Speech recognition with deep recurrent neural networks. In:
+Acoustics, Speech and Signal Processing (ICASSP), 2013 IEEE International Conference on, IEEE, pp
+6645–6649
+[21] Graves A, et al (2012) Supervised sequence labelling with recurrent neural networks, vol 385. Springer
+[22] Graves FS Alex, Schmidhuber J (2007) Multi-dimensional recurrent neural networks. arXiv preprint
+arXiv:arXiv:07052011v1
+[23] Hinton GE, Osindero S, Teh YW (2006) A fast learning algorithm for deep belief nets. Neural computation
+18(7):1527–1554
+[24] Hochreiter S (1991) Untersuchungen zu dynamischen neuronalen netzen. Diploma, Technische Universität
+München
+[25] Hochreiter S (1998) The vanishing gradient problem during learning recurrent neural nets and problem
+solutions. International Journal of Uncertainty, Fuzziness and Knowledge-Based Systems 6(02):107–116
+[26] Hochreiter S, Schmidhuber J (1997) Long short-term memory. Neural computation 9(8):1735–1780
+[27] Jin X, Xu C, Feng J, Wei Y, Xiong J, Yan S (2015) Deep learning with s-shaped rectified linear activation
+units. arXiv preprint arXiv:151207030
+
+14
+
+[28] Kalchbrenner N, Danihelka I, Graves A (2015) Grid long short-term memory. arXiv preprint
+arXiv:150701526
+[29] Kim Y, Jernite Y, Sontag D, Rush AM (2015) Character-aware neural language models. arXiv preprint
+arXiv:150806615
+[30] Kumar A, Irsoy O, Su J, Bradbury J, English R, Pierce B, Ondruska P, Gulrajani I, Socher R (2015) Ask me
+anything: Dynamic memory networks for natural language processing. arXiv preprint arXiv:150607285
+[31] Kurach K, Andrychowicz M, Sutskever I (2015) Neural random-access machines. arXiv preprint
+arXiv:151106392
+[32] Le QV, Jaitly N, Hinton GE (2015) A simple way to initialize recurrent networks of rectified linear units.
+arXiv preprint arXiv:150400941
+[33] LeCun Y, Bengio Y, Hinton G (2015) Deep learning. Nature 521(7553):436–444
+[34] Li J, Mohamed A, Zweig G, Gong Y (2015) Lstm time and frequency recurrence for automatic speech
+recognition
+[35] Li Y, Tarlow D, Brockschmidt M, Zemel R (2015) Gated graph sequence neural networks. arXiv preprint
+arXiv:151105493
+[36] Liang X, Shen X, Xiang D, Feng J, Lin L, Yan S (2015) Semantic object parsing with local-global long
+short-term memory. arXiv preprint arXiv:151104510
+[37] Mahdavi-Jafari S, Salehinejad H, Talebi S (2008) A pistachio nuts classification technique: An ann based
+signal processing scheme. In: Computational Intelligence for Modelling Control & Automation, 2008
+International Conference on, IEEE, pp 447–451
+[38] Mikolov T, Zweig G (2012) Context dependent recurrent neural network language model. In: SLT, pp
+234–239
+[39] Mikolov T, Kombrink S, Burget L, Černockỳ JH, Khudanpur S (2011) Extensions of recurrent neural
+network language model. In: Acoustics, Speech and Signal Processing (ICASSP), 2011 IEEE International
+Conference on, IEEE, pp 5528–5531
+[40] Mikolov T, Sutskever I, Deoras A, Le HS, Kombrink S, Cernocky J (2012) Subword language modeling
+with neural networks. preprint (http://www fit vutbr cz/imikolov/rnnlm/char pdf)
+[41] Mikolov T, Joulin A, Chopra S, Mathieu M, Ranzato M (2014) Learning longer memory in recurrent
+neural networks. arXiv preprint arXiv:14127753
+[42] Mohamed Ar, Seide F, Yu D, Droppo J, Stolcke A, Zweig G, Penn G (2015) Deep bi-directional recurrent
+networks over spectral windows. ASRU
+[43] Pascanu R, Mikolov T, Bengio Y (2012) On the difficulty of training recurrent neural networks. arXiv
+preprint arXiv:12115063
+[44] Pouladi F, Salehinejad H, Gilani AM (2015) Deep recurrent neural networks for sequential phenotype
+prediction in genomics. arXiv preprint arXiv:151102554
+[45] Scarselli F, Gori M, Tsoi AC, Hagenbuchner M, Monfardini G (2009) The graph neural network model.
+Neural Networks, IEEE Transactions on 20(1):61–80
+[46] Schuster M (1999) On supervised learning from sequential data with applications for speech recognition.
+Daktaro disertacija, Nara Institute of Science and Technology
+[47] Schuster M, Paliwal KK (1997) Bidirectional recurrent neural networks. Signal Processing, IEEE Transactions on 45(11):2673–2681
+[48] Shi X, Chen Z, Wang H, Yeung DY, Wong WK, Woo Wc (2015) Convolutional lstm network: A machine
+learning approach for precipitation nowcasting. arXiv preprint arXiv:150604214
+
+15
+
+[49] Srivastava RK, Greff K, Schmidhuber J (2015) Highway networks. arXiv preprint arXiv:150500387
+[50] Sukhbaatar S, Weston J, Fergus R, et al (2015) End-to-end memory networks. In: Advances in Neural
+Information Processing Systems, pp 2431–2439
+[51] Sutskever I (2013) Training recurrent neural networks. PhD thesis, University of Toronto
+[52] Sutskever I, Martens J, Hinton GE (2011) Generating text with recurrent neural networks. In: Proceedings
+of the 28th International Conference on Machine Learning (ICML-11), pp 1017–1024
+[53] Sutskever I, Vinyals O, Le QV (2014) Sequence to sequence learning with neural networks. In: Advances
+in neural information processing systems, pp 3104–3112
+[54] Theis L, Bethge M (2015) Generative image modeling using spatial lstms. In: Advances in Neural Information Processing Systems, pp 1918–1926
+[55] Tran K, Bisazza A, Monz C (2016) Recurrent memory network for language modeling. arXiv preprint
+arXiv:160101272
+[56] Veeriah V, Zhuang N, Qi GJ (2015) Differential recurrent neural networks for action recognition. arXiv
+preprint arXiv:150406678
+[57] Wang S, Jiang J (2015) Learning natural language inference with lstm. arXiv preprint arXiv:151208849
+[58] Werbos PJ (1988) Generalization of backpropagation with application to a recurrent gas market model.
+Neural Networks 1(4):339–356
+[59] Werbos PJ (1990) Backpropagation through time: what it does and how to do it. Proceedings of the IEEE
+78(10):1550–1560
+[60] Weston J, Chopra S, Bordes A (2014) Memory networks. arXiv preprint arXiv:14103916
+[61] Weston J, Bordes A, Chopra S, Mikolov T (2015) Towards ai-complete question answering: a set of
+prerequisite toy tasks. arXiv preprint arXiv:150205698
+[62] Zeiler MD, Ranzato M, Monga R, Mao M, Yang K, Le QV, Nguyen P, Senior A, Vanhoucke V, Dean J,
+et al (2013) On rectified linear units for speech processing. In: Acoustics, Speech and Signal Processing
+(ICASSP), 2013 IEEE International Conference on, IEEE, pp 3517–3521
+[63] Zhang S, Liu C, Jiang H, Wei S, Dai L, Hu Y (2015) Feedforward sequential memory networks: A new
+structure to learn long-term dependency. arXiv preprint arXiv:151208301
+[64] Zhu X, Sobihani P, Guo H (2015) Long short-term memory over recursive structures. In: Proceedings of
+the 32nd International Conference on Machine Learning (ICML-15), pp 1604–1612
+[65] Zimmermann H, Grothmann R, Schaefer A, Tietz C (2006) Identification and forecasting of large dynamical systems by dynamical consistent neural networks. New Directions in Statistical Signal Processing:
+From Systems to Brain pp 203–242
+
+16
+
+

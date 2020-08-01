@@ -1,0 +1,16 @@
+
+we investigate the internal representations that a recurrent neural network (rnn)
+uses while learning to recognize a regular formal language. specifically, we train a
+rnn on positive and negative examples from a regular language, and ask if there
+is a simple decoding function that maps states of this rnn to states of the minimal
+deterministic finite automaton (mdfa) for the language. our experiments show
+that such a decoding function indeed exists, and that it maps states of the rnn not
+to mdfa states, but to states of an abstraction obtained by clustering small sets of
+mdfa states into “superstates”. a qualitative analysis reveals that the abstraction
+often has a simple interpretation. overall, the results suggest a strong structural
+relationship between internal representations used by rnns and finite automata,
+and explain the well-known ability of rnns to recognize formal grammatical
+structure.
+
+1
+

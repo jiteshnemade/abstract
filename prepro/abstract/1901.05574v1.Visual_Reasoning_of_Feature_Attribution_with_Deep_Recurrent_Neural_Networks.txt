@@ -1,0 +1,14 @@
+deep recurrent neural network (rnn) has gained
+popularity in many sequence classification tasks. beyond predicting a correct class for each data instance, data scientists
+also want to understand what differentiating factors in the data
+have contributed to the classification during the learning process.
+we present a visual analytics approach to facilitate this task by
+revealing the rnn attention for all data instances, their temporal
+positions in the sequences, and the attribution of variables at each
+value level. we demonstrate with real-world datasets that our
+approach can help data scientists to understand such dynamics
+in deep rnns from the training results, hence guiding their
+modeling process.
+index terms—visual analytics, sequence data, feature attribution, rnn, lstm, causal analysis
+
+i. 

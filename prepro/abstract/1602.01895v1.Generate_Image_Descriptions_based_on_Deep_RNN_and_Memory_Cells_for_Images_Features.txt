@@ -1,0 +1,14 @@
+
+generating natural language descriptions
+for images is a challenging task. the traditional way is to use the convolutional neural network (cnn) to extract image features, followed by recurrent neural network (rnn) to generate sentences. in this
+paper, we present a new model that added
+memory cells to gate the feeding of image
+features to the deep neural network. the
+intuition is enabling our model to memorize how much information from images
+should be fed at each stage of the rnn.
+experiments on flickr8k and flickr30k
+datasets showed that our model outperforms other state-of-the-art models with
+higher bleu scores.
+
+1
+

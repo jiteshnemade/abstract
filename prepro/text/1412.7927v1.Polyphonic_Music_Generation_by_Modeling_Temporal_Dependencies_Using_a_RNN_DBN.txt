@@ -1,0 +1,519 @@
+Polyphonic Music Generation by Modeling
+Temporal Dependencies Using a RNN-DBN
+
+arXiv:1412.7927v1 [cs.LG] 26 Dec 2014
+
+Kratarth Goel, Raunaq Vohra, and J. K. Sahoo
+Birla Institute of Technology and Science, Pilani,
+Goa, India
+kratarthgoel@gmail.com,
+ronvohra@gmail.com,
+jksahoo@goa.bits-pilani.ac.in
+
+Abstract. In this paper, we propose a generic technique to model temporal dependencies and sequences using a combination of a recurrent neural network and a Deep Belief Network. Our technique, RNN-DBN, is
+an amalgamation of the memory state of the RNN that allows it to provide temporal information and a multi-layer DBN that helps in high level
+representation of the data. This makes RNN-DBNs ideal for sequence
+generation. Further, the use of a DBN in conjunction with the RNN
+makes this model capable of significantly more complex data representation than an RBM. We apply this technique to the task of polyphonic
+music generation.
+Keywords: Deep architectures, recurrent neural networks, music generation, creative machine learning, Deep Belief Networks, generative models
+
+1
+
+Introduction
+
+Creative machine learning is an extremely relevant research area today. Generative models form the basis of creative learning, and for this reason, a high level
+of sophistication is required from these models. Also, identifying features in the
+subjective fields of art, literature and music is an arduous task, which is only
+made more difficult when more elaborate learning is desired. Deep architectures,
+therefore, present themselves as an ideal framework for generative models, as
+they are inherently stochastic and support increasingly complex representations
+with each added layer. Recurrent neural networks (RNNs) have also used with
+great success as regards generative models, particularly handwriting generation,
+where they have been used to achieve the current state-of-the-art results. The
+internal feedback or memory state of these neural networks is what makes them
+a suitable technique for sequence generation in tasks like polyphonic music composition.
+There have been many attempts to generate polyphonic music in the past,
+and a variety of techniques have been applied, some of which will be discussed
+here. Matic et al. [1] used neural networks and cellular automata to generate
+
+2
+
+Kratarth Goel, Raunaq Vohra and J. K. Sahoo
+
+melodies. However, this is dependent on a feature set based on emotions and
+further requires specialized knowledge of musical theory. A similar situation is
+observed with the work done by Maeda and Kajihara [2], who used genetic algorithms for music generation. Elman networks with chaotic inspiration were
+used by [3] to compose music. While RNNs are an excellent technique to model
+sequences, they used chaotic inspiration as an external input instead of real
+stochasticity to compose original music. A Deep Belief Network with a sliding
+window mechanism to create jazz melodies was proposed by [4]. However, due
+to lack of temporal information, there were many instances of repeated notes
+and pitches. Most recently, Boulanger-Lewandowski et al. [5] used RNN-RBMs
+for polyphonic music generation and obtained promising results. We propose
+a generic technique which is a combination of a RNN and a Deep Belief Network for sequence generation, and apply it to automatic music composition. Our
+technique, the RNN-DBN, effectively combines the superior sequence modeling
+capabilities of a RNN with the high level data modeling that a DBN enables
+to produce rich, complex melodies which do not feature significant repetition.
+Moreover, the composition of these melodies does not require any feature selection from the input data. This model is presesnted as a generic technique, i. e.
+it does not make any assumptions about the nature of the data. We apply our
+technique to a variety of datasets and have achieved excellent results which are
+on par with the current state-of-the-art.
+The rest of this paper is organized as follows: Section 2 discusses various deep
+and neural network architectures that serve as the motivation for our technique,
+described in Section 3. We demonstrate the application of RNN-DBNs to the task
+of polyphonic music generation in Section 4 and present our results. Section 5
+discusses possible future work regarding our technique and concludes the paper.
+
+2
+2.1
+
+Preliminaries
+Restricted Boltzmann Machines
+
+Restricted Boltzmann machines (RBMs) are energy based models with their
+energy function E(v, h) defined as:
+E(v, h) = −b′ v − c′ h − h′ W v
+
+(1)
+
+where W represents the weights connecting hidden (h) and visible (v) units
+and b, c are the biases of the visible and hidden layers respectively.
+This translates directly to the following free energy formula:
+X
+X
+F (v) = −b′ v −
+log
+ehi (ci +Wi v) .
+(2)
+i
+
+hi
+
+Because of the specific structure of RBMs, visible and hidden units are conditionally independent given one another. Using this property, we can write:
+Y
+p(hi |v)
+(3)
+p(h|v) =
+i
+
+Polyphonic Music Generation Using a RNN-DBN
+
+p(v|h) =
+
+Y
+
+p(vj |h).
+
+3
+
+(4)
+
+j
+
+Samples can be obtained from a RBM by performing block Gibbs sampling,
+where visible units are sampled simultaneously given fixed values of the hidden
+units. Similarly, hidden units are sampled simultaneously given the visible unit
+values. A single step in the Markov chain is thus taken as follows,
+h(n+1) = σ(W ′ v (n) + c)
+v (n+1) = σ(W h(n+1) + b),
+
+(5)
+
+where σ represents the sigmoid function acting on the activations of the
+(n + 1)th hidden and visible units. Several algorithms have been devised for
+RBMs in order to efficiently sample from p(v, h) during the learning process, the
+most effective being the well-known contrastive divergence (CD − k) algorithm
+[6].
+In the commonly studied case of using binary units (where vj and hi ∈ {0, 1}),
+we obtain, from Eqn. (4), a probabilistic version of the activation function:
+P (hi = 1|v) = σ(ci + Wi v)
+P (vj = 1|h) = σ(bj + Wj′ h)
+
+(6)
+
+The free energy of an RBM with binary units thus further simplifies to:
+X
+log(1 + e(ci +Wi v) ).
+(7)
+F (v) = −b′ v −
+i
+
+We obtain the following log-likelihood gradients for an RBM with binary
+units:
+−
+
+∂log p(v)
+(i)
+= Ev [p(hi |v) · vj ] − vj · σ(Wi · v (i) + ci )
+∂Wij
+∂log p(v)
+−
+= Ev [p(hi |v)] − σ(Wi · v (i) )
+∂ci
+∂log p(v)
+(i)
+=
+Ev [p(vj |h)] − vj
+−
+∂bj
+
+(8)
+
+where σ(x) = (1 + e−x )−1 is the element-wise logistic sigmoid function.
+2.2
+
+Recurrent Neural Network
+
+Recurrent neural networks (RNNs) are a particular family of neural networks
+where the network contains one or more feedback connections, so that activation
+of a cluster of neurons can flow in a loop. This property allows for the network to
+effectively model time series data and learn sequences. An interesting property of
+RNNs is that they can be modeled as feedforward neural networks by unfolding
+
+4
+
+Kratarth Goel, Raunaq Vohra and J. K. Sahoo
+
+them over time. RNNs can be trained using the Backpropogation Through Time
+(BPTT) technique. If a network training sequence starts at a time instant t0
+and ends at time t1 , the total cost function is simply the sum over the standard
+error function Esse/ce at each time step,
+Etotal =
+
+Xt1
+
+t=t0
+
+Esse/ce (t)
+
+(9)
+
+and the gradient descent weight update contributions for each time step are
+given by,
+∆wij = −η
+
+∂Etotal (t0 , t1 ) Xt1 ∂Esse/ce (t)
+=
+t=t0
+∂wij
+∂wij
+
+(10)
+
+∂E
+
+sse/ce
+now have contributions
+The partial derivatives of each component ∂w
+ij
+from multiple instances of each weight wij ∈ {Wv(t−1) h(t−1) , W(ht−1) h(t) } and are
+dependent on the inputs and hidden unit activations at previous time instants.
+The errors now must be back-propagated through time as well as through the
+network.
+
+2.3
+
+Deep Belief Network
+
+RBMs can be stacked and trained greedily to form Deep Belief Networks (DBNs).
+DBNs are graphical models which learn to extract a deep hierarchical representation of the training data [7]. They model the joint distribution between observed
+vector x and the ℓ hidden layers hk as follows:
+1
+
+ℓ
+
+P (x, h , . . . , h ) =
+
+ℓ−2
+Y
+
+k=0
+
+k
+
+P (h |h
+
+k+1
+
+!
+
+) P (hℓ−1 , hℓ )
+
+(11)
+
+where x = h0 , P (hk−1 |hk ) is a conditional distribution for the visible units
+conditioned on the hidden units of the RBM at level k, and P (hℓ−1 , hℓ ) is the
+visible-hidden joint distribution in the top-level RBM.
+The principle of greedy layer-wise unsupervised training can be applied to
+DBNs with RBMs as the building blocks for each layer [8]. We begin by training
+the first layer as an RBM that models the raw input x = h(0) as its visible
+layer. Using that first layer, we obtain a representation of the input that will
+be used as data for the second layer. Two common solutions exist here, and
+the representation can be chosen as the mean activations p(h(1) = 1|h(0) ) or
+samples of p(h(1) |h(0) ). Then we train the second layer as an RBM, taking the
+transformed data (samples or mean activations) as training examples (for the
+visible layer of that RBM). In the same vein, we can continue adding as many
+hidden layers as required, while each time propagating upward either samples
+or mean values.
+
+Polyphonic Music Generation Using a RNN-DBN
+
+2.4
+
+5
+
+Recurrent Temporal Restricted Boltzmann Machine
+
+The Recurrent Temporal Restricted Boltzmann Machine (RTRBM) [9] is a sequence of conditional RBMs (one at each time instant) whose parameters {btv , bth
+, W t } are time-dependent and depend on the sequence history at time t, denoted
+by A(t) = {v (τ ) , u(τ ) |τ < t}, where u(t) is the mean-field value of h(t), as seen
+in [5]. The RTRBM is formally defined by its joint probability distribution,
+P (v (t) , h(t)) =
+
+T
+Y
+
+P (v (t) , h(t) |A(t) )
+
+(12)
+
+t=1
+
+where P (v (t) , h(t) |A(t) ) is the joint probability of the tth RBM whose parameters are defined below, from Eqn. (13) and Eqn. (14). While all the parameters
+of the RBMs may usually depend on the previous time instants, we will consider
+the case where only the biases depend on u(t−1) .
+(t)
+
+bh = bh + Wuh u(t−1)
+
+(13)
+
+(t−1)
+b(t)
+v = bv + Wuv u
+
+(14)
+(0)
+
+which gives the RTRBM six parameters,{W, bv , bh , Wuv , Wuh , u }. The more
+general scenario is derived in similar fashion. While the hidden units h(t) are binary during inference and sample generation, it is the mean-field value u(t) that
+is transmitted to its successors (Eqn. (15)). This important distinction makes
+exact inference of the u(t) easy and improves the efficiency of training[9].
+(t)
+
+u(t) = σ(Wvh v (t) + bh ) = σ(Wvh v (t) + Wuh u(t−1) + bh )
+
+(15)
+
+Observe that Eqn. (15) is exactly the defining equation of a RNN (defined
+in Section 4) with hidden units u(t) .
+
+3
+
+RNN-DBN
+
+The RTRBM can be thought of as a sequence of conditional RBMs whose parameters are the output of a deterministic RNN [5], with the constraint that
+the hidden units must describe the conditional distributions and convey temporal information for sequence generation. The use of a single RBM layer greatly
+constricts the expressive power of the model as a whole. This constraint can be
+lifted by combining a full RNN having distinct hidden units u(t) with a RTRBM
+graphical model, replacing the RBM structure with the much more powerful
+model of a DBN. We call this model the RNN-DBN.
+In general, the parameters of the RNN-DBN are made to depend only on
+u(t−1) given by Eqn. (13) and Eqn. (14) along with,
+(t)
+
+bh2 = bh2 + Wuh2 u(t−1)
+
+(16)
+
+for the second hidden layer in an RNN-DBN with 2 hidden layers. The joint
+probability distribution of the RNN-DBN is also given by Eqn. (12), but with
+
+6
+
+Kratarth Goel, Raunaq Vohra and J. K. Sahoo
+
+u(t) defined arbitrarily, as given by Eqn. (17). For simplicity, we consider the
+(t)
+(t)
+(t)
+RNN-DBN parameters to be {Wvh(t) , bv , bh1 , bh2 } for a 2 hidden layer RNNDBN (shown in Fig. 1), i.e. only the biases are variable, and a single-layer RNN,
+whose hidden units u(t) are only connected to their direct predecessor u(t−1) and
+to v (t) by the relation,
+u(t) = σ(Wvu v (t) + Wuu h(t−1) + bu ).
+
+(17)
+
+Fig. 1: A RNN-DBN with 2 hidden layers.
+The DBN portion of the RNN-DBN is otherwise exactly the same as any
+general DBN. This gives the 2 hidden layer RNN-DBN twelve parameters, {
+Wvh1 ,Wh1 h2 , bv , bh1 , bh2 , Wuv , Wuh1 , Wuh2 , u(0) , Wvu , Wuu , bu }.
+The training algorithm is based on the following general scheme:
+1. Propagate the current values of the hidden units u(t) in the RNN portion of
+the graph using Eqn. (17).
+2. Calculate the DBN parameters that depend on the u(t) (Eqn. (13), (14) and
+(16)) by greedily training layer-by-layer of the DBN, each layer as an RBM
+(Train the first layer as an RBM that models the raw input as its visible
+layer and use that first layer to obtain a representation of the input that will
+be used as data for the second layer and so on).
+3. Use CD-k to estimate the log-likelihood gradient (Eq. (8)) with respect to
+W , bv and bh for each RBM composing the DBN.
+4. Repeat steps 2 and 3 for each layer of the DBN.
+(t)
+(t)
+(t)
+5. Propagate the estimated gradient with respect to bv , bh and bh2 backward
+through time (BPTT) [10] to obtain the estimated gradient with respect to
+the RNN, for the RNN-DBN with 2 hidden layers.
+
+Polyphonic Music Generation Using a RNN-DBN
+
+4
+
+7
+
+Implementation and Results
+
+Table 1: Log-likelihood (LL) for various musical models in the polyphonic music
+generation task.
+Model
+
+JSB Chorales MuseData
+(LL)
+(LL)
+Random
+-61.00
+-61.00
+RBM
+-7.43
+-9.56
+NADE
+-7.19
+-10.06
+Note N-Gram
+-10.26
+-7.91
+RNN-RBM
+-7.27
+-9.31
+RNN1 (HF)
+-8.58
+-7.19
+RTRBM1
+-6.35
+-6.35
+RNN-RBM1
+-6.27
+-6.01
+RNN-NADE1
+-5.83
+-6.74
+RNN-NADE1 (HF) -5.56
+-5.60
+RNN-DBN
+-5.68
+-6.28
+
+Nottingham
+(LL)
+-61.00
+-5.25
+-5.48
+-4.54
+-4.72
+-3.89
+-2.62
+-2.39
+-2.91
+-2.31
+-2.54
+
+PianoMidi.de (LL)
+-61.00
+-10.17
+-10.28
+-7.50
+-9.89
+-7.66
+-7.36
+-7.09
+-7.48
+-7.05
+-7.15
+
+We demonstrate our technique by applying it to the task of polyphonic music
+generation. We used a RNN-DBN with 2 hidden DBN layers - each having 150
+binary units - and 150 binary units in the RNN layer. The visible layer has 88
+binary units, corresponding to the full range of the piano from A0 to C8. We
+implemented our technique on four datasets - JSB Chorales , MuseData 2 , Nottingham 3 and Piano-midi.de. None of the preprocessing techniques mentioned
+in [5] have been applied to the data, and only raw data has been given as input
+to the RNN-DBN. We evaluate our models qualitatively by generating sample
+sequences and quantitatively by using the log-likelihood (LL) as a performance
+measure. Results are presented in Table 1 (a more comprehensive list can be
+found in [5]).
+The results indicate that our technique is on par with the current state-of-theart. We believe that the difference in performance between our technique and the
+current best can be attributed to lack of preprocessing. For instance, transposing
+the sequences in a common tonality (e.g. C major/minor) and normalizing the
+tempo in beats (quarternotes) per minute as preprocessing can have the most
+effect on the generative quality of the model. It also helps to have as pretraining, the initialization the Wvh1 , Wh1 h2 , bv , bh1 , bh2 parameters with independent
+RBMs with fully shuffled frames (i.e. Wuh1 = Wuh2 = Wuv = Wuu = Wvu = 0).
+Initializing the Wuv , Wuu , Wvu , bu parameters of the RNN with the auxiliary
+cross-entropy objective via either stochastic gradient descent (SGD) or, preferably, Hessian-free (HF) optimization and subsequently finetuning significantly
+1
+
+2
+3
+
+These marked results are obtained after various preprocessing, pretraining methods
+and optimization techniques described in the last paragraph of this section.
+http://www.musedata.org
+ifdo.ca/ seymour/nottingham/nottingham.html
+
+8
+
+Kratarth Goel, Raunaq Vohra and J. K. Sahoo
+
+helps the density estimation and prediction performance of RNNs which would
+otherwise perform worse than simpler Multilayer Perceptrons [5]. Optimization
+techniques like gradient clipping, Nesterov momentum and the use of NADE for
+conditional density estimation also improve results.
+
+5
+
+Conclusions and Future Work
+
+We have proposed a generic technique called Recurrent Neural Network-Deep
+Belief Network (RNN-DBN) for modeling sequences with generative models and
+have demonstrated its successful application to polyphonic music generation. We
+used four datasets for evalutaing our technique and have obtained results on par
+with the current state-of-the-art. We are currently working on improving the
+results this paper, by exploring various pretraining and optimization techniques.
+We are also looking at showcasing the versatility of our technique by applying
+it to different problem statements.
+
+References
+1. Matic, I., Oliveira, A., Cardoso, A.: Automatic melody generation using neural
+networks and cellular automata. (Sept 2012) 89–94
+2. Maeda, Y., Kajihara, Y.: Rhythm generation method for automatic musical composition using genetic algorithm. (July 2010) 1–7
+3. Coca, A., Romero, R., Zhao, L.: Generation of composed musical structures
+through recurrent neural networks based on chaotic inspiration. (July 2011) 3220–
+3226
+4. Bickerman, G., Bosley, S., Swire, P., Keller, R.: Learning to create jazz melodies
+using deep belief nets. First International Conference on Computational Creativity
+(2010)
+5. Boulanger-Lewandowski, N., Bengio, Y., Vincent, P.: Modeling temporal dependencies in high-dimensional sequences: Application to polyphonic music generation
+and transcription. In: ICML, icml.cc / Omnipress (2012)
+6. Hinton, G.E.: Training products of experts by minimizing contrastive divergence.
+Neural Computation 14(8) (2002) 1771–1800
+7. Hinton, G.E., Osindero, S.: A fast learning algorithm for deep belief nets. Neural
+Computation 18 (2006) 2006
+8. Bengio, Y.: Learning deep architectures for ai. Foundations and Trends in Machine
+Learning 2(1) (2009) 1–127
+9. Sutskever, I., Hinton, G.E., Taylor, G.W.: The recurrent temporal restricted boltzmann machine. (2008) 1601–1608
+10. Rumelhart, D., Hinton, G., Williams, R.: Learning representations by backpropagating errors. Nature 323(6088) (1986) 533–536
+
+This figure "fig1.png" is available in "png" format from:
+http://arxiv.org/ps/1412.7927v1
+
+

@@ -1,0 +1,16 @@
+recurrent neural networks (rnns) are powerful
+constructs capable of modeling complex systems, up to and
+including turing machines. however, learning such complex
+models from finite training sets can be difficult. in this paper
+we empirically show that rnns can learn models of computer
+peripheral devices through input and output state observation.
+this enables automated development of functional software-only
+models of hardware devices. such models are applicable to any
+number of tasks, including device validation, driver development,
+code de-obfuscation, and reverse engineering. we show that the
+same rnn structure successfully models six different devices
+from simple test circuits up to a 16550 uart serial port, and
+verify that these models are capable of producing equivalent
+output to real hardware.
+
+i. 

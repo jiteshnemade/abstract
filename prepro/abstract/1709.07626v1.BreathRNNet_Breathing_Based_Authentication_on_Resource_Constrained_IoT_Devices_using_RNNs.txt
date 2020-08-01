@@ -1,0 +1,18 @@
+recurrent neural networks (rnns) have shown
+promising results in audio and speech processing applications
+due to their strong capabilities in modelling sequential data.
+in many applications, rnns tend to outperform conventional
+models based on gmm/ubms and i-vectors. increasing popularity of iot devices makes a strong case for implementing
+rnn based inferences for applications such as acoustics based
+authentication, voice commands, and edge analytics for smart
+homes. nonetheless, the feasibility and performance of rnn
+based inferences on resources-constrained iot devices remain
+largely unexplored. in this paper, we investigate the feasibility
+of using rnns for an end-to-end authentication system based
+on breathing acoustics. we evaluate the performance of rnn
+models on three types of devices; smartphone, smartwatch, and
+raspberry pi and show that unlike cnn models, rnn models
+can be easily ported onto resource-constrained devices without
+a significant loss in accuracy.
+
+1. 

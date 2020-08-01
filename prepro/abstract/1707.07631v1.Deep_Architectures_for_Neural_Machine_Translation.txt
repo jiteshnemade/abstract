@@ -1,0 +1,31 @@
+
+
+arxiv:1707.07631v1 [cs.cl] 24 jul 2017
+
+it has been shown that increasing model
+depth improves the quality of neural machine translation.
+however, different
+architectural variants to increase model
+depth have been proposed, and so far, there
+has been no thorough comparative study.
+in this work, we describe and evaluate
+several existing approaches to introduce
+depth in neural machine translation. additionally, we explore novel architectural
+variants, including deep transition rnns,
+and we vary how attention is used in
+the deep decoder. we introduce a novel
+"bideep" rnn architecture that combines
+deep transition rnns and stacked rnns.
+our evaluation is carried out on the english to german wmt news translation
+dataset, using a single-gpu machine for
+both training and inference. we find that
+several of our proposed architectures improve upon existing approaches in terms
+of speed and translation quality. we obtain
+best improvements with a bideep rnn of
+combined depth 8, obtaining an average
+improvement of 1.5 b leu over a strong
+shallow baseline.
+we release our code for ease of adoption.
+
+1
+

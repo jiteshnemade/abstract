@@ -1,0 +1,1605 @@
+Time-weighted Attentional Session-Aware Recommender
+System
+Mei Wang
+
+Weizhi Li
+
+Yan Yan
+
+University of Texas at Austin
+Austin, TX, USA
+meiwang@cs.utexas.edu
+
+JD.COM.
+Mountain View, CA, USA
+weizhi.li@jd.com
+
+Facebook Inc
+Menlo Park, CA, USA
+chrisyan@fb.com
+
+arXiv:1909.05414v1 [cs.LG] 12 Sep 2019
+
+ABSTRACT
+Session-based Recurrent Neural Networks (RNNs) are gaining increasing popularity for recommendation task, due to the high autocorrelation of user’s behavior on the latest session and the effectiveness of RNN to capture the sequence order information. However,
+most existing session-based RNN recommender systems still solely
+focus on the short-term interactions within a single session and
+completely discard all the other long-term data across different
+sessions. While traditional Collaborative Filtering (CF) methods
+have many advanced research works on exploring long-term dependency, which show great value to be explored and exploited in
+deep learning models. Therefore, in this paper, we propose ASARS,
+a novel framework that effectively imports the temporal dynamics
+methodology in CF into session-based RNN system in DL, such
+that the temporal info can act as scalable weights by a parallel
+attentional network. Specifically, we first conduct an extensive data
+analysis to show the distribution and importance of such temporal
+interactions data both within sessions and across sessions. And
+then, our ASARS framework promotes two novel models: (1) an
+inter-session temporal dynamic model that captures the long-term
+user interaction for RNN recommender system. We integrate the
+time changes in session RNN and add user preferences as model
+drifting; and (2) a novel triangle parallel attention network that enhances the original RNN model by incorporating time information.
+Such triangle parallel network is also specially designed for realizing data argumentation in sequence-to-scalar RNN architecture,
+and thus it can be trained very efficiently. Our extensive experiments on four real datasets from different domains demonstrate the
+effectiveness and large improvement of ASARS for personalized
+recommendation.
+
+KEYWORDS
+Recommender System, Session-based RNN, Time-weighted Attention, Short-term and Long-term Profile
+
+1
+
+INTRODUCTION
+
+Recommender Systems (RS) have long been developed to predict
+user’s favorites, evolving from traditional Collaborative Filtering
+Permission to make digital or hard copies of part or all of this work for personal or
+classroom use is granted without fee provided that copies are not made or distributed
+for profit or commercial advantage and that copies bear this notice and the full citation
+on the first page. Copyrights for third-party components of this work must be honored.
+For all other uses, contact the owner/author(s).
+Conference’17, July 2017, Washington, DC, USA
+© 2019 Copyright held by the owner/author(s).
+ACM ISBN 123-4567-24-567/08/06.
+https://doi.org/10.475/123_4
+
+(CF) methods [28, 32, 38, 41] to recently grown popular Deep Learning approaches [7, 9, 43]. As online services like e-commerce (Amazon), social media (Facebook), movie (YouTube) and music (Spotify)
+grow in an increasing speed of rate, how to improve recommendation quality from such expanding and wide-ranging items is
+prominent for both user experience and business profit.
+
+1.1
+
+Personalized Recommender Systems
+
+Ever-more importantly, personalized recommendation is one of the
+most challenging issues in RS. User’s intent is more than difficult
+to predict, which can be influenced by many factors, both internal or external, from past or current. Much research efforts have
+focused on Context-Aware RS [2], exploring contextual data like
+temporal information, spatial location [16, 33], user profiles [1, 39]
+or even inter-domain features [37, 52]. Among them, Time-Aware
+RS [6] is particularly studied in depth, since temporal information
+is easy-to-obtain and indicative of user’s information need. Typically, temporal dynamics was added in CF methods to discover
+temporal evolving features [26] and many other sophisticated NN
+models were proposed, like time gates, point process, multi-task
+[10, 44, 60] etc. What’s more, the ordering of interactions is another new dimension of information that is valuable to be further
+explored. Recent works [19, 20, 49] show that RNN-based recommender system can outperform other popular alternatives in certain
+session-based recommendation tasks.
+Sequential interactions between users and items are crucial data
+sources for recommender systems. However, literatures above fail
+to quantify the effectiveness of using such sequential data from the
+past to present sessions. Users’ intents are constantly evolving and
+same as the item popularities. As a result, they cannot be effectively
+modeled based solely on short-term or long-term profiles.
+Example In an e-commerce recommender system, a user Alice
+may come with a certain intent for some kitchen hand soap that
+she wants to buy at present. Then in this current session, Alice is
+more likely to click some similar items or accessories from the same
+kitchenware category, like kitchen caddy, drying tower, trash bags,
+etc. This means such short-term intra-session data sequence should
+mostly play a dominant role for the next-basket recommendation.
+At the same time, the dwell time she spent on each items could
+indicate the probability of her interest of making a purchase. On
+the other hand, her long-term profile of tastes or preferences would
+not change much over recent sessions, like her favorite brands, preferred color, fashion style, etc. Moreover, the items she viewed or
+bought in the past sessions may still give hints for the next session
+recommendation. For instance, fast moving consumer goods, makeups and napkins have periodic purchase needs. So maintaining both
+
+Figure 1: An empirical data analysis: (1) Short-term predominates: the mean percentage of user interactions hanging in the
+top 10 categories/items during the same session; (2) Long-term counts: the mean percentage value of user clicking the repeated
+categories and items that he had clicked before in the previous 10 sessions; (3) Dwell Time helps: the normalized histogram
+of click gap follows gamma distribution.
+user’s short-term intra-session context profile and long-term intersession preference profile can lead to significant recommendation
+performance increase.
+The goal of this work is to make effective use of both intra-session
+and inter-session profiles and to construct a better personalized
+session-aware recommender system. This raises several challenging
+issues. First, traditional RNN cannot train with too long sequence
+length, which will result in extreme training latency and large
+memory cost. Second, the interaction data is very noisy: some clicks
+are meaningful, while some may even be clicked by mistake. Last
+but not least, data from the past sessions should play as different
+roles as present session, but there is no specific rule for integrating
+the session-based short-term profiles and session-aware long-term
+profiles. Therefore, a more sensitive approach to distinguish and
+integrate data from different time scales with different significance
+is required.
+
+1.2
+
+Motivated by Empirical Data Analysis
+
+The motivation of our model design is inspired by real data observations and analysis, which comes from online Tianchi [59]
+e-commerce navigation log data having around 100M interactions,
+1M users and 4M items from 10K categories. We come up with the
+following three observations:
+(1) Short-term profile predominates: Jannach et al. [22] have
+shown that the short-term intentions should be predominant
+in the selection of the recommendations. We can see in the first
+figure of Figure.1, the blue bar represents the mean percentage
+of user interactions hanging in the top 10 categories during
+the same session, and the orange one represents for that of
+items. This indicates that within one session, nearly half of
+interactions are in the main shopping target category, and 20
+percent of clicks are for the target item.
+Overall both of them are subject to exponential decrease, which
+proves that user’s short-term shopping goal plays a predominant role for the intra-session interaction choices. Notice that
+Hidasi et al. [20] propose GRU4REC, one early work on sessionaware RNN-based recommender system, which avoids the cold
+start problem and significantly outperforms conventional baseline methods. From this point of view, we view RNN as one of
+the most advanced methods for short-term recommendation.
+and choose it as the basis of our model design.
+
+(2) Long-term profile counts: Longer-term behavioral patterns
+and user preferences can also be important. In the middle figure
+of Figure.1, we plot the mean percentage value of a user clicking
+some repeated categories and items that he/she had clicked
+before in the previous 10 sessions. We can see that it tends to
+grow logarithmically and almost 60 percent of categories and 20
+percent of items are repeated clicked inter previous 8 sessions.
+From this point of view, inter-session information contributes
+to 30 to 60 percent of information for next-basket category
+prediction and 5 to 20 percent of knowledge about repeated
+items.
+Several existing works have tried to use a simple static weighting strategy or hierarchical RNN [22, 24, 30, 31, 35, 50] to combine the short-term and long-term models, but how to combine
+them in a seamless way still remains an open research problem.
+In order to enable long-term profiling, we propose an intersession temporal dynamic model with anonymous session RNN
+model.
+(3) Time duration feature helps: One more common but not
+fully exploited feature is the click gap time, which is also the
+view dwell time of an item. This perfectly bridges the gap of
+discrete interaction sequence data with potential weights. Generally speaking, the longer time a user spends on the item, the
+more interest he has in it. According to the normalized histogram showed in Figure.1, the click gap of user interactions
+follows gamma distribution. Most users spend around 10 seconds between each click and normally the time duration is not
+longer than 5 minutes for each item.
+Such click gap time or item view duration helps us in connecting short-term and long-term profiles along time axis. So we
+design a novel triangle parallel attention network to incorporate
+temporal context in the RNN and perform efficient combination
+for short-term session sequence information.
+Motivated by the above observations, in this paper, we want
+to quantify, exploit and integrate the effectiveness of user’s intrasession and inter-session profiles with temporal dynamics. First
+of all, since short-term profile plays a predominant role in user intent estimation, the very last actions in the present session should
+represent an important piece of context information to be taken
+into account when we make the recommendation. Hidasi et al. [20]
+propose GRU4REC, one early work on session-aware RNN-based
+recommender system, which takes these very last actions in users’
+
+Session Duration
+
+τ
+
+Session
+Gap Time
+
+Action
+Gap Time
+
+Action
+Time
+
+δ(τ )
+
+δ(t)
+
+t
+
+Mini-Batches
+
+T
+
+Time
+
+Session 2
+...
+
+User 1
+
+i1
+1
+
+3
+i2
+1 i1
+
+i4
+1
+
+...
+
+Session 1
+
+2
+i1
+2 i2
+
+...
+
+i1
+3
+
+Session 2
+
+3
+i2
+3 i3
+
+...
+
+3
+2
+4
+i1
+1 i1 i1 i1
+
+2
+3
+4
+Session 1 i1
+1 i1 i1 i1
+
+?
+
+i1
+2
+
+Input
+
+i2
+2
+
+Session 3
+3
+4
+5
+2
+Session 4 i1
+4 i4 i4 i4 i4
+
+...
+
+User 2
+.
+.
+.
+
+2
+i1
+4 i4
+
+i3
+4
+
+5
+i4
+4 i4
+
+......
+
+Session 4
+......
+
+i1
+5
+
+i2
+5
+
+...
+
+?
+
+2
+Session 5 i1
+5 i5
+
+3
+4
+i2
+1 i1 i1
+
+Output
+
+Session 5
+
+...
+
+......
+
+3
+4
+5
+1
+2
+i2
+2 i4 i4 i4 i4 i4
+3
+2
+1
+i2
+3 i3 i5 i5
+
+INPUT LAYER
+
+Figure 2: Data flow of user and item interactions over time.
+
+intra-session sequence data. GRU4REC avoids the cold start problem and significantly outperforms conventional baseline methods.
+From this point of view, we view RNN as one of the most advanced
+methods for session-based short-term recommendation. In order
+to maintain its short-term privilege, we choose session-based RNN
+recommender system as the basis of our model design. However,
+as our exploratory data analysis shows above, long-term profiles
+are important for recommender system, while current state-of-art
+session-based approaches fail to model them effectively. Several
+existing works have tried to use a simple static weighting strategy
+or hierarchical RNN [22, 24, 35] to combine the short-term and
+long-term models, but how to combine them in a seamless way still
+remains an open research problem. In order to enable long-term
+profiling, we propose an inter-session temporal dynamic model
+with anonymous session RNN model. We choose to use an efficient
+embedding layer to automatically train and activate short and long
+term profiles from user embedding, short-term interest, user taste
+evolution and user survival time. For personalized recommendation,
+we add local negative sampling method: selecting negative samples
+in proportion to the item popularity within mini-batch sequences
+and ruling out the items appeared in his/her history. Finally, we
+design a novel triangle parallel attention network to incorporate
+temporal context in the RNN and perform efficient combination
+for short-term session sequence information. Scott time binning
+method and extendable attention layer fully exert the role of temporal information. In this way, user’s item selection behavior can be
+predicted by mixed decision of short-term and long-term efficiently.
+
+1.3
+
+3
+4
+5
+2
+1
+2
+i1
+2 i2 i4 i4 i4 i4 i4
+2
+3
+2
+1
+i1
+3 i3 i3 i5 i5
+
+2
+3
+Session 3 i1
+3 i3 i3
+
+Contributions
+
+The contributions of our ASARS framework can be described as
+follows:
+(1) Integrate Long-term by inter-session temporal dynamics
+model: We include long-term user profiles for personalized
+session-based RS to learn the inter-session pattern by temporal dynamics model in a seamless way. We integrate the time
+changes in session RNN and add user embedding, short-term interest, user taste evolution, user survival time and local negative
+sampling.
+(2) Exploit short time by Triangle Parallel Attention Network:
+We offer an novel attention model to exploit more intra-session
+information so as to enhance session-based RS in time dimension. We design a triangle parallel attention method for single
+sequence predicting and add a lower trigonometric transformation process to modulate the hidden states with multiplication
+efficiently.
+
+Figure 3: Session-based RNN parallel mini-batch creation.
+(3) Extensive Empirical Results: We compete with four strong
+baseline models including BPR-MF (CF), YouTube (DNN), WaveNet
+(CNN) and GRU4REC (RNN) models and also compare five variants of our ASARS model. We conduct extensive experiments
+on four real datasets from different domains and demonstrate
+the effectiveness of ASARS for personalized recommendation.
+
+2
+
+ASARS FRAMEWORK
+
+In this section, we describe our proposed personalized Attention
+Session-Aware Recommender System (ASARS) framework. First,
+we introduce the session-based RNN framework in subsection 2.1.
+Next, we explain how ASARS model combine short-time and longterm by inter-session temporal dynamics model in subsection 2.2.
+Then, ASARS model enhances the short-term profiles by using a a
+triangle parallel attention network layer 2.3 to sustain and exploit
+the inter-session patterns. The overall structure of ASARS is shown
+as Figure.4
+
+2.1
+
+Session-based RNN Framework
+
+To show the concepts and notations clearly, we present an simplified
+data flow example in Figure.2. We define a user “session” as a set
+of continuous navigation activities without interruption in the log
+sequence. In our settings, we separate each session by at least onehour inactivity, which is commonly used in previous works [56]. We
+denote a sequence of m activity sessions as S = {s j |j = 1, . . . , m},
+where each session s j represents a user interaction event sequence
+n
+s j = {i 1j , i 2j , . . . , i j j }. Given a sequence of activity sessions, our goal
+is to predict what is the next item that the user mostly likely to
+interact with. We formulate this as a ranking problem and solve
+it by first finding a scoring function f (·) that outputs the score
+of each item in the given the item list I , and then returning topK
+ranked items based on their scores.
+rˆk = f (i n |i 1,2, ...,k −1 ), k ∈ I .
+
+(1)
+
+First of all, in order to maintain the short-term predominant effect, our model is built on the session-based RNN model introduced
+in [20]. Session-based RNN model is based on LSTM/GRU layers
+and the hidden gates model the interaction order and relationship
+of user activities within a session.
+When processing a sequence, session-based RNN first input the
+sequence into the input layer, as shown at the left part of Figure.3.
+To deal with the various session length problem, it uses a sessionparallel mini-batch approach to capture how a session evolves over
+the order of interacting activities [20]. If any of the sessions end, the
+next session is put behind of that sequence. Note that this operation
+
+q
+
+bu
+
+concat
+
+f (in+1 |i1,...,n , u, t)
+
+x
+x
+...
+
+a1
+
+a3
+
+a2
+
+...
+
+Graph Legands
+
+x
+
+Fully
+connected
+layer
+
+an
+
+x
+x
+
+Trigonometric
+Transformation
+
+P
+
+x
+
+…
+
+… …
+
+…
+
+x
+
+x
+
+…
+
+Softmax
+
+x
+
+x
+
+...
+
+hd1
+
+hd2
+
+...
+...
+
+hd3
+
+hdn
+
+hq1
+
+Embedding Layer and Dropout Layer
+
+i1
+
+i2
+
+hq3
+
+hqm
+
+...
+
+t1
+
+t2
+
+time sequence
+LSTM hidden unit
+
+hqm
+
+LSTM hidden unit
+
+bu
+
+user embedding
+
+q
+
+matching vector
+
+f
+
+functional component
+
+tn
+
+t3
+
+Item sequence
+
+hdk
+
+ak
+
+Scott Binning and Scaled Embedding
+
+in
+
+i3
+
+hq2
+
+in
+tn
+
+attention vector
+fully connected layer
+sigmoid unit
+
+Figure 4: Overall structure of ASARS model.
+assumes all sessions are independent to each other. Formally, we
+denote the Ne mini-batched output sequences as
+n
+
+E = {e j } = {e j1 , . . . , e j j }, j = 1, . . . , Ne ,
+
+(2)
+
+where e j,n is the one-hot representation vector of the item. Next,
+the one-hot mini-batch vector is fed into a GRU layer, and the
+hidden states are reset when switching sessions. After that, the
+output of RNN can be treated as session-representations:
+hsession = GRU (e j , hsession−1 ), j = 1, . . . , Ne .
+
+(3)
+
+Finally, the last output of RNN gives the next step in this session,
+and the likelihood of being this item is calculated through a nonlinear activation layer.
+rˆk = д(ek , hk ), k ∈ I .
+
+(4)
+
+Normally, we use softmax, tanh or relu for the loss functions. There
+are some typical loss functions for recommender systems, like crossentropy, BPR, and TOP1 loss proposed by the GRU4REC model.
+Overall, session-based RNN is one of the state-of-art dynamic
+recommendation models which effectively exploits intra-session
+sequence order information.
+However, sessions are not absolutely independent to each other,
+especially for task of personalized recommendation. In the next
+subsection, we introduce how and why we design our model to
+effectively exploit inter-session patterns as well as temporal information.
+
+2.2
+
+Inter-Session Temporal Dynamics Model
+
+In traditional Matrix Factorization (MF) based approaches, the temporal dynamics model like [26] is commonly used for modeling
+time changes in data mining. Hereby, we model and learn the time
+changes by session RNN and user preferences as model drifting.
+Starting from the anatomy of a factor model with time changing
+factor:
+rui = eiT · eu + bu,i ,
+(5)
+where ei and eu are the one-hot representation vector of the items
+and user profiles, and bu,i represents the baseline predictor:
+bu,i = µ + bu + bi .
+
+(6)
+
+Here bu , bi are the corresponding observed bias, and the overall
+average is denoted by µ .
+Time Changing. An illustrative data flow example is shown in
+Figure.2. We can see that there are four kinds of time information:
+action timestamp t, action gap time δ (t), session duration time τ and
+session gap time δ (τ ). Action timestamp can be used for periodical
+purchasing feature training directly as contextual information, and
+session gap time is helpful for survival analysis to predict user
+return time [23]. Among all these temporal features, action gap
+time δ (t), also representing item dwell time, is the most valuable
+feature that haven’t been fully exploited in previous session-based
+models. Therefore, adding time-changing factor to the Equation (6)
+and then it becomes:
+buiˆ(t) = µ + bu (t) + bi (t).
+(7)
+Then, we want to improve the session-aware recommender system by exploiting such item dwell time information. Formally, for
+each session j, we create a dwell time sequence with the same din
+mension of item sequence as t j = {t j1 , t j2 , . . . , t j j }. The item dwell
+time follows gamma distribution as shown in Figure.1. We can take
+bins of such time to reduce the dimensionality and then accelerate
+the training process. We use Scott binning method [42] for time
+feature such that the bin width is proportional to the standard deviation of the data and inversely proportional to cube root of original
+data size.
+s
+√
+3 24 ∗ π
+.
+(8)
+tbin = σ
+n
+So the time model becomes
+bi (t) = bi + bi,tbin .
+
+(9)
+
+Next, we use an embedding method to represent dwell time
+importance within sessions.
+n
+
+t, j
+1
+E(t) = {et, j } = {et,
+j , . . . , e t, j },
+
+(10)
+
+where t = {1, . . . , n j }, j = {1, . . . , N j }, N j is the number of users
+grouped by mini-batch size, and eu, j is the embedding vector of
+time. After training with a LSTM layer, instead of concatenating
+the hidden outputs directly, we explore to use attention scheme
+to integrate the timing effect to item sequence. Intuitively, such
+
+2.3
+
+Figure 5: Triangle parallel attention net with user profile.
+
+attention vectors are perfectly used to modulate the outputs of
+hidden states representing session orders, and it’s reported as a
+very useful tool to extract the importance of sequence vector. The
+triangle parallel attention network will be explained in section 2.3.
+Model Evolving. In addition, ASARS model also uses the longterm profiles by adding user embedding to learn the cross-session
+pattern and user favorite evolution as
+eu (t) = eu + αu · hu (t),
+bu (t) = bu + αu · devu (t),
+
+(11)
+(12)
+
+in which eu is user embedding, bu is the user bias, hu (t) shows
+the user short-term interest, αu learns the user taste evolution and
+devu (t) gives us the user survival time.
+Formally in ASARS, for user u, we denote the sessions grouped
+by users as S(u) = {s j |j = 1, . . . , mu }, where s j is the number jth
+session of user’s total mu sessions. Next, we use an embedding
+method to represent user’s all behavioral patterns across sessions.
+Now we come to the sequence data preprocessing stage. We take
+the similar idea from parallel mini-batch method and change it to
+user-parallel mini-batch mechanism. Instead of complementing the
+dead end session row by the next session from all session lists, all
+mini-batches are selected and complemented within user’s session
+groups. So now we get the user-parallel mini-batched embedding
+sequence in input layer:
+n
+
+u, j
+1
+E(u) = {eu, j } = {eu,
+j , . . . , eu, j },
+
+(13)
+
+where u = {1, . . . , mu }, j = {1, . . . , Nbu }, Nbu is the number of
+user grouped mini-batch size, and eu, j is the embedding vector of
+item. Finally, we code the predictor as following:
+ˆ (t) = eiT · (eu + αu · GRU {hsessioni −1 · devi (t)})
+rui
++ µ + bu + αu · devu (t) + bi + bi,tbin .
+
+(14)
+
+Such user representation aims to track user behavior patterns
+across sessions. There are many ways to combine new feature
+embeddings in neural network, such as concatenating features in
+embedding input layer directly, stacking two RNN layers for each
+feature respectively, co-training hierarchical RNN layers [35] and
+some more complex model structures like attention models [58],
+cross layers [5], memory networks [48] and meta-learning [53],
+etc. Among them, we first tried to implement a simple model like
+concatenating or hierarchical RNNs. Although the user embeddings
+in such simple model may not fully represent user behavior patterns,
+these methods do make some improvements since more information
+have been included in training network and it can be trained faster.
+
+Triangle Parallel Attention Network
+
+Notice that it’s not straightforward to adapt sequence attention
+network directly to session-based RNN model. On one hand, traditional attention layer usually works with sequence-in-sequence-out
+RNNs in NLP tasks, but here we only predict one output sample in
+our recommender setting. On the other hand, in order to enable
+data augmentation [49] to get more training samples, all subsequences need to be forward to the attention network, such that
+the training time for forwarding process in attention network will
+be exponentially increased and make the model more difficult to
+train. Therefore, we design triangle parallel attention method for
+single sequence predicting and add a lower trigonometric transformation process to modulate the hidden states with multiplication
+efficiently.
+As shown in the top right of Figure 4, we introduce the time
+embedding t j in an attention network to reward items that play the
+most important role within session. The global attention mechanism
+yields the following formulas:
+pi = tanh(Ws ht ime + bs ),
+piT h s e s s ion
+
+e
+αi = Í T
+,
+p h s e s s ion
+ie i
+Õ
+qt =
+α i hsession ,
+
+(15)
+(16)
+(17)
+
+i
+
+where Ws and bs are parameters for training, and hsession is the
+hidden output of item LSTM.
+As mentioned above, the sequence weighting softmax and summation calculation cannot be adapted to the data augmentation
+training and will cause exponential training time cost. To accelerate
+this training process, we take lower trigonometric transformation
+to the vector pTi bu and forward it through the softmax function
+as a whole. In such a way, the training process can be hundreds
+of times faster. Formally, for each hidden output pi , i = {1, . . . , n},
+we create an n × n lower trigonometric matrix P with the sequence
+row Pi as:
+Pi = [pT0 · bu , . . . , pTi · bu , 0, . . . , 0].
+(18)
+After propagating such matrix P through functions (16) and (17),
+we get the self-attention vector α and representation qt .
+Secondly, we also tried to use the attention network to combine
+the user embeddings with RNN outputs, as shown in Figure ??.
+Similar to time attention scheme, we introduce user embedding eu
+in an attention network to reward session representations that are
+most favorite for the user. The self-attention mechanism yields the
+following formulas:
+T
+
+e p i eu
+αi = Í T .
+(19)
+p eu
+ie i
+After propagating through the attention layer or just embedding
+layer, we get the self-attention vector α and representation bu .
+Finally, the user attention vector weighted session representation
+q concatenate with user representation u and then goes to the
+following fully connected layer.
+rˆj,k = д(qt · ek + b j + bk ),
+
+(20)
+
+where д is a non-linear function for normalization, like softmax,
+tanh, relu, and etc.
+
+Table 1: Dataset details.
+Dataset
+
+MovieLens
+
+Recsys15
+
+Tianchi
+
+OURS
+
+Events
+Users
+Items
+Sessions
+
+53,309
+237
+1,395
+3,609
+
+17,920,066
+/
+23,459
+4,247,567
+
+6,921,446
+12,332
+31,893
+93,287
+
+254,398
+3,035
+1,173
+45,878
+
+Session support
+Item support
+User support
+
+2
+10
+10
+
+2
+20
+/
+
+2
+10
+10
+
+2
+20
+20
+
+2.4
+
+Improving Extensions
+
+Loss functions: We tried several common used loss functions in
+recommender systems, BPR [39], TOP1[20] and Hinge losses.
+Ns
+1 Õ
+log (σ (ˆr j − rˆk )),
+Ns j=1
+
+(21)
+
+Ns
+1 Õ
+σ (ˆr j − rˆk ) + σ (ˆr j2 ),
+Ns j=1
+
+(22)
+
+BPR loss: L = −
+
+TOP1 loss: L =
+
+HINGE loss: L = max {(ˆr j − rˆk ) + 1, 0}.
+
+(23)
+
+Local negative sampling: Previous study has shown that negative sampling plays an important role in performance [45]. Instead
+of random negative sampling, we also need to consider item popularity and user history issues. Specifically, we select negative samples
+in proportion to the item popularity within mini-batch sequences.
+Furthermore, for each user, we need to rule out the items appeared
+in his/her history. This way, the local negative sampling method
+not only improves performance but also reduces the computational
+time as well.
+Data augmentation: Note that some users only have a few
+session histories, which may be insufficient for training the model
+with long-term user profiles. So we need to make full use of all
+sequence samples and also their subsequences. First, we train each
+sequence with all hidden outputs and make the predictions, which
+fully explores the subsequences information. Second, we leverage
+the dropout layer for the sequences such that it makes regularization
+as well as diversifies the input sequence data.
+
+3
+
+EVALUATION
+
+In this section, we will demonstrate the effectiveness and efficiency
+of our model for session-aware recommendation. First, we test and
+compare our model on multiple real-world datasets, from open
+source datasets to our own parsed real-world e-commerce dataset,
+covering both video and e-commerce domain. Second, we choose
+very strong baseline models to compete with, including traditional
+MF method and DNN, CNN, RNN based approaches. We describe
+our setup details and show the benchmarks and overall evaluation
+results as following.
+
+3.1
+
+Datasets
+
+Totally we use four datasets in our experiments. The first is MovieLens [18], which is commonly used in recommender related works.
+The MovieLens 1M Dataset contains the ratings of 3,952 movies
+
+from 6,040 users from 2000 to 2003. All users selected had rated
+at least 20 movies. This movie rating data characterizes the user
+profiles in a extreme long term for 3 years. So we use this datasets
+mainly for concept proving of user long-term effects. The second is
+Recsys Challenge 2015 dataset [3] that consists of 31,708,505 interaction events with 37,486 items in 7,981,581 sessions for 6 months.
+This dataset only has the session info without user identities which
+session-based approaches commonly used, so we mainly test our
+time short-term effects on this dataset. In order to test our model for
+both long and short term profiles, we choose Tianchi dataset [59]
+containing 100M interaction events of 987,994 users with 4,162,024
+items from 9,439 categories for 9 days. However, the duration is
+only 9 days which is not that long for user profiling. Finally, we
+also test on our newly clawed dataset from real-world e-commerce
+website containing 4,016,778 events for 126,468 users interacting
+with 390,381 items in 648,663 for two months.
+Most of the datasets have no session ID info, we manually split
+the raw data into sessions based on 1-hour inactivity. We add action
+gap time between each interaction timestamp within the same
+session and delete the last term. The most important preprocessing
+step is filtering the attributes with different support number. Since
+we add user long-term and time short-term to session-based model,
+we need to guarantee the user and item attributes have enough
+support training samples. From our settings, we filter the items with
+at least 10 events, filter the sessions with length longer or equals
+to 2, and filter the users having 10 more sessions. To explore this
+supporting number influence, each dataset is split into sparse and
+dense two kinds of subsets for testing. All the dataset are partitioned
+to training and testing parts by cross validation based on both time
+and user. The test dataset contains sessions whose last timestamp
+is larger than a time boundary. We filter out the items and users
+that in the testing data but not in the training data. The details of
+datasets are shown in Table.2.
+
+3.2
+
+Comparing Baselines and ASARS Versions
+
+We compare ASARS with several strong baseline models. All of
+them are implicit ranking models. First, we choose BPR-MF model
+[28] representing CF-based approaches. Second, GRU4REC [20] is
+the common baseline model for session-based RNN recommenders.
+What’s more, since deep neural network is very popular and powerful, we also compare with the YouTube recommender model [9]
+representing DNN approaches and WaveNet PixelRNN model [51]
+representing Recurrent CNN models. Notably that most related
+session-based works didn’t compare with DNN and CNN models
+previously and they only choose more CF-based methods as baselines. Especially for CNN models, from our knowledge there are
+seldom papers using recurrent CNN model for sequential recommendation task. In some experimental settings, these methods are
+really competitive and show their advantages. We will briefly introduce each baseline model and show the comparing results in the
+following sections.
+• BPR-MF model [28]: Matrix factorization techniques apply SVD factoring the user-item rating matrix, which are
+dominated in collaborative filtering recommenders.
+• YouTube DNN model [9]: YouTube model includes two
+stages: candidate generation and ranking.
+
+Table 2: Experimental Comparison Results – shown are the MRR top 20 and Recall top 20 scores of four baseline models and
+five ASARS variants on four datasets. We highlight some focal improvements in bold and underline the best results.
+MovieLens
+MRR@20 RECALL@20
+
+Recsys15
+MRR@20 RECALL@20
+
+Tianchi
+MRR@20 RECALL@20
+
+MRR@20
+
+BPR-MF CF
+YouTube DNN
+WaveNet CNN
+GRU4REC RNN
+
+0.004844
+0.014457
+0.010098
+0.017358
+
+0.074627
+0.085271
+0.054264
+0.108527
+
+/
+0.194101
+0.100597
+0.167908
+
+/
+0.499136
+0.33733
+0.570426
+
+0.001933
+0.056148
+0.071221
+0.049316
+
+0.016234
+0.139335
+0.160209
+0.127657
+
+0.015416
+0.025355
+0.023910
+0.017474
+
+0.080431
+0.103061
+0.100067
+0.058896
+
+ASARS_user_att
+ASARS_user_cat
+ASARS_time_att
+ASARS_time_cat
+ASARS_time_user
+
+0.012371
+0.018451
+0.015988
+0.017539
+0.020321
+
+0.054264
+0.100775
+0.038760
+0.038760
+0.100775
+
+/
+/
+0.199309
+0.181273
+/
+
+/
+/
+0.623005
+0.589828
+/
+
+0.041214
+0.053976
+0.057941
+0.054056
+0.064585
+
+0.124636
+0.138174
+0.146510
+0.140076
+0.204744
+
+0.015937
+0.030365
+0.021176
+0.019368
+0.037259
+
+0.041002
+0.101227
+0.067485
+0.061282
+0.106135
+
+Models
+
+OURS
+RECALL@20
+
+Figure 6: Results of MRR@10, MRR@20, MRR30, MRR40 and MRR@all for MovieLens, Recsys15, Tianchi and our Datasets.
+• WaveNet CNN model [51]: PixelRNN aims to generate raw
+audio waveforms or phoneme recognition at first. Inner multiplicative relationships can be better exploited by its stacked
+causal atrous convolutions.
+• GRU4REC RNN model [20]: We adapt GRU4REC model
+introduced in Section.2.1.
+As for ASARS, we adapt user profile and dwell time in five different ways, two for user profile test, two for time feature test, and one
+for integrated version. The specifics of each model are as follows:
+• ASARS_user_att model: Adding user profile embedding
+by self-attention network. Based on session RNN, we add
+attention layer as Equation (19) and propagate the mutual
+score by lower trigonometric transformation as Equation
+(18).
+• ASARS_user_cat model: Adding the user profile by directly
+concatenating the hidden outputs and the user embeddings,
+followed by a fully connected layer.
+• ASARS_time_att model: Adding time profile embedding
+by global attention network as described in Section.??.
+• ASARS_time_cat model: Adding the user profile by directly
+concatenating the time gap embeddings and the item embeddings, and feeding into RNN layer as input sequences.
+• ASARS_time_user model: Integrating both time and user
+profiles as final ASARS model as Figure.4. Comparing the
+design versions above, we choose to use attention net for
+dwelling time and concatenate user profiles.
+
+3.3
+
+Implementation and Parameter Tuning
+
+We implement our model based on Spotlight [29], an open PyTorch
+recommender framework. In this Spotlight model zoo, all IDs need
+to be regenerated mapping to continuous numerical IDs. The model
+
+is trained end-to-end by back propagation. In our model, we use
+single layer LSTM for item and time training. During the training process, we first grid search all the possible hyper-parameters
+optimized by Adagrad [15] or Adam [25]. We also add early stop
+scheme when the evaluation loss does not decrease in the following
+10 epochs. We evaluate the top-k ranking results using MRR@K
+(Mean Reciprocal Rank) and Recall@K metrics. All metrics are the
+average of all item lists in testing dataset. The reciprocal rank is set
+to 0 if the rank is above K.
+In our settings, all comparing baseline models and our model
+variants are trained by grid search and select the best result. The best
+hyper-parameter set for ASARS_time_user model for MovieLens
+dataset is optimizing the hinge loss using Adagrad. The mini-batch
+size is 64. In the session information embedding, the maximum
+session sequence length is 200, the embedding size of item is 64,
+embedding size of time gap is 16 and embedding size of item is 32.
+The hidden dimension of LSTM layers are 100. The learning rate
+is set to 0.2. We used dropout regularization [47] before the RNN
+layers with 0.5. For evaluation, we mainly focus on top 20 ranking
+results.
+
+3.4
+
+Comparing Results
+
+All evaluation results are reported in Table.2. We mainly list the
+MRR top 20 and Recall top 20 scores of the four baseline models
+and five ASARS variants on the four datasets. We highlight some
+focal improvements in bold and underline the best results over
+all models. The detailed MRR@10, MRR@20, MRR30, MRR40 and
+MRR@all results for each datasets are shown in Figure.6 We finer
+analyze the comparing models by illustrating the user and time
+effects separately first, and then compare the overall performance.
+
+Performance with User Long-term Profile: Let’s first study
+the long-term effects of user models, i.e. ASARS_user_att model
+and ASARS_user_cat model. Compared to the major baseline model
+GRU4REC, we can see that the concatenating method always outperforms the baseline for around 6% improvement on Movielens,
+9% on Tianchi, and even 70% improvement on our parsed dataset.
+This simple user model can exploit the long-term profile efficiently.
+However, our carefully designed user attention model does not
+perform well and some results even got worse to baseline model.
+Our motivation of designing such attention network for user profile
+is to learn the importance from the session sequence so that it can
+select the most influential items from previous item sequences for
+predicting. However, this scheme still cannot give better results
+after trying all kinds of model and hyperparameter tuning. This
+may because users’ favorites and behavior patterns vary a lot and
+hard to learn. What’s more, although we guaranteed that all users
+have at least 10 session in training data, it still far from enough to
+train the attention network to work well. So user long-term profile
+is better to be used simply by concatenation model.
+Performance with Time Short-term Profile: We further investigate how the time short-term profile can be better exploited.
+Comparing the results of ASARS_time_att model and ASARS_time_cat
+model, we can see that ASARS_time_att works the best, which
+gives around 20% improvement on Recsys15, Tianchi and our own
+datasets, except MovieLens data. This is expectable since MovieLens
+1m data totally last for 3 years and the rating gap time cannot represent the info of the dwell time in e-commerce navigation sessions.
+We can see that with such useful addition info, ASARS_time_cat
+model can also beat the baseline model for about 10% improvement.
+Obviously, the global attention model for dwelling time helps more
+in session-based RNN model.
+Overall Performance with both User and Time: The last
+ASARS_time_user model integrates the user concatenation model
+and time attention model, and it shows that with both long and
+short term info, our ASARS model can improve MRR@20 value
+about 30% for Tianchi and 130% for our dataset. Notably that DNN
+and CNN models performs better than our major baseline RNN
+model on Tianchi and our dataset. This shows that DNN and CNN
+models are more robust and general than RNN model for different
+recommender system settings. With the improving from our model
+design, ASARS can give the best performance and beat all other
+models.
+Memory and Time Cost: Except for effectiveness, we also need
+to compare the memory and training time cost. We did experiments
+on NVIDIA Tesla P40 GPUs, and the training speed and memory
+cost are shown in Figure.7 and Figure.8. As expected, MF method is
+fastest and CNN method takes the most memory. Our model is half
+slower than baseline RNN model and takes similar memory cost,
+which is acceptable for training process.
+
+4
+
+RELATED WORK
+
+Much research efforts have been done to improve recommendation performance, like developing Context-Aware Recommendations [2], Time-Aware Recommenders [6] and Sequence-Aware
+Recommender Systems [34], exploiting contextual information,
+time dimension features and sequential order of the events. At the
+
+Figure 7: Train speed (iter/s).
+
+Figure 8: Memory cost (MiB).
+
+beginning, we list and compare some related research in different methodology categories exploiting various domain features in
+Table.3.
+CF-based RS. Raised by the Netflix Prize [4], factorization-based
+methods have been popularized and they framed the item-to-item
+recommender system, so called Collaborative Filtering method.
+Nowadays, kNN, SVD++ and BPR-MF [27, 38, 39] are still popular
+baseline methods for today’s recommender research. With the motivation to profile temporal evolution of user and item favorites,
+TimeSVD++ [26] is one of the major works to add temporal dynamics to CF RS, modeling the factor model with time-changing
+feature t. In addition to time, sequence prediction approach is further explored as well. FPMC [40] is proposed to combine user-item
+matrix with Markov chains and it is still considered as one of the
+state-of-art sequential CF-based recommendation. Although CFbased methods have been theoretically well developed and are less
+expensive for computational cost, their practicalness and scalability
+yield to NN-based approaches.
+NN-based RS. As deep learning has been becoming in prominence in this decade, so as recommender system researchers began
+to apply deep neural network on recommendation. One famous
+model is the YouTube DNN recommender [9]. It splits the recommendation task into two stages: a deep candidate generation model
+and a separate deep ranking model, and gives dramatic performance improvements. Speaking of time or sequence modeling in
+NN, everyone would come up with Recurrent Neural Network, typically LSTMs and GRUs [8, 17]. Several recent works have been
+proposed to add temporal historical features for RNN recommender
+systems. Tims-LSTM [60] equips LSTM with time gates to model
+time intervals. RRN [57] endows both users and items with a LSTM
+
+Table 3: Related works compared by different methodology categories exploiting various domain features.
+General
+Item Impression
+qi
+
+Multiplicative
+Interaction
+bui
+
+Evolution
+User Favorite Item Trend
+bu (t)
+qi (t)
+
+Methods
+
+Approaches
+
+User Taste
+pu
+
+CF-based
+
+BPR-MF
+TimeSVD++
+FPMC
+
+✓
+✓
+✓
+
+✓
+✓
+✓
+
+✓
+✓
+✓
+
+X
+✓
+X
+
+NN-based
+
+DNN
+GRU4REC
+ASARS
+
+✓
+X
+✓
+
+✓
+✓
+✓
+
+✓
+✓
+✓
+
+X
+X
+✓
+
+autoregressive model that captures dynamics with a low-rank factorization. NSR [23] uses survival analysis for return time prediction and exponential families for future activity analysis so as
+to solve the problem of Just-In-Time recommendation. Original
+and detailed survival analysis comes from temporal point process
+[10, 13, 14], which can recover both meaningful clusters and temporal dynamics. Except for modifications based on LSTM, cross-layer
+scheme is another new-proposed way to discover contextual features more expressively [5, 55]. While these approaches did not
+adapt to session-based scheme, which could play a predominant
+actor for recommendation as shown in Section.1.2.
+Session-based RS. Session-based RNN recommender is first proposed by Hidasi et. al named GRU4REC [20]. At first they mainly
+focus on anonymous cases and cold start problem in e-commerce
+recommender system, and they introduced session-parallel minibatches RRN approach to fasten the training process. There are
+many follow-up papers based on that work: improving by data augmentation via sequence preprocessing [49], exploiting dwell time by
+concatenating an additional dwell time RNN layer before item RNN
+[11], adding different types of interactions and list-wise ranking
+framework [56], and personalizing it with hierarchical RNN [35],
+etc. These works made incremental improvements for GRU4REC,
+but they do not make significant modification and haven’t consider
+long-term intra-session info and user action gap time feature, which
+can make great gain according to Section.1.2 Most recently, the
+most related work is STAMP [30], but it has no use of dwelling
+time, no RNN, different attention scheme with not very impressing
+improvements.
+Long and Short-term Based. There have been plenty of works
+focusing on leveraging short-term features or long-term profiles
+in the past. Generally speaking, conventional Matrix Factorization
+based methods are more able to capture users’ long-term general
+tastes [21]. and it can be extended to detect their evolution trend
+with temporal dynamics [26]. STAR model [46] learned the longterm profile by Monte Carlo Markov Chain and used Latent Dirichlet Allocation for short-term profiling. Coupled tensor factorization
+proposed by [36] shows the repeat pattern in previous purchasing,
+but RNNs show their privilege in short-term sequential pattern
+mining than other item-based or Markov Chain-based approaches.
+Most recent RS for long and short-term sequential recommendation like [12, 54] also use RNNs, but they neglected the temporal
+info or not based on the session. It’s impressing that Google just
+
+Time
+Drift
+t
+
+Sequence
+Info
+seq
+
+X
+✓
+X
+
+X
+✓
+X
+
+X
+X
+✓
+
+X
+X
+✓
+
+X
+X
+✓
+
+X
+✓
+✓
+
+proposed a mixed model [50] almost integrate all my model variants, but my model is much lighter than that. To facilitate RNN
+with long-term profiling, the goal of this paper is to make effective
+use of both long-term and short profiles and construct a better
+personalized session-aware RNN recommender system.
+
+5
+
+CONCLUSION
+
+In this paper, we quantify, qualify and exploit the long-term user
+profile and short-term temporal dynamics for session-based RNN
+recommender systems. In particular, we propose an Attentional
+Session-Aware Recommender System framework, called "ASARS",
+to integrate intra-session and inter-session profiles for both users
+and items with two novel models. We introduce inter-session temporal dynamic model to capture long-term user profiles for sessionbased RS to learn the inter-session pattern and user favorite evolution in a seamless way. We design a triangle parallel attention
+network to leverage temporal dynamics scheme exploiting more
+intra-session time information so as to enhance session-based RS in
+time dimension.Such triangle parallel attention network is newly
+designed for sequence-in-single-out RNN structure and data augmentation needs, and also accelerate the training speed as well.
+We demonstrate the improvement by our model design on four
+real-world datasets and beat comparable baseline models.
+
+REFERENCES
+[1] Gediminas Adomavicius, Ramesh Sankaranarayanan, Shahana Sen, and Alexander Tuzhilin. 2005. Incorporating contextual information in recommender systems using a multidimensional approach. ACM Trans. Inf. Syst. 23 (2005), 103–145.
+[2] Gediminas Adomavicius and Alexander Tuzhilin. 2011. Context-aware recommender systems. In Recommender systems handbook. Springer, 217–253.
+[3] David Ben-Shimon, Alexander Tsikinovsky, Michael Friedmann, Bracha Shapira,
+Lior Rokach, and Johannes Hoerle. 2015. Recsys challenge 2015 and the yoochoose
+dataset. In Proceedings of the 9th ACM Conference on Recommender Systems. ACM,
+357–358.
+[4] James Bennett, Stan Lanning, et al. 2007. The netflix prize. In Proceedings of KDD
+cup and workshop, Vol. 2007. New York, NY, USA, 35.
+[5] Alex Beutel, Paul Covington, Sagar Jain, Can Xu, Jia Li, Vince Gatto, and Ed H
+Chi. 2018. Latent Cross: Making Use of Context in Recurrent Recommender
+Systems. In Proceedings of the Eleventh ACM International Conference on Web
+Search and Data Mining. ACM, 46–54.
+[6] Pedro G Campos, Fernando Díez, and Iván Cantador. 2014. Time-aware recommender systems: a comprehensive survey and analysis of existing evaluation
+protocols. User Modeling and User-Adapted Interaction 24, 1-2 (2014), 67–119.
+[7] Heng-Tze Cheng, Levent Koc, Jeremiah Harmsen, Tal Shaked, Tushar Chandra,
+Hrishi Aradhye, Glen Anderson, Greg Corrado, Wei Chai, Mustafa Ispir, et al.
+2016. Wide & deep learning for recommender systems. In Proceedings of the 1st
+Workshop on Deep Learning for Recommender Systems. ACM, 7–10.
+[8] Junyoung Chung, Caglar Gulcehre, KyungHyun Cho, and Yoshua Bengio. 2014.
+Empirical evaluation of gated recurrent neural networks on sequence modeling.
+
+arXiv preprint arXiv:1412.3555 (2014).
+[9] Paul Covington, Jay Adams, and Emre Sargin. 2016. Deep neural networks
+for youtube recommendations. In Proceedings of the 10th ACM Conference on
+Recommender Systems. ACM, 191–198.
+[10] Hanjun Dai, Yichen Wang, Rakshit Trivedi, and Le Song. 2016. Recurrent coevolutionary latent feature processes for continuous-time recommendation. In
+Proceedings of the 1st Workshop on Deep Learning for Recommender Systems. ACM,
+29–34.
+[11] Alexander Dallmann, Alexander Grimm, Christian Pölitz, Daniel Zoller, and
+Andreas Hotho. 2017. Improving Session Recommendation with Recurrent
+Neural Networks by Exploiting Dwell Time. arXiv preprint arXiv:1706.10231
+(2017).
+[12] Robin Devooght and Hugues Bersini. 2017. Long and short-term recommendations with recurrent neural networks. In Proceedings of the 25th Conference on
+User Modeling, Adaptation and Personalization. ACM, 13–21.
+[13] Nan Du, Hanjun Dai, Rakshit Trivedi, Utkarsh Upadhyay, Manuel GomezRodriguez, and Le Song. 2016. Recurrent marked temporal point processes:
+Embedding event history to vector. In Proceedings of the 22nd ACM SIGKDD International Conference on Knowledge Discovery and Data Mining. ACM, 1555–1564.
+[14] Nan Du, Mehrdad Farajtabar, Amr Ahmed, Alexander J Smola, and Le Song.
+2015. Dirichlet-hawkes processes with applications to clustering continuoustime document streams. In Proceedings of the 21th ACM SIGKDD International
+Conference on Knowledge Discovery and Data Mining. ACM, 219–228.
+[15] John Duchi, Elad Hazan, and Yoram Singer. 2011. Adaptive subgradient methods
+for online learning and stochastic optimization. Journal of Machine Learning
+Research 12, Jul (2011), 2121–2159.
+[16] Hancheng Ge, James Caverlee, and Haokai Lu. 2016. Taper: A contextual tensorbased approach for personalized expert recommendation. In Proceedings of the
+10th ACM Conference on Recommender Systems. ACM, 261–268.
+[17] Felix A Gers, Jürgen Schmidhuber, and Fred Cummins. 1999. Learning to forget:
+Continual prediction with LSTM. (1999).
+[18] F Maxwell Harper and Joseph A Konstan. 2016. The movielens datasets: History
+and context. Acm transactions on interactive intelligent systems (tiis) 5, 4 (2016),
+19.
+[19] Balázs Hidasi and Alexandros Karatzoglou. 2017. Recurrent neural networks with
+top-k gains for session-based recommendations. arXiv preprint arXiv:1706.03847
+(2017).
+[20] Balázs Hidasi, Alexandros Karatzoglou, Linas Baltrunas, and Domonkos Tikk.
+2015. Session-based recommendations with recurrent neural networks. arXiv
+preprint arXiv:1511.06939 (2015).
+[21] Yifan Hu, Yehuda Koren, and Chris Volinsky. 2008. Collaborative filtering for implicit feedback datasets. In Data Mining, 2008. ICDM’08. Eighth IEEE International
+Conference on. Ieee, 263–272.
+[22] Dietmar Jannach, Lukas Lerche, and Michael Jugovac. 2015. Adaptation and
+evaluation of recommendations for short-term shopping goals. In Proceedings of
+the 9th ACM Conference on Recommender Systems. ACM, 211–218.
+[23] How Jing and Alexander J Smola. 2017. Neural survival recommender. In Proceedings of the Tenth ACM International Conference on Web Search and Data Mining.
+ACM, 515–524.
+[24] Michael Jugovac, Dietmar Jannach, and Lukas Lerche. 2017. Efficient optimization of multiple recommendation quality factors according to individual user
+tendencies. Expert Systems with Applications 81 (2017), 321–331.
+[25] Diederik P Kingma and Jimmy Ba. 2014. Adam: A method for stochastic optimization. arXiv preprint arXiv:1412.6980 (2014).
+[26] Yehuda Koren. 2009. Collaborative filtering with temporal dynamics. In Proceedings of the 15th ACM SIGKDD international conference on Knowledge discovery
+and data mining. ACM, 447–456.
+[27] Yehuda Koren. 2010. Factor in the neighbors: Scalable and accurate collaborative
+filtering. ACM Transactions on Knowledge Discovery from Data (TKDD) 4, 1 (2010),
+1.
+[28] Yehuda Koren, Robert Bell, and Chris Volinsky. 2009. Matrix factorization techniques for recommender systems. Computer 8 (2009), 30–37.
+[29] Maciej Kula. 2017. Spotlight. https://github.com/maciejkula/spotlight.
+[30] Qiao Liu, Yifu Zeng, Refuoe Mokhosi, and Haibin Zhang. 2018. STAMP: Shortterm attention/memory priority model for session-based recommendation. In
+Proceedings of the 24th ACM SIGKDD International Conference on Knowledge
+Discovery & Data Mining. ACM, 1831–1839.
+[31] Yu Meng, Jiaming Shen, Chao Zhang, and Jiawei Han. 2018. Weakly-Supervised
+Hierarchical Text Classification. In AAAI.
+[32] Andriy Mnih and Ruslan R Salakhutdinov. 2008. Probabilistic matrix factorization.
+In Advances in neural information processing systems. 1257–1264.
+[33] Moon-Hee Park, Jin-Hyuk Hong, and Sung-Bae Cho. 2007. Location-Based
+Recommendation System Using Bayesian User’s Preference Model in Mobile
+Devices. In UIC.
+[34] Massimo Quadrana, Paolo Cremonesi, and Dietmar Jannach. 2018. Sequenceaware recommender systems. arXiv preprint arXiv:1802.08452 (2018).
+[35] Massimo Quadrana, Alexandros Karatzoglou, Balázs Hidasi, and Paolo Cremonesi.
+2017. Personalizing session-based recommendations with hierarchical recurrent
+
+[36]
+[37]
+[38]
+[39]
+
+[40]
+[41]
+[42]
+[43]
+[44]
+[45]
+[46]
+[47]
+[48]
+[49]
+[50]
+[51]
+[52]
+
+[53]
+[54]
+[55]
+[56]
+[57]
+[58]
+
+[59]
+[60]
+
+neural networks. In Proceedings of the Eleventh ACM Conference on Recommender
+Systems. ACM, 130–137.
+Dimitrios Rafailidis and Alexandros Nanopoulos. 2015. Repeat consumption
+recommendation based on users preference dynamics and side information. In
+Proceedings of the 24th International Conference on World Wide Web. ACM, 99–100.
+Sasank Reddy and Jeff Mascia. 2006. Lifetrak: music in tune with your life. In
+Proceedings of the 1st ACM international workshop on Human-centered multimedia.
+ACM, 25–34.
+Steffen Rendle. 2012. Factorization machines with libfm. ACM Transactions on
+Intelligent Systems and Technology (TIST) 3, 3 (2012), 57.
+Steffen Rendle, Christoph Freudenthaler, Zeno Gantner, and Lars Schmidt-Thieme.
+2009. BPR: Bayesian personalized ranking from implicit feedback. In Proceedings
+of the twenty-fifth conference on uncertainty in artificial intelligence. AUAI Press,
+452–461.
+Steffen Rendle, Christoph Freudenthaler, and Lars Schmidt-Thieme. 2010. Factorizing personalized markov chains for next-basket recommendation. In Proceedings
+of the 19th international conference on World wide web. ACM, 811–820.
+J Ben Schafer, Dan Frankowski, Jon Herlocker, and Shilad Sen. 2007. Collaborative
+filtering recommender systems. In The adaptive web. Springer, 291–324.
+David W Scott. 1979. On optimal and data-based histograms. Biometrika 66, 3
+(1979), 605–610.
+Suvash Sedhain, Aditya Krishna Menon, Scott Sanner, and Lexing Xie. 2015.
+Autorec: Autoencoders meet collaborative filtering. In Proceedings of the 24th
+International Conference on World Wide Web. ACM, 111–112.
+Jiaming Shen, Maryam Karimzadehgan, Michael Bendersky, Zhen Qin, and Donald Metzler. 2018. Multi-Task Learning for Email Search Ranking with Auxiliary
+Query Clustering. In CIKM.
+Jiaming Shen, Ruiliang Lyu, Xiang Ren, Michelle Vanni, Brian M. Sadler, and
+Jiawei Han. 2018. Mining Entity Synonyms with Efficient Neural Set Generation.
+In AAAI.
+Qiang Song, Jian Cheng, Ting Yuan, and Hanqing Lu. 2015. Personalized recommendation meets your next favorite. In Proceedings of the 24th ACM International
+on Conference on Information and Knowledge Management. ACM, 1775–1778.
+Nitish Srivastava, Geoffrey Hinton, Alex Krizhevsky, Ilya Sutskever, and Ruslan
+Salakhutdinov. 2014. Dropout: a simple way to prevent neural networks from
+overfitting. The Journal of Machine Learning Research 15, 1 (2014), 1929–1958.
+Sainbayar Sukhbaatar, Jason Weston, Rob Fergus, et al. 2015. End-to-end memory
+networks. In Advances in neural information processing systems. 2440–2448.
+Yong Kiam Tan, Xinxing Xu, and Yong Liu. 2016. Improved recurrent neural
+networks for session-based recommendations. In Proceedings of the 1st Workshop
+on Deep Learning for Recommender Systems. ACM, 17–22.
+Jiaxi Tang, Francois Belletti, Sagar Jain, Minmin Chen, Alex Beutel, Can Xu,
+and Ed H Chi. 2019. Towards Neural Mixture Recommender for Long Range
+Dependent User Sequences. arXiv preprint arXiv:1902.08588 (2019).
+Aäron Van Den Oord, Sander Dieleman, Heiga Zen, Karen Simonyan, Oriol
+Vinyals, Alex Graves, Nal Kalchbrenner, Andrew W Senior, and Koray
+Kavukcuoglu. 2016. WaveNet: A generative model for raw audio.. In SSW. 125.
+Mark Van Setten, Stanislav Pokraev, and Johan Koolwaaij. 2004. Context-aware
+recommendations in the mobile tourist application COMPASS. In International
+Conference on Adaptive Hypermedia and Adaptive Web-Based Systems. Springer,
+235–244.
+Manasi Vartak, Arvind Thiagarajan, Conrado Miranda, Jeshua Bratman, and Hugo
+Larochelle. 2017. A Meta-Learning Perspective on Cold-Start Recommendations
+for Items. In Advances in Neural Information Processing Systems. 6904–6914.
+Kiewan Villatel, Elena Smirnova, Jérémie Mary, and Philippe Preux. 2018. Recurrent Neural Networks for Long and Short-Term Sequential Recommendation.
+arXiv preprint arXiv:1807.09142 (2018).
+Ruoxi Wang, Bin Fu, Gang Fu, and Mingliang Wang. 2017. Deep & cross network
+for ad click predictions. In Proceedings of the ADKDD’17. ACM, 12.
+Chen Wu and Ming Yan. 2017. Session-aware information embedding for ecommerce product recommendation. In Proceedings of the 2017 ACM on Conference
+on Information and Knowledge Management. ACM, 2379–2382.
+Chao-Yuan Wu, Amr Ahmed, Alex Beutel, Alexander J Smola, and How Jing. 2017.
+Recurrent recommender networks. In Proceedings of the tenth ACM international
+conference on web search and data mining. ACM, 495–503.
+Zichao Yang, Diyi Yang, Chris Dyer, Xiaodong He, Alex Smola, and Eduard
+Hovy. 2016. Hierarchical attention networks for document classification. In
+Proceedings of the 2016 Conference of the North American Chapter of the Association
+for Computational Linguistics: Human Language Technologies. 1480–1489.
+Zhihao Yi, Danning Wang, Kai Hu, and Qiang Li. 2015. Purchase Behavior
+Prediction in M-Commerce with an Optimized Sampling Methods. In Data Mining
+Workshop (ICDMW), 2015 IEEE International Conference on. IEEE, 1085–1092.
+Yu Zhu, Hao Li, Yikang Liao, Beidou Wang, Ziyu Guan, Haifeng Liu, and Deng Cai.
+2017. What to do next: Modeling user behaviors by time-lstm. In Proceedings of
+the Twenty-Sixth International Joint Conference on Artificial Intelligence, IJCAI-17.
+3602–3608.
+
+

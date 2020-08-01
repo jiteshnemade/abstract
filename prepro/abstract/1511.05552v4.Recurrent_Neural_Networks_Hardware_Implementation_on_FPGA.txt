@@ -1,0 +1,19 @@
+recurrent neural networks (rnns) have the
+ability to retain memory and learn data sequences. due
+to the recurrent nature of rnns, it is sometimes hard to
+parallelize all its computations on conventional hardware.
+cpus do not currently offer large parallelism, while gpus
+offer limited parallelism due to sequential components of rnn
+models. in this paper we present a hardware implementation
+of long-short term memory (lstm) recurrent network on
+the programmable logic zynq 7020 fpga from xilinx. we
+implemented a rnn with 2 layers and 128 hidden units
+in hardware and it has been tested using a character level
+language model. the implementation is more than 21× faster
+than the arm cortex-a9 cpu embedded on the zynq 7020
+fpga. this work can potentially evolve to a rnn co-processor
+for future mobile devices.
+
+
+
+i. 

@@ -1,0 +1,1220 @@
+Convex Sets of Robust Recurrent Neural Networks
+
+arXiv:2004.05290v1 [cs.LG] 11 Apr 2020
+
+Max Revay, Ruigang Wang, Ian R. Manchester
+
+Abstract— Recurrent neural networks (RNNs) are a class of
+nonlinear dynamical systems often used to model sequenceto-sequence maps. RNNs have been shown to have excellent
+expressive power but lack stability or robustness guarantees
+that would be necessary for safety-critical applications. In this
+paper we formulate convex sets of RNNs with guaranteed
+stability and robustness properties. The guarantees are derived
+using differential IQC methods and can ensure contraction
+(global exponential stability of all solutions) and bounds on incremental `2 gain (the Lipschitz constant of the learnt sequenceto-sequence mapping). An implicit model structure is employed
+to construct a jointly-convex representation of an RNN and its
+certificate of stability or robustness. We prove that the proposed
+model structure includes all previously-proposed convex sets
+of contracting RNNs as special cases, and also includes all
+stable linear dynamical systems. We demonstrate the utility
+of the proposed model class in the context of nonlinear system
+identification.
+
+I. INTRODUCTION
+Neural networks are a class of universal function approximator frequently used in machine learning. While there
+have been some great successes in solving complex tasks,
+their lack of robustness often prevents their application,
+particularly in a safety-critical context. This realization has
+motivated a large amount of research into the area of
+adversarial defenses [1], [2], [3] . This area seeks guarantees
+of robustness against adversarially chosen inputs.
+Recurrent neural networks are state-space models
+parametrized by neural networks and are frequently used
+to model sequences-to-sequence mappings. Many of the
+concerns for ensuring robustness of learned models relate
+directly to traditional concerns in robust control, e.g. stability
+and continuity of the input-output mapping [4].
+There are many definitions of stability for nonlinear systems (e.g., RNNs). Approaches that study the stability of
+certain equilibria are difficult to apply when synthesizing
+new models as the locations of equilibria are unknown for
+unknown inputs. Two alternatives that do not depend on prior
+knowledge of inputs and trajectories are incremental stability
+and contraction analysis [5]. These approaches define stability in terms of the distance between all trajectories, regardless
+of the input.
+Beyond stability, a robust model must also not be critically
+sensitive to small changes in the input. The most commonly
+used method for analyzing the input-output behavior of a
+system is the `2 gain bound. As noted in [6], however, a finite
+`2 gain bound only guarantees only boundedness, whereas a
+This work was supported by the Australian Research Council.
+The authors are with the Australian Centre for Field Robotics,
+The University of Sydney, Sydney, NSW 2006, Australia (e-mail:
+ian.manchester@sydney.edu.au).
+
+finite incremental `2 gain bound guarantees continuity. Further insight can be gained by noting that the incremental `2
+bound is equivalent to the Lipschitz constant of the sequenceto-sequence mapping. The Lipschitz constant of a mapping
+is a quantity that commonly appears in for instance proofs
+of generalization bounds [7], analysis of expressiveness [8]
+and guarantees of robustness to adversarial attacks [9], [10].
+There have been a number of approaches to analyzing
+and training stable recurrent neural networks. Many of the
+approaches to analysis such as [11], [12], [13], [14], [15]
+ensure stability through LMI conditions. The LMIs, however,
+are not jointly convex in both model parameters and the
+stability certificate complicating their use during training.
+The approaches in [16] and [17] both try to learn Lyapunov
+functions and enforce the Lyapunov inequality via projection
+and penalization. These approaches, however, construct a
+Lyapunov function about a particular equilibrium and as
+such cannot be easily extended to the deal with unknown,
+exogenous inputs. On the other hand [18] and [19] provide
+conditions for contraction, easily dealing with inputs. However, these models suffer from reduced model expressiveness
+due to the conservatism of the stability criteria. This conservatism is caused by two issues. Firstly, the contraction
+metrics are limited to a diagonal structure. Secondly, they do
+not account for the interactions between the linear component
+and the nonlinearity and instead require both the system and
+nonlinearity to be contracting in a common metric.
+One approach to reducing the conservatism of stability
+criteria is provided by the integral quadratic constraint (IQC)
+framework. This approach deals with the case of when a
+known, linear system is in feedback with an uncertain, nonlinear or otherwise troublesome component. By abstracting
+away the troublesome component in favour of quadratic
+descriptions of the signals it can produce, criteria such as
+stability, `2 gain bounds and passivity can be accurately
+verified. In the case where there are multiple ‘troublesome’
+components that share a common description, very accurate
+results can be obtained using the approach presented in [20]
+and [21]. More recently, extensions of the IQC framework
+were proposed in [22] lifting the IQC approach to the tangent
+bundle and allowing for the nominal system to be nonlinear.
+In this case, the stability criteria take the form of point-wise,
+convex LMIs. In the context of neural network analysis,
+the IQC approach has been recently applied to the (nonrecurrent) neural networks to develop the tightest bounds on
+the Lipschitz constant known to date [23] and robustness
+guarantees for sets of input perturbations [24].
+In this work, we develop a convex set of Robust RNNs.
+By treating the RNN as a linear system in feedback with
+
+its activation functions, we can apply methods from robust
+control to develop contraction conditions that are less conservative than prior methods. The proposed model set is the
+most expressive set of contracting RNNs so far and contains
+all previously proposed sets. The use of an implicit model
+structure leads to conditions that are jointly convex in both
+the model parameters and certificate of stability, building
+on the approach for polynomial models in [25], [26], [27],
+[28]. This greatly simplifies the problem of training new
+models subject to stability constraints as they can be treated
+using penalty, barrier or projected gradient methods. We
+provide a discussion of future extensions that may allow for
+improved expressibility and non-constant contraction metrics
+and discuss a number of applications of such a model set.
+Finally, we illustrate the efficacy of the proposed model set
+on a system identification task.
+Notation. We use N, R to denote the set of natural and
+real numbers, respectively. The set of all one-side sequences
+x : N → Rn is denoted by `n2e . Superscript n is omitted when
+it is clear from the context. We use xt to represent the value
+of the sequence x at time t ∈ N. The notation | · | : Rn → R
+denotes the standard 2-norm. The subset `2 ⊂ `2e consists
+of all square-summable
+i.e., x ∈ `2 if and only if
+pPsequences,
+∞
+2 is finite. Given a sequence
+|x
+|
+the `2 norm kxk :=
+t
+t=0
+x ∈ `2e , the `2 norm ofqits truncation over [0, T ] with T ∈ N
+PT
+2
+is written as kxkT :=
+t=0 |xt | . Given a piecewise difn
+ferentiable vector function f : R → Rm , we use D+ f (x; v)
+to denote the one-side directional derivative of f (·) at x in
+the direction v, i.e. D+ f (x; v) := lim+ [f (x+sv)−f (x)]/s.
+s→0
+
+If f is differentiable, then D+ f (x; v) = ∂f
+∂x v. For matrices
+A, we use A  0 and A  0 to mean A is positive definite
+or positive semi-definite respectively and A  B and A  0
+to mean A − B  0 and A − B  0 respectively. The set of
+diagonal, positive definite matrices is denoted D+ .
+
+same input sequence u, the corresponding output trajectories
+y a and y b satisfy y a − y b ∈ `p2 .
+This definition implies that initial conditions are forgotten,
+however, the outputs can still be sensitive to small perturbations in the input. In such cases, it is natural to measure
+system robustness in terms of the incremental `2 -gain.
+Definition 2. The system (1), (2) is said to have an incremental `2 -gain bound of γ if for all pairs of solutions with
+initial conditions a, b ∈ Rn and input sequence ua , ub ∈ `m
+2e ,
+the output sequences y a , y b ∈ `p2e satisfies
+ya − yb
+
+2
+T
+
+≤ γ 2 ua − ub
+
+2
+T
+
++ d(a, b),
+
+Note that the above definition implies the incrementally
+`2 stability since ky a − y b k2T ≤ d(a, b) for all T ∈ N when
+ua = ub . It also shows that all operators defined by (1) and
+(2) are Lipschitz continuous with Lipschitz constant γ, i.e.
+for any a ∈ Rn and all T ∈ N
+kSa (u) − Sa (v)kT ≤ γku − vkT ,
+
+∀u, v ∈ `m
+2e .
+
+Problem 1. Construct a convex RNN model set Θ∗ such
+that for any θ ∈ Θ∗ , the system (1), (2) has a finite the
+incremental `2 -gain.
+Problem 2. Construct a convex RNN model set Θγ such
+that for any θ ∈ Θγ , the system (1), (2) has an incremental
+`2 -gain bound of γ.
+B. Contraction Analysis
+Contraction analysis [5] studies the incremental stability
+properties of system (1), (2) based on its associated differential dynamics (a.k.a. variational, linearized, prolonged):
+δxt+1 = D+ fθ (xt , ut ; δxt , δut )
+δyt = D gθ (xt , ut ; δxt , δut )
+
+A. Problem Setup
+Consider an input-output sequence mapping (operator)
+p
+Sa : `m
+2e 7→ `2e whose model can be described by a
+dynamical system with finite-dimensional state xt ∈ Rn and
+initial state x0 = a, driven by a known input ut ∈ Rm and
+producing an output yt ∈ Rp . We are interested in learning
+RNN models parametrized by θ ∈ Θ ⊆ RN :
+xt+1 = fθ (xk , uk )
+
+(1)
+
+yk = gθ (xk , uk )
+
+(2)
+
+where functions fθ , gθ will be defined later.
+It is often desired to learn RNNs which have predictable
+responses to a wide variety of inputs. One direct approach
+is to search for RNNs from a model set with stability and
+robustness guarantees. First, we introduce some stability
+definitions.
+Definition 1. The system (1), (2) is termed incrementally `2
+stable if for any two initial conditions a and b, given the
+
+(4)
+
+In this work we will address the following problems.
+
++
+
+II. P ROBLEM F ORMULATION AND P RELIMINARIES
+
+∀T ∈ N. (3)
+
+(5)
+(6)
+
+where the sequence (δx , δu , δy ) can be interpreted as the
+infinitesimal displacements between two neighboring trajectories of the original system (1), (2).
+A system (1), (2) is said to have differential `2 -gain bound
+of γ if for all T ∈ N
+kδy k2T ≤ γ 2 kδu k2T + b(x0 , δx0 )
+
+(7)
+
+where b(x, δx ) ≥ 0 with b(x, 0) = 0. For smooth systems
+the differential `2 -gain bound is equivalent to the incremental
+`2 -gain bound [29].
+A sufficient, and in some cases necessary, condition for
+(7) is the existence of a storage function V (x, δx ) ≥ 0 with
+V (x, 0) = 0 such that the following dissipation inequality
+holds for all t ∈ N
+1
+V (xt+1 , δxt+1 ) − V (xt , δxt ) ≤ γ|δut |2 − |δyt |2 .
+(8)
+γ
+In general there are many forms of differential storage functions. One common choice is the quadratic form V (δx ) =
+δx> M δx where M  0.
+
+Φ
+
+v
+
+w
+
+G
+
+y
+
+u
+
+Fig. 1: Feedback interconnection for RNNs.
+
+C. Bounds and Identities for Quadratic Matrix Functions
+Throughout the paper we will frequently use the following simple property. The matrix functions g(E, P ) =
+−E > P −1 E with E ∈ Rn×n , P  0 obey the upper bound:
+>
+
+−E P
+
+−1
+
+>
+
+E P −E −E
+
+(9)
+
+where the right-hand side is convex in E, P . Inequality (9)
+follows directly from the expansion
+P − E > − E + E > P −1 E = (E − P )> P −1 (E − P )  0.
+From this expansion it is also clear that the bound (9) is tight
+if E = P .
+III. ROBUST RNN S
+A. Model Set
+Our work can be applied to the models with multi-layer
+network. To streamline the presentation, we will focus on
+the case with one-layer network.
+As shown in Fig. 1, we treat the RNN as a feedback
+interconnection of a linear system G and a static, memoryless
+nonlinear operator Φ of the form
+w = Φ(v).
+
+(10)
+
+where Φ(x) = [φ(v1 ) · · · φ(vq )]> with vi as the ith
+component of the vector v. We assume that the slope of
+φ is restricted to the interval [α, β]:
+α≤
+
+φ(y) − φ(x)
+≤ β,
+y−x
+
+∀x, y ∈ R, x 6= y.
+
+(11)
+
+In the neural network literature, such functions are referred
+to as “activation functions”, and common choices such as
+(e.g. tanh, ReLU, sigmoid) are slope restricted [30].
+We will parameterize the linear system G using the
+following implicit, redundant parametrization:
+
+
+Ext+1 = F xt + B1 wt + B2 ut
+(12)
+yt = C1 xt + D11 wt + D12 ut
+
+
+vt = C2 xt + b + D22 ut
+where θ = (E, F, B1 , B2 , b, C1 , D11 , D12 ) is the model
+parameter with E invertible. The choice of C2 and D22 is
+discussed later in Remark 1.
+Note that by setting F = 0, E −1 B1 = A, E −1 B2 = B,
+C1 = 0, D11 = C, D12 = D, C2 = I and D22 = 0, the above
+implicit RNN (12), (10) is reduced to the conventional RNN
+[31] of the form:
+zt+1 = Φ(Azt + But + b)
+
+(13)
+
+yt = Czt + Dut
+
+(14)
+
+where zt = Φ(xt + b).
+The implicit model (12), (10) is called a Robust RNN
+if its differential `2 -gain is bounded by some constant γ.
+To characterize the set of Robust RNNs, we first derive the
+associated differential dynamics, which can also be expressed
+as a feedback interconnection of a linear system δG and a
+differential operator δΦ:
+
+
+Eδxt+1 = F δxt + B1 δwt + B2 δut
+δG : δyt = C1 δxt + D11 δwt + D12 δut
+(15)
+
+
+δvt = C2 δxt + D22 δut
+δΦ :
+
+δwt = D+ Φ(vt ; δvt ).
+
+(16)
+
+Analysis of the above system is primarily complicated by
+the presence of the nonlinear activation function in Φ. We
+will simplify the analysis by replacing δΦ with differential
+integral quadratic constraints (δ-IQCs).
+B. Description of Φ by δ-IQCs
+A δ-IQC for the operator Φ can be viewed as an IQC
+([32]) for the differential operator δΦ [22].
+Definition 3. The operator Φ satisfies the differential integral
+quadratic constraint defined by a multiplier M = M > ∈
+R2q×2q if for any v, δv , δw ∈ Rq satisfying (16), the
+following inequality holds for all T ∈ N:
+>
+T 
+X
+δv
+t
+
+t=0
+
+δwt
+
+
+M
+
+
+δ vt
+≥ 0.
+δwt
+
+(17)
+
+For the nonlinear operator (10) where each component is
+slope-restricted to the same interval [α, β], we can obtain a
+simpler quadratic constraint
+ > 
+ 
+δvt
+−2αβT (λ) (α + β)T (λ) δvt
+≥ 0 (18)
+δw t
+δw t
+(α + β)T (λ)
+−2T (λ)
+{z
+}
+|
+M (λ)
+
+for all t ∈ N, where T (λ) = diag(λ1 , . . . , λ2q ) ∈ D+ . Note
+that the above δ-IQC is a conic combination of quadratic
+constraints for each activation function φ, i.e.
+
+> 
+
+
+q
+X
+δvt,i
+−2αβ α + β δvt,i
+λi
+≥0
+δwt,i
+α+β
+−2
+δwt,i
+i=1
+
+where vt,i , wt,i are the ith elements of vt and wt , respectively.
+C. Convex Parametrization of Robust RNNs
+To construct the set of stable models with finite differential
+`2 -gain, we use the following constraint:
+
+E + E> − P
+0
+
+  >
+ > >
+F
+0
+−1 F
+−
+P
+0
+B1>
+B1>
+"
+#
+"
+#>
+b>
+b>
+C
+C
+2
+2
+− b > M (λ) b >
+0
+D21
+D21
+
+(19)
+
+b > = [C > 0] and D
+b > = [0 I]. We define the set
+where C
+2
+2
+21
+of Robust RNNs with finite differential `2 -gain as follows
+Θ∗ := {θ : ∃P  0, λ ∈ D+ s.t. E + E >  0, (19)}.
+To obtain a Robust RNN with differential `2 -gain bound
+of γ, we propose to use the following constraint:
+ > >
+
+  >
+F
+F
+E + E> − P 0 0
+
+0
+0 0  − B1>  P −1 B1> 
+0
+0 γI
+B2>
+B2>
+>
+
+
+
+ >   > >
+b>
+b>
+C
+C
+C1
+C1
+2
+2
+1
+ b> 
+ b> 
+> >
+D11
+− D11
+− D
+21  M (λ) D21   0
+γ
+>
+>
+b>
+b>
+D12
+D12
+D
+D
+22
+22
+b>
+D
+22
+
+(20)
+
+>
+[D22
+
+to learn models for a wide class of systems, it is of course
+beneficial to have as expressive a model set as possible. The
+main result regarding expressivity is that the Robust RNN
+set Θ∗ contains all ci-RNNs and stable LTI models.
+To explain this result, we first introduce the concept of
+input/output equivalence, i.e., two RNNs with parameter θ1
+and θ2 is said to be input/output equivalent (denoted θ1 ∼ θ2 )
+if they admits the same input/output trajectory set. A model
+set Θ1 is said to be a subset of another model set Θ2 (denoted
+Θ1 ⊆ Θ2 ) if for any θ1 ∈ Θ1 , there exists θ2 ∈ Θ2 such that
+θ1 ∼ θ2 . And Θ1 ⊂ Θ2 means Θ1 is a strict subset of Θ2 .
+The set of all stable LTI systems will be denoted ΘLTI
+and can be described by the state-space model:
+xt+1 = Axt + But ,
+
+yt = Cxt + Dut
+
+(21)
+
+where P  0 and
+=
+0]. Note that if the LMI
+condition (19) is satisfied, there exists a sufficiently large
+γ such that (20) holds for any choice of B2 , C1 , D11 , D12
+and D22 . We define the set of Robust RNNs with differential
+`2 -gain bound of γ as follows
+
+with a necessary and sufficient condition for stability given
+by the LMI:
+P − A> PA  0,
+(22)
+
+Θγ := {θ : ∃P  0, λ ∈ D+ s.t. E + E >  0, (20)}.
+
+Theorem 3. The Robust RNN set Θ∗ contains all stable LTI
+models, i.e. ΘLTI ⊂ Θ∗ .
+
+Remark 1. Note that the LMI (20) is not jointly convex in
+the weights C2 , D22 and the δ-IQC multipliers λ. We will see
+that fixing C2 and D22 and optimizing over the remaining
+parameters still leads to highly expressive models. Fixing
+C2 = I and D22 = 0, the model set still contains the set of
+ci-RNNs, see Theorem 4 below. Alternatively, expressibility
+can be improved at the cost of computational complexity by
+fixing C2 and D22 as random wide layers (i.e. with large
+q). This is similar to the approach taken in the echo-state
+network [33].
+
+Proof. For any stable LTI system θ0 ∈ ΘLTI , it is easy to
+verify that θ0 ∼ θ where θ represents an implicit model with
+E −1 F = A, B1 = 0, E −1 B2 = B, C = C and D = D. We
+will show that θ ∈ Θ∗ . Let P = E > P −1 E we have
+
+Theorem 1. Suppose that θ ∈ Θγ , then the Robust RNN
+(12), (10) has a differential `2 -gain bound of γ.
+Proof. To establish the differential `2 -gain
+we first
+ bound,
+>
+>
+,
+δ
+left and right multiply (20) by the vectors δx>t , δw
+ut and
+t
+ > > > >
+δxt , δwt , δut . Then, applying the bound (9) and taking
+summation over [0, T ] gives
+>
+ 
+T 
+X
+1
+δvt
+δ
+M (λ) vt
+VT − V0 ≤ γkδu k2T − kδy k2T −
+δw t
+δwt
+γ
+t=0
+
+where Vt = δxt E > P −1 Eδxt . From (17) the differential `2 gain condition (7) follows with b(x0 , δx0 ) = γV0 .
+Theorem 2. Suppose that θ ∈ Θ∗ , then the Robust RNN
+(12), (10) has a finite differential `2 -gain.
+Proof. Since (19) implies (20) for some sufficiently large
+γ, from Theorem 1 the Robust RNN (12), (10) has a finite
+differential `2 -gain bound of γ.
+D. Expressivity of the model set
+Some recent works show that the model sets with additional stability constraints can improve generalizability and
+trainability, e.g. contracting implicit RNNs (ci-RNNs) [19]
+and stable linear time-invariant (LTI) models [34]. To be able
+
+for some P  0.
+
+(22) ⇒E > P −1 E − F > E −> E > P −1 EE −1 F  0
+⇒E + E > − P − F > P −1 F  0
+
+
+E + E > − P − F > P −1 F −T
+ 0 ⇒ (19)
+⇒
+−T
+2T
+where T ∈ D+ satisfies T /2  E +E > −P −F > P −1 F .
+A ci-RNN [19] is an implicit model of the form:
+Ezt+1 = Φ(Fzt + But + b),
+
+yt = Czt + Dut
+
+such that the following contraction condition holds
+
+
+E + ET − P FT
+0
+F
+P
+
+(23)
+
+(24)
+
+where P ∈ D+ . We define a convex set of ci-RNNs as
+Θci := {θ : ∃P ∈ D+
+
+s.t. E + E >  0, (24)}.
+
+(25)
+
+Note that Θci does not contain all stable LTI systems. For
+example, the system xt+1 = 0.5xt + ut , yt = xt cannot be
+converted into the form (23) via coordinate transformation.
+Theorem 4. The Robust RNN set Θ∗ contains all ci-RNNs,
+i.e. Θci ⊂ Θ∗ .
+Proof. For any ci-RNN θ0 ∈ Θci , we first show that θ0 ∼ θ
+where θ represents the implicit model with F = 0, E =
+P −1 , B1 = P −1 FE −1 , B2 = EB, C1 = 0, D11 = CE −1 ,
+D12 = D, C2 = I and D22 = 0. By substituting θ into (12)
+and (10), the implicit model can be rewritten as
+xt+1 = FE −1 Φ(xt + b) + But ,
+yt = CE −1 Φ(xt + b) + Dut .
+
+(26)
+
+Note that the above system is equivalent to (1) via the
+coordinate transformation zt = E −1 Φ(xt + b) since
+Ezt+1 = Φ(xt+1 + b) = Φ(FE −1 φ(xt + b) + But + b)
+= Φ(Fzt + But + b).
+Second, we will prove that θ ∈ Θ∗ . Let P = T = P −1
+we have
+(24) ⇒E + E > − P − F > P −1 F  0
+⇒E > P −1 E − F > P −1 F  0
+⇒P −1 − E −> F > P −1 PP −1 FE −1  0
+⇒2P −1 − E −> F > P −1 PP −1 FE −1 − P −1 PP −1  0
+⇒2T − B1> P −1 B1 − T (E + E > − P )−1 T  0
+
+
+E + E> − P
+−T
+⇒
+ 0 ⇒ (19).
+−T
+2T − B1> P −1 B1
+And Θci is a strict subset of Θ∗ as Θci does not contain all
+stable LTI systems.
+We also note that, unlike Θci , the proposed model set does
+not require a diagonal metric. This may further reduce the
+conservatism of Θ∗ compared to Θci .
+IV. D ISCUSSION
+We have focused on the case where G is a linear system
+and Φ is described by simple sector bound quadratic constraints, however both of these assumptions can be relaxed
+with some additional technical considerations.
+All of our results can be extended to the case where the
+nominal system G is a smooth nonlinear state space model.
+When G is no longer a linear system however, the stability
+conditions take the form of pointwise LMIs. This allows
+us to deal with state dependent contraction metrics as E
+now becomes a state dependent function and the contraction
+metric takes the form E(x)> P −1 E(x) [26]. For the case
+where G is a polynomial state space model, sum of squares
+programming can be used to enforce the LMIs.
+The conservatism of the IQC framework is largely associated with the accuracy of the IQC descriptors used
+for the activation function. For the non-incremental case,
+extensive libraries of IQC descriptors have been developed,
+e.g. the Zames-Falb, Popov and RL/RC multipliers. In the
+incremental case was shown that these descriptors cannot
+be easily used as they do not preserve incremental positivity
+[35]. To the authors’ knowledge, it remains an open problem
+to to find more expressive IQCs for activation functions that
+are valid for incremental and differential analysis.
+
+Fig. 2: Nonlinear spring profile.
+
+In order to generate data, we will use a simulation of a
+series of four coupled mass spring dampers. The goal is to
+identify a mapping from the force on the initial mass to the
+position of the final mass. Nonlinearity is introduced through
+the springs’ piecewise linear force profile described by:
+Fspring,i (d) = ki Γ(d)
+
+(27)
+
+where Γ(d) is the piecewise linear function depicted in
+Figure 2 and ki is the spring constant for that spring.
+We excite the system using a pseudo-random binary sequence that changes values after a an interval distributed uniformly in [0, τ ] and takes values that are normally distributed
+with stand deviation σu . To generate a training batch we
+simulate the system for 200 seconds and sample the system
+at 5Hz to generate 1000 datapoints with an input signal
+characterized by τ = 20s and σu = 3N . The training data
+consists of 100 training batches. We also generate validation
+(τ = 20s and σu = 3N ) and a test set with τ = 20s and
+σu = 3N by simulating the system for 1000 seconds and
+sampling at 5 Hz.
+A. Training Procedure
+Fitting Robust RNNs requires a constrained optimization
+problem to be solved subject to a number of LMI constraints.
+I.e. we are interested in solving the following optimization
+problem:
+min ||ỹ − S(ũ)||2
+(28)
+θ∈Θγ
+
+V. N UMERICAL E XAMPLE
+
+Where, Θγ is defined in (20). In this work, we enforce the
+constraint θ ∈ Θγ using an interior point method where we
+minimize a series of objective functions of the following
+form:
+X
+X
+J = MSE(ỹ, S(ũ))−
+β log det(Mi )−
+β log λj . (29)
+
+We will compare the proposed Robust RNN with the
+commonly used (Elman) RNN [31] and LSTM [36], along
+with two stable model sets, the stable RNN (sRNN) [18] and
+contracting implicit RNN (ci-RNN) [19]. All models have a
+state dimension of 10 and all models except for the LSTM
+use a ReLU activation function. The LSTM uses a tanh
+activation.
+
+where Mi are the LMIs to be satisfied and λj are the
+IQC multipliers. As β → 0, this approaches the solution
+of the problem (28). We minimize (29) using the ADAM
+optimizer [37] for stochastic gradient descent with an initial
+learning rate of 1E − 3. A backtracking line search is used
+to ensure strict feasibility though out the optimization. When
+
+i
+
+j
+
+we observe more than 10 epochs without an improvement in
+performance on a validation, we decrease the learning rate
+by a factor of 0.25 and decrease the barrier parameter β by
+a factor of 10 until a final learning rate of 1E-6 is achieved.
+We initialize all Robust RNNs by first solving a linear
+subspace identification problem using N4SID to find matrices
+A,B,C and D and using the resulting matrices to initialize
+E −1 F = A, E −1 B2 = B, C1 = C and D12 = D.
+B. Model Evaluation
+We will compare models on a number of different metrics
+measuring nominal quality of fit and robustness. Quality of
+fit will be compared in terms of the normalized simulation
+error:
+||ỹ − y||
+(30)
+NSE =
+||y||
+where ỹ, y ∈ `2 are the simulated and true system outputs
+respectively. In order to study the the robustness of the
+systems, we will study the the Lipschitz constant estimated
+via the following:
+γ̂ = max
+u,v
+
+||S(u) − S(v)||
+,
+||u − v||
+
+u 6= v.
+
+(31)
+
+While solving (31) exactly is complicated by non-convexity,
+an approximate solution can be found using gradient ascent.
+The values of γ̂ mentioned in this work are thus a lower
+bound on the true Lipschitz constant of the model, which
+can be interpreted as a measure of worst case sensitivity to
+input perturbations.
+C. Results
+The performance of a number of the models on the various
+test sets and estimates of the Lipschitz constants are shown
+in Table I. There are a number of apparent benefits from
+the proposed model set. Firstly, if we compare the nominal
+performance of the stable models, we can see that the Robust
+RNN (Θ∗ ) outperforms all other stable models. This is due to
+the reduced conservatism of the proposed stability constraint.
+We have also plotted the performance on the second test
+set versus the observed Lipschitz constant in Figure 3. From
+this, we can see the Robust RNNs have the best trade-off
+between nominal performance and robustness signified by
+the fact that they lie further in the lower left corner. For
+instance if we compare the LSTM with the Robust RNN
+(Θ∗ ), we observe similar nominal performance, however the
+Robust RNN has a much smaller Lipschitz constant.
+Another interesting observation is that all models with
+stability constraints have significantly reduced Lipschitz constant when compared to those without. This provides additional support for the observation that stability constraints
+can improve robustness and generalizability of models [19],
+[34].
+In Figure 4 we present boxplots showing the performance
+of each of the models for a number of realizations of the
+input signal with varying σu . Note that we only present the
+results for a subset of the models due to space restrictions.
+We can see that for all plots, there is a trough corresponding
+
+Fig. 3: Test Performance on simulated mas-spring-damper
+system versus observed worst case sensitivity.
+to where the training data was drawn with σu = 3. Note
+however, that for the LSTM and the RNN, the performance
+of the models quickly degrades as the amplitude of the
+input data distribution increases. For the remaining models,
+however, we can see that this loss in performance is much
+more gradual. We interpret this as an improvement in model
+generalizability, supporting the assertion that the Lipschitz
+constant is a fundamental quantity affecting a models ability
+to generalize. Examples of the outputs and errors for these
+models are shown in Figure 5 for σu = 3 and for σu = 10.
+Figure 6 shows the medians of the same dataset for the
+models with and without stability constraints. Comparing the
+stable models, we can see that the nominal NSE is improves
+as the stability condition used becomes less conservative.
+Additionally, comparing the unstable models with the stable
+models, we can see that the stable models have better
+generalization, signified by the reduced slope after σu = 3.
+REFERENCES
+[1] H. Salman, M. Sun, G. Yang, A. Kapoor, and J. Z. Kolter, “Blackbox smoothing: A provable defense for pretrained classifiers,” arXiv
+preprint arXiv:2003.01908, 2020.
+[2] I. J. Goodfellow, J. Shlens, and C. Szegedy, “Explaining and harnessing adversarial examples,” arXiv preprint arXiv:1412.6572, 2014.
+[3] M. Cheng, J. Yi, P.-Y. Chen, H. Zhang, and C.-J. Hsieh, “Seq2sick:
+Evaluating the robustness of sequence-to-sequence models with adversarial examples,” arXiv preprint arXiv:1803.01128, 2018.
+[4] G. Zames, “On the input-output stability of time-varying nonlinear
+feedback systems part one: Conditions derived using concepts of
+loop gain, conicity, and positivity,” IEEE Transactions on Automatic
+Control, vol. 11, no. 2, pp. 228–238, 1966.
+[5] W. Lohmiller and J.-J. E. Slotine, “On contraction analysis for nonlinear systems,” Automatica, vol. 34, pp. 683–696, 1998.
+[6] C. A. Desoer and M. Vidyasagar, Feedback systems: input-output
+properties. Siam, 1975, vol. 55.
+[7] P. L. Bartlett, D. J. Foster, and M. J. Telgarsky, “Spectrally-normalized
+margin bounds for neural networks,” in Advances in Neural Information Processing Systems, 2017, pp. 6240–6249.
+[8] S. Zhou and A. P. Schoellig, “An analysis of the expressiveness of
+deep neural network architectures based on their lipschitz constants,”
+arXiv preprint arXiv:1912.11511, 2019.
+[9] T. Huster, C.-Y. J. Chiang, and R. Chadha, “Limitations of the
+Lipschitz constant as a defense against adversarial examples,” pp. 16–
+29, 2019.
+
+1
+
+1
+
+1
+
+0.8
+
+0.8
+
+0.8
+
+0.6
+
+0.6
+
+0.6
+
+0.4
+
+0.4
+
+0.4
+
+0.2
+
+0.2
+
+0.2
+
+0
+
+1.0
+
+2.0
+
+3.0
+
+4.0
+
+5.0
+
+6.0
+
+7.0
+
+8.0
+
+9.0 10.0
+
+0
+
+1.0
+
+2.0
+
+3.0
+
+(a) LSTM
+
+4.0
+
+5.0
+
+6.0
+
+7.0
+
+8.0
+
+9.0 10.0
+
+0
+
+1
+
+0.8
+
+0.8
+
+0.8
+
+0.6
+
+0.6
+
+0.6
+
+0.4
+
+0.4
+
+0.4
+
+0.2
+
+0.2
+
+0.2
+
+2.0
+
+3.0
+
+4.0
+
+5.0
+
+6.0
+
+7.0
+
+8.0
+
+9.0 10.0
+
+(d) Robust RNN (Θ3 )
+
+0
+
+1.0
+
+2.0
+
+3.0
+
+4.0
+
+5.0
+
+6.0
+
+3.0
+
+4.0
+
+5.0
+
+6.0
+
+7.0
+
+8.0
+
+9.0 10.0
+
+8.0
+
+9.0 10.0
+
+(c) ci-RNN (Θci )
+
+1
+
+1.0
+
+2.0
+
+(b) RNN
+
+1
+
+0
+
+1.0
+
+7.0
+
+8.0
+
+(e) Robust RNN (Θ8 )
+
+9.0 10.0
+
+0
+
+1.0
+
+2.0
+
+3.0
+
+4.0
+
+5.0
+
+6.0
+
+7.0
+
+(f) Robust RNN (Θ∗ )
+
+Fig. 4: Boxplots showing model performance for varying input data distribution amplitude σu . Each boxplot shows NSE
+over for 300 input realizations.
+
+(a) σu = 3
+
+(b) σu = 10
+
+Fig. 5: Simulation and performance for two example inputs with different amplitudes.
+
+Test NSE
+γ̂
+
+RNN
+0.1352
+49.73
+
+LSTM
+0.0697
+508.2
+
+Θ3
+0.2573
+2.9736
+
+Θ6
+0.1940
+4.6359
+
+Θ8
+0.102
+7.03
+
+Θ10
+0.964
+7.84
+
+Θ∗
+0.0677
+11.449
+
+ci-RNN
+0.1031
+9.594
+
+s-RNN
+0.1044
+10.082
+
+TABLE I: Performance of models on coupled mass spring damper example.
+
+[25]
+
+[26]
+
+[27]
+[28]
+[29]
+[30]
+
+Fig. 6: Model performance versus input distribution parameter.
+
+[31]
+[32]
+[33]
+
+[10] H. Qian and M. N. Wegman, “L2-nonexpansive neural networks,”
+International Conference on Learning Representations (ICLR), 2019.
+[11] E. Kaszkurewicz and A. Bhaya, “Robust stability and diagonal Liapunov functions,” SIAM Journal on Matrix Analysis and Applications,
+vol. 14, no. 2, pp. 508–520, 1993.
+[12] E. Kaszkurewicz and A. Bhaya, “On a class of globally stable neural
+circuits,” IEEE Transactions on Circuits and Systems I: Fundamental
+Theory and Applications, vol. 41, no. 2, pp. 171–174, 1994.
+[13] E. Kaszkurewicz and A. Bhaya, Matrix Diagonal Stability in Systems
+and Computation. Birkhuser Basel, 2000.
+[14] N. E. Barabanov and D. V. Prokhorov, “Stability analysis of discretetime recurrent neural networks,” IEEE Transactions on Neural Networks, vol. 13, no. 2, pp. 292–303, Mar. 2002.
+[15] Y.-C. Chu and K. Glover, “Bounds of the induced norm and model
+reduction errors for systems with repeated scalar nonlinearities,” IEEE
+Transactions on Automatic Control, vol. 44, pp. 471–483, Mar.
+[16] J. Z. Kolter and G. Manek, “Learning stable deep dynamics models,”
+in Advances in Neural Information Processing Systems 32. Curran
+Associates, Inc., 2019, pp. 11 128–11 136.
+[17] S. M. Richards, F. Berkenkamp, and A. Krause, “The Lyapunov neural
+network: Adaptive stability certification for safe learning of dynamical
+systems,” in Conference on Robot Learning, 2018, pp. 466–476.
+[18] J. Miller and M. Hardt, “Stable recurrent models,” In Proceedings of
+ICLR 2019, 2019.
+[19] M. Revay and I. R. Manchester, “Contracting implicit recurrent neural
+networks: Stable models with improved trainability,” Learning for
+Dynamics and Control (L4DC), 2020.
+[20] F. D’amato, M. A. Rotea, A. Megretski, and U. Jönsson, “New results
+for analysis of systems with repeated nonlinearities,” Automatica,
+vol. 37, no. 5, pp. 739–747, 2001.
+[21] V. V. Kulkarni and M. G. Safonov, “All multipliers for repeated
+monotone nonlinearities,” IEEE Transactions on Automatic Control,
+vol. 47, no. 7, pp. 1209–1212, 2002.
+[22] R. Wang and I. R. Manchester, “Robust contraction analysis of
+nonlinear systems via differential IQC,” in Proc. IEEE Conf. Decision
+control, 2019, pp. 6766–6771.
+[23] M. Fazlyab, A. Robey, H. Hassani, M. Morari, and G. Pappas,
+“Efficient and accurate estimation of lipschitz constants for deep neural
+networks,” in Advances in Neural Information Processing Systems,
+2019, pp. 11 423–11 434.
+[24] M. Fazlyab, M. Morari, and G. J. Pappas, “Safety verification and
+
+[34]
+[35]
+[36]
+[37]
+
+robustness analysis of neural networks via quadratic constraints and
+semidefinite programming,” arXiv preprint arXiv:1903.01287, 2019.
+M. M. Tobenkin, I. R. Manchester, J. Wang, A. Megretski, and
+R. Tedrake, “Convex optimization in identification of stable non-linear
+state space models,” in Proc. IEEE Conf. Decision control, 2010, pp.
+7232–7237.
+M. M. Tobenkin, I. R. Manchester, and A. Megretski, “Convex
+parameterizations and fidelity bounds for nonlinear identification and
+reduced-order modelling,” IEEE Transactions on Automatic Control,
+vol. 62, no. 7, pp. 3679–3686, 2017.
+J. Umenberger and I. R. Manchester, “Convex bounds for equation
+error in stable nonlinear identification,” IEEE control systems letters,
+vol. 3, no. 1, pp. 73–78, 2018.
+——, “Specialized interior-point algorithm for stable nonlinear system
+identification,” IEEE Transactions on Automatic Control, vol. 64,
+no. 6, pp. 2442–2456, 2018.
+V. Fromion and G. Scorletti, “A theoretical framework for gain
+scheduling,” Int. J. Robust Nonlinear Control, vol. 13, no. 10, pp.
+951–982, Aug. 2003.
+I. Goodfellow, Y. Bengio, and A. Courville, Deep learning. MIT
+press, 2016.
+J. L. Elman, “Finding structure in time,” Cognitive science, vol. 14,
+no. 2, pp. 179–211, 1990.
+A. Megretski and A. Rantzer, “System analysis via integral quadratic
+constraints,” IEEE Trans. Autom. Control, vol. 42, no. 6, pp. 819–830,
+Jun. 1997.
+H. Jaeger, “Adaptive nonlinear system identification with echo state
+networks,” in Advances in neural information processing systems,
+2003, pp. 609–616.
+J. Umenberger, J. Wågberg, I. R. Manchester, and T. B. Schön, “Maximum likelihood identification of stable linear dynamical systems,”
+Automatica, vol. 96, pp. 280–292, 2018.
+V. V. Kulkarni and M. G. Safonov, “Incremental positivity nonpreservation by stability multipliers,” IEEE Trans. Autom. Control, vol. 47,
+no. 1, pp. 173–177, Jan. 2002.
+S. Hochreiter and J. Schmidhuber, “Long Short-Term Memory,” Neural computation, vol. 9, pp. 1735–1780, 1997.
+D. P. Kingma and J. Ba, “Adam: A Method for Stochastic Optimization,” International Conference for Learning Representations (ICLR),
+Jan. 2017.
+
+

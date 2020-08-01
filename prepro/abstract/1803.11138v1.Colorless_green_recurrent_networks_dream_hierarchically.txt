@@ -1,0 +1,23 @@
+
+recurrent neural networks (rnns) have
+achieved impressive results in a variety of linguistic processing tasks, suggesting that they
+can induce non-trivial properties of language.
+we investigate here to what extent rnns learn
+to track abstract hierarchical syntactic structure. we test whether rnns trained with a
+generic language modeling objective in four
+languages (italian, english, hebrew, russian)
+can predict long-distance number agreement
+in various constructions. we include in our
+evaluation nonsensical sentences where rnns
+cannot rely on semantic or lexical cues (“the
+colorless green ideas
+ideas i ate with the chair
+sleep
+sleep furiously”), and, for italian, we compare model performance to human intuitions.
+our language-model-trained rnns make reliable predictions about long-distance agreement, and do not lag much behind human
+performance. we thus bring support to the
+hypothesis that rnns are not just shallowpattern extractors, but they also acquire deeper
+grammatical competence.
+
+1
+

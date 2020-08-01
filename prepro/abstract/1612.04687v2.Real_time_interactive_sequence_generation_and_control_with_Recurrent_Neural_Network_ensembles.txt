@@ -1,0 +1,13 @@
+
+recurrent neural networks (rnn), particularly long short term memory (lstm)
+rnns, are a popular and very successful method for learning and generating
+sequences. however, current generative rnn techniques do not allow real-time
+interactive control of the sequence generation process, thus aren’t well suited for
+live creative expression. we propose a method of real-time continuous control and
+‘steering’ of sequence generation using an ensemble of rnns and dynamically
+altering the mixture weights of the models. we demonstrate the method using
+character based lstm networks and a gestural interface allowing users to ‘conduct’
+the generation of text.
+
+1
+

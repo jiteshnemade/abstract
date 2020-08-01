@@ -1,0 +1,2903 @@
+1
+
+arXiv:1812.07609v2 [cs.NE] 21 May 2020
+
+RNNFast: An Accelerator for Recurrent Neural Networks Using
+Domain Wall Memory
+MOHAMMAD HOSSEIN SAMAVATIAN, The Ohio State University, USA
+ANYS BACHA, University of Michigan, USA
+LI ZHOU, The Ohio State University, USA
+RADU TEODORESCU, The Ohio State University, USA
+
+Abstract
+
+Recurrent Neural Networks (RNNs) are an important class of neural networks designed to retain and incorporate context into
+current decisions. RNNs are particularly well suited for machine learning problems in which context is important, such as
+speech recognition and language translation.
+This work presents RNNFast, a hardware accelerator for RNNs that leverages an emerging class of non-volatile memory
+called domain-wall memory (DWM). We show that DWM is very well suited for RNN acceleration due to its very high density
+and low read/write energy. At the same time, the sequential nature of input/weight processing of RNNs mitigates one of the
+downsides of DWM, which is the linear (rather than constant) data access time.
+RNNFast is very efficient and highly scalable, with flexible mapping of logical neurons to RNN hardware blocks. The basic
+hardware primitive, the RNN processing element (PE) includes custom DWM-based multiplication, sigmoid and tanh units for
+high density and low-energy. The accelerator is designed to minimize data movement by closely interleaving DWM storage
+and computation. We compare our design with a state-of-the-art GPGPU and find 21.8× higher performance with 70× lower
+energy.
+
+
+1
+
+INTRODUCTION
+
+Deep learning is transforming the way we approach everyday computing. From speech recognition that empowers
+today’s digital assistants to business intelligence applications fueled by the analysis of social media postings,
+processing information in a way that preserves the correct context is crucial. For instance, the sentences “white
+blood cells destroying an infection” and “an infection destroying white blood cells” have very different meanings
+even though they contain the same words. Traditional machine learning designs such as Convolutional Neural
+Networks (CNNs) do not consider context and are therefore not well suited for solving such problems. Recurrent
+Neural Networks (RNNs) are a powerful class of networks designed to consider context by retaining and using
+Authors’ addresses: Mohammad Hossein Samavatian, The Ohio State University, , Columbus, Ohio, USA, samavatian.1@osu.edu; Anys
+Bacha, University of Michigan, , Dearborn, Michigan, USA, bacha@umich.edu; Li Zhou, The Ohio State University, , Columbus, Ohio, USA,
+zhou.785@osu.edu; Radu Teodorescu, The Ohio State University, , Columbus, Ohio, USA, teodorescu.1@osu.edu.
+Permission to make digital or hard copies of all or part of this work for personal or classroom use is granted without fee provided that copies are
+not made or distributed for profit or commercial advantage and that copies bear this notice and the full citation on the first page. Copyrights for
+components of this work owned by others than ACM must be honored. Abstracting with credit is permitted. To copy otherwise, or republish, to
+post on servers or to redistribute to lists, requires prior specific permission and/or a fee. Request permissions from permissions@acm.org.
+© 2020 Association for Computing Machinery.
+1550-4832/2020/1-ART1 $15.00
+https://doi.org/10.1145/3399670
+ACM J. Emerg. Technol. Comput. Syst., Vol. 1, No. 1, Article 1. Publication date: January 2020.
+
+1:2
+
+• Mohammad Hossein Samavatian, Anys Bacha, Li Zhou, and Radu Teodorescu
+
+information from previously processed inputs. RNNs are used across a wide range of applications that include
+speech recognition for digital assistants such as Siri and Google Now, sentiment analysis for classifying social media
+postings, and language translation. The popularity of RNN networks in production applications was highlighted
+by Google in a recent paper [31], which reports that RNN workloads represent almost 30% of the workloads on
+Google’s TPU datacenters. This is in contrast to only 5% for CNN workloads.
+However, RNN workloads are data-intensive because they store a partial history of the output sequence and
+perform computations on that history along with the current input. As a result, RNNs require both vast amounts of
+storage and increased processing power. For example, the RNN neuron requires 8× the number of weights and
+multiply-accumulate (MAC) operations of a typical CNN cell. RNN networks are also generally quite large. For
+instance, Amodei et al. [5] developed a network for performing speech recognition that utilized seven recurrent
+layers and a total of 35 million parameters. At this scale, RNNs with large input sets are susceptible to memory
+bottlenecks when running on existing accelerators such as GPUs [23] or FPGAs [9, 18, 23, 35, 36, 41, 65, 66]. In
+addition, the fundamentally different design of the RNN cell makes previously proposed custom CNN accelerators
+[4, 10–14, 17, 25, 30, 32, 33, 37–39, 47, 52–54, 61, 67] not directly applicable to RNN workloads.
+This paper presents RNNFast, a hardware accelerator for RNN networks. RNNFast leverages domain-wall
+memory (DWM), an emerging non-volatile memory technology, to provide high density on-chip storage as well
+as energy efficient computation. DWM [16, 28, 48, 68, 69, 72, 77] is a magnetic spin-based memory technology,
+which stores information by setting the spin orientation of so-called magnetic domains in a ferromagnetic wire.
+Multiple magnetic domains can occupy a single wire (referred to as “racetrack”) allowing up to 64 bits to be
+represented.
+DWM has many attractive characteristics. It has read/write latencies that are close to SRAM and write performance and energy that are substantially lower than STT-RAM and other non-volatile memories [62]. Perhaps
+more importantly, DWM is expected to have 30× higher density than SRAM and 10× higher than DRAM or
+STT-RAM. The technology would therefore allow dramatically higher storage capacity in the same chip area.
+While the technology is still in the early stages of development, prototypes have yielded encouraging results [8].
+We show that DWM is very well suited for RNN acceleration due to its very high density, linear access pattern, and
+low read/write energy.
+The RNNFast architecture is modular and highly scalable forgoing the need for long communication buses
+despite the high output fanout of typical RNN networks. RNNFast allows flexible mapping of logic neurons to RNN
+hardware blocks. The accelerator is designed to minimize data movement by closely interleaving DWM storage
+and computation. The basic hardware primitive, the RNN processing element (PE) includes custom DWM-based
+multiplication and custom nonlinear functional units for high performance and low-energy. RNNFast also includes
+an error mitigation mechanism for position errors, expected to be relatively common in DWM. The error mitigation
+is tailored to the RNNFast data access pattern to minimize overhead. We compare RNNFast with a state-of-the art
+NVIDIA P100 GPGPU and find RNNFast improves performance by 21.8× while reducing energy 70×.
+We also compare with two alternative RNNFast designs. 1) a CMOS-based RNNFast design in which both
+memories and logic use traditional CMOS. We find the RNNFast design to be up to 2× more energy efficient than
+the CMOS version, in a much smaller chip area. 2) a memristor-based implementation that uses an analog dotproduct engine, a state-of-the-art design that has been shown to be very efficient for CNNs [7, 14]. RNNFast shows
+better performance, energy and area than the memristor-based design. Qualitative comparisons with FPGA-based
+RNN accelerators, Google’s TPU and Microsoft’s Brainwave [19] also indicate RNNFast has better performance
+and lower energy for similar workloads.
+This paper makes the following main contributions:
+• Presents RNNFast, the first DWM-based custom accelerator for LSTMs and other RNN variants.
+ACM J. Emerg. Technol. Comput. Syst., Vol. 1, No. 1, Article 1. Publication date: January 2020.
+
+RNNFast: An Accelerator for Recurrent Neural Networks Using Domain Wall Memory •
+ht-1 xt
+
+Input vector
+x[0]
+
+x[1]
+
+x[2]
+
+C0,0
+
+C0,1
+
+C0,2
+
+h[0]
+
+h[1]
+
+h[2]
+
+C1,0
+
+C1,1
+
+C1,2
+
+ht-1 xt
+
++
+
++
+
+Input
+i
+gate t
+
+xt
+ht-1 +
+
+1:3
+
+Cell
+
+X
+
+Output ot
+gate
+
+ct
+
++
+
+X
+
+ht
+
+X
+
+Forget
+gate
+
+ft
++
+
+h'[0]
+
+h'[1]
+
+h'[2]
+
+C2,0
+
+C2,1
+
+C2,2
+
+xt
+x2
+
+x1
+C
+h"[0]
+
+h"[1]
+
+output vector
+(a)
+
+h"[2]
+
+ht-1
+
+(b)
+
+h1
+
+h1
+
+C
+
+xt
+h2
+
+h2
+
+...
+
+ht-1
+
+C
+ht
+Time
+
+(c)
+
+Fig. 1. (a) 3-layer RNN with 3 LSTM cells/layer, (b) LSTM cell, (c) an LSTM cell unrolled over time
+
+• Introduces novel DWM-based designs for efficient neural network hardware including sigmoid, and tanh
+units.
+• Implements an efficient error mitigation solution for DWM overshift errors.
+• Presents a new efficient and scalable interconnection mechanism based on racetrack chains.
+• Demonstrates that DWM is very well suited for efficient acceleration of recurrent neural networks.
+The rest of this paper is organized as follows: Section 2 provides background information. Section 3 details the
+design and implementation of RNNFast. Section 4 presents the error mitigation aspects of the design. Sections 5
+and 6 describe the evaluation. Section 7 discusses related work and Section 8 concludes.
+
+2
+
+BACKGROUND
+
+Recurrent neural networks (RNN) are a powerful class of networks that have the ability to learn sequences. They
+are applicable to anything with a sense of order that needs to be remembered. RNNs are used across a wide range
+of applications that includes speech recognition for enabling today’s digital assistants, sentiment analysis for
+analyzing posts (text and video) and classifying them as positive or negative, and machine translation for sequence
+to sequence translation between languages.
+
+2.1
+
+The Long Short-Term Memory Cell
+
+Most recurrent neural networks make use of special "neurons" called Long Short-Term Memory (LSTM) cells
+[22, 27]. LSTMs are designed to process and remember prior inputs and factor them into their outputs over time.
+Figure 1 shows an example of a very simple 3-layer RNN with 3 LSTM cells/layer. The output of each layer is a
+vector that is supplied as the input to the following layer. In addition to those inputs, a feedback loop takes the
+output vector of each layer and feeds it back as an additional input to each LSTM neuron. An illustration of the
+inputs and outputs of a single LSTM cell C unrolled over time is shown in Figure 1(c). An input x0 into neuron C at
+time step t = 0, will generate an output h0 that is propagated downstream to the next layer. In addition, h0 is saved
+within the neuron’s memory cell for use in the next time step. At time step t = 1, the same neuron C will process
+input x1 , but also use the previously stored output h0 to generate the new output h1 .
+A detailed look inside the LSTM neuron (Figure 1(b)) reveals a significantly more complex operation compared
+to CNN neurons. The strength of the LSTM lies in the way it regulates the fraction of information it recalls from its
+embedded memory and the fraction of input it processes for generating outputs over time. In other words, the LSTM
+cell progressively memorizes and forgets contextual information as it processes more inputs. This is achieved
+ACM J. Emerg. Technol. Comput. Syst., Vol. 1, No. 1, Article 1. Publication date: January 2020.
+
+1:4
+
+• Mohammad Hossein Samavatian, Anys Bacha, Li Zhou, and Radu Teodorescu
+
+Read Port
+
+Read/Write Port
+Read
+current
+
+Write
+current ‘1’
+
+Write Port
+
+Read
+current
+
+Fixed
+layer
+
+shift
+current
+
+Write
+current ‘1’
+
+shift
+current
+Domain Domain Free
+wall
+layer
+Write
+current ‘0’
+
+Write
+current ‘0’
+
+Ferromagnetic wire
+
+Fig. 2. DWM device structure.
+
+through special gates that are controlled through a set of mathematical functions [21] governed by equations (1) –
+(5).
+it = σWxi xt +Whi ht−1 + bi
+(1)
+ft = σWx f xt +Wh f ht−1 + b f
+
+(2)
+
+ot = σWxo xt +Who ht−1 + bo
+
+(3)
+
+ct = ft ⊙ ct−1 + it ⊙ tanhWxc xt +Whc ht−1 + bc
+
+(4)
+
+ht = ot ⊙ tanhct
+
+(5)
+
+The input gate it receives the input to be written into a neuron’s memory cell at time step t. The forget gate ft
+controls what information should be erased from a neuron’s memory cell at time step t. The cell ct represents the
+content of the neuron’s memory cell. The output gate ot controls the amount of information read from the neuron’s
+cell and how much of it contributes to the output. The output ht represents the output of the cell to the next layer at
+time step t. This output is also fed back into the input gate it+1 of the same LSTM cell at time step t + 1. The W s
+and bs represent the weights and biases, respectively.
+Note that ⊙ used in equations (4) and (5) represents the dot product operator. In addition, equations (1) – (5)
+represent neurons for an entire layer within a network. Therefore, it , ft , ot , ct , ht , ht−1 , and xt are vectors and all
+W s are matrices. As such, if we augment a given matrix W to include the weights for both x and h such that its
+dimensions are n × m, then each row in W l for hidden layer l would be mapped to neuron j where j ∈ 1, n. The
+value m is the size of input vector.
+ l
+W11
+
+W l =  ...
+l
+Wn1
+
+...
+..
+.
+...
+
+l 
+W1m
+.. 
+. 
+
+(6)
+
+l
+Wnm
+
+The tanh and σ activation functions are also outlined in equations (7) and (8) for clarity. These functions are
+applied as elementwise operations on the resulting vectors.
+
+1
+σ z =
+(7)
+1 + e−z
+
+
+tanh z = 2σ 2z − 1
+(8)
+ACM J. Emerg. Technol. Comput. Syst., Vol. 1, No. 1, Article 1. Publication date: January 2020.
+
+RNNFast: An Accelerator for Recurrent Neural Networks Using Domain Wall Memory •
+
+1:5
+
+Because of the complex design, LSTM cells require substantially more storage and computation relative to
+their CNN counterparts. Moreover, RNN networks are also generally fully-connected, further increasing the data
+movement overhead.
+
+2.2
+
+Domain-wall Memory
+
+Domain wall (a.k.a. racetrack) memory was first proposed by Parkin et al. [48] from IBM in 2008. In 2011,
+Annunziata et al.[8] demonstrated the first 200mm DWM wafer, fabricated with IBM 90nm CMOS technology.
+Each die contained 256 racetrack cells, proving the feasibility of DWM fabrication. A large body of research has
+since sought to improve and optimize the technology at device and circuit levels [20, 44, 56, 57, 63, 73, 76] and
+find solutions to improve its reliability [74].
+Domain wall (racetrack) memory represents information using the spin orientation of magnetic domains in
+a ferromagnetic wire, as shown in Figure 2. Each of these domains can be independently set to an up-spin or
+down-spin to represent the value of a single bit. Since multiple magnetic domains can reside on a single wire,
+multiple bits (32-64) of data can be packed in a single DWM device, resulting in a very high density. Three basic
+operations can be performed on a DWM device: read, write and shift. A magnetic tunnel junction (MTJ) [55, 71]
+structure is used to read data from the DWM cell (read port in Figure 2).
+In a DWM device, all the magnetic domains share a single read MTJ (generally referred-to as a read head or
+port). The bit to be read needs to be aligned with the MTJ before it can be accessed. This is accomplished using a
+property that is unique to DWM, called domain wall motion, which refers to the shifting of magnetic domains down
+the ferromagnetic wire. When a current pulse of a suitable magnitude is applied through the ferromagnetic wire,
+the magnetic spins of all domains “move” across the wire in a direction opposite to the direction of the current. The
+number of bit positions in a shift motion is controlled by the duration of the shift current. Additional blank domains
+are included at the ends of each racetrack to allow all data domains to be shifted to the read head without data loss
+at the ends of the wire [51].
+Writing into DWM is also fast and energy efficient due to recently developed [73] "shift-based writes" as
+demonstrated in Fig. 2 (write port). The design of the write head consists of a ferromagnetic wire with two fixed
+domains that straddle a free domain at an arbitrary location on the racetrack. One of the fixed domains is hardwired
+to up-spin and the other to down-spin at fabrication. The spin of either of the fixed domains can be shifted into
+the free domain through the domain motion process by applying a current pulse in the appropriate direction. The
+latency and energy of shift-based writes are equivalent to those of simple shifts.
+The main challenge of racetrack memory is the access latency to data stored in a DWM tape which is variable
+depending upon the number of shifts required to align the accessed bit with the read or write heads. RNNFast
+mitigates this disadvantage by optimizing data placement for sequential access such that most accesses only require
+a single shift.
+2.2.1 Reliability Issues. DWM technology also presents reliability challenges including possible misalignment of
+the data domains leading to erroneous reads and/or writes [29, 74]. Prior work [74] has classified DWM errors into
+two main types: "stop-in-the-middle" and "out-of-step" errors. The first class of errors is caused when data domains
+are not aligned with the read/write heads, leading to invalid accesses. The second class of errors is caused when
+the incorrect domain is aligned with the read/write head which causes the wrong bit in the track to be accessed.
+The errors are generally caused by variability in the magnitude or duration of the current pulse applied during the
+domain shift operation. Zhang et al.[74] has developed a technique for eliminating "stop-in-the-middle" errors that
+relies on the application of a short subthreshold shift current to nudge the misaligned domain back into alignment.
+They also demonstrate that the subthreshold pulse is small enough that it cannot misalign a correctly aligned
+domain. As a result, sub-threshold shifts can virtually eliminate "stop-in-the-middle" errors, at the cost of increasing
+the number of "out-of-step" errors.
+ACM J. Emerg. Technol. Comput. Syst., Vol. 1, No. 1, Article 1. Publication date: January 2020.
+
+1:6
+
+• Mohammad Hossein Samavatian, Anys Bacha, Li Zhou, and Radu Teodorescu
+
+Tile Group
+
+Tile Group
+Tile Group
+
+Tile Group
+Tile Group
+Tile Group
+Tile Group
+
+Interconnection Network
+
+Conf
+Mem
+
+Tile Group
+
+Interconnection Network
+
+Comp. Mem
+Interconnection Network
+
+I/O interface
+
+On chip DW Memory
+
+RNNFast Chip
+Fig. 3. RNNFast architecture overview at chip level.
+
+While subthreshold shifts can be applied in both directions, we choose to apply them in the shift direction. As a
+result, all "out-of-step" errors will be converted into overshift errors by 1 or more positions in the shift direction.
+For a single-position shift, which represents virtually all shifts in RNNFast, the probability of single-bit overshift is
+on the order of 10−5 [74], which is quite high. However, the probability of multibit overshift is about 10−21 , which
+is negligible. As a result, RNNFast implements mitigation for single-bit overshift errors.
+
+3
+
+RNNFAST ARCHITECTURE
+
+At a high level the RNNFast chip consists of Global Memory, a Computational Memory array, Configuration
+Memory and I/O interface as shown in Figure 3. The Global Memory is a dense memory block implemented using
+DWM. This is the main memory of the accelerator and is used to store inputs and results. The Computational
+Memory is the compute engine and is implemented primarily using DWM elements augmented with CMOS logic
+where appropriate. The compute array is organized as a pool of highly reconfigurable and tightly interconnected
+tile groups.
+One or more multi-layer RNN networks can be mapped to multiple tile groups, in a weight-stationary design
+(weights are stored locally in the Computational Memory). The Configuration Memory holds the runtime configuration settings for the chip. RNNFast is optimized to deliver low latency without batching, and it is also efficient for
+batch workloads.
+
+3.1
+
+Compute Tiles
+
+A compute tile consists of multiple LSTM hardware units that share a single input and a single output racetrack.
+They are interconnected with their nearest horizontal and vertical neighbors through racetrack memories. Figure 4
+shows the tile design and layout. The results of the computation within each tile are written directly onto the input
+track of the tile belonging to the next layer in the network. Tiles are organized in tile groups, which are connected
+to each other through traditional wired interconnection networks.
+3.1.1 Inter-tile Communication. RNNs are typically fully connected networks requiring all inputs to be delivered
+to all the neurons in a given layer. The high degree of connectivity that has to be supported by the hardware can lead
+to substantial energy and area overheads when traditional wired interconnects are used. To address this challenge
+we leverage the shifting mechanism of DWM racetracks for communication both within and across tiles.
+ACM J. Emerg. Technol. Comput. Syst., Vol. 1, No. 1, Article 1. Publication date: January 2020.
+
+RNNFast: An Accelerator for Recurrent Neural Networks Using Domain Wall Memory •
+
+...
+
+...
+
+T
+
+T
+
+T
+
+T
+
+T
+
+T
+
+...
+
+T
+...
+
+T
+...
+
+T
+
+T
+
+T
+
+T
+
+...
+
+<<< Shift Direction
+
+...
+
+Tile Group
+
+<<< Shift Direction
+
+0
+1
+
+...
+...
+...
+
+0
+1
+
+...
+
+Tile 1
+
+Tile 0
+
+0
+1
+
+...
+
+LSTM
+Unit-0
+
+LSTM
+Unit-1
+
+0
+1
+
+...
+
+LSTM
+Unit-63
+
+LSTM
+Unit-0
+
+LSTM
+Unit-1
+
+0
+1
+
+...
+
+LSTM
+Unit-63
+
+...
+
+Tile 2
+LSTM
+Unit-0
+
+LSTM
+Unit-1
+
+0
+1
+
+...
+
+LSTM
+Unit-63
+
+LSTM
+Unit-0
+
+LSTM
+Unit-1
+
+0
+1
+
+...
+
+...
+...
+
+LSTM
+Unit-63
+
+0
+1
+
+Timestep t
+
+I0 I1
+
+I2 I3 I4 I5
+
+...
+
+I65
+
+...
+
+LSTM
+Unit-63
+
+LSTM
+Unit-0
+
+...
+
+LSTM
+Unit-63
+
+Tile n-1
+
+LSTM
+Unit-1
+
+I1 I2
+
+I3 I4 I5 I6
+
+Timestep t+1 ...
+
+LSTM
+Unit-63
+
+LSTM
+Unit-0
+
+Tile n-1
+
+LSTM
+Unit-1
+
+...
+...
+
+Tile n
+
+...
+...
+...
+
+I66 I67
+
+...
+
+LSTM
+Unit-0
+
+...
+
+Tile n+1
+
+Tile n
+
+...
+
+From
+Adjacent
+Tile Group
+
+From
+Adjacent
+Tile Group
+
+(a)
+...
+
+From
+Adjacent
+Tile Group
+
+...
+...
+...
+
+0
+1
+
+Tile 3
+
+...
+
+1:7
+
+I66
+
+LSTM
+Unit-63
+
+I67 I68
+
+...
+
+LSTM
+Unit-0
+
+...
+
+Tile n+1
+
+(b)
+Fig. 4. (a) Compute tile layout, internal design and interconnection through racetrack chains. (b) Reading inputs into tiles in
+two consecutive timesteps.
+
+Within a tile, inputs are read sequentially from the tile’s input racetrack and broadcast to all LSTM units across a
+locally-shared bus. Each read is followed by a shift of the input track to align the next input element with the read
+head. Figure 4 (b) illustrates two timesteps in this process. In addition to the tile-local broadcast, each input is also
+sent to the neighboring tile on the left for addition to its input track. We call this process "chaining". Chains are
+essentially circular buffers that circulate all inputs to all tiles that are mapped to the same layer of the NN. Chains
+ACM J. Emerg. Technol. Comput. Syst., Vol. 1, No. 1, Article 1. Publication date: January 2020.
+
+1:8
+
+• Mohammad Hossein Samavatian, Anys Bacha, Li Zhou, and Radu Teodorescu
+
+of different lengths can be configured depending on the number of neurons in each layer of the network. Racetracks
+are connected through MUXs (Figure 4 (a)) that enable different chain lengths. A variable number of tracks can be
+included in a chain by simply setting the right most track MUX to 0 and the rest to 1.
+
+3.2
+
+LSTM Units
+
+Each tile consists of multiple LSTM compute units (64 in our design). RNNFast is a weight-stationary design,
+with fixed capacity for weight storage in each LSTM unit. A logical neuron can be mapped to one or more LSTM
+compute units depending on the number of weights it requires. We expect a 1-to-1 mapping between logical neurons
+and hardware LSTM units for most networks. However, when a logical neuron requires more weights than a single
+LSTM units can store, it is mapped to multiple LSTM units. Figure 5 (a) shows three mapping examples for a
+single logical LSTM cell: 1 LSTM unit (top), 2 LSTM units (middle) and 4 LSTM units (bottom).
+3.2.1 Processing Elements. The architecture of an LSTM cell is shown in Figure 5 (b). Each cell is subdivided
+into four processing elements (PEs) 1 . Per equations (1) – (5), each input Xt is multiplied with four different
+sets of weights. A single PE can be assigned to any one of the weight sets (known as gates), e.g. IG , FG , OG
+or CG . However, an LSTM cell gate can be mapped to one or more PEs across LSTM units depending on its
+storage requirements and input/output fanout. Allocating four hardware PEs to each LSTM unit allows RNNFast to
+accommodate different RNN variants (see Section 3.4).
+PEs have racetrack-based storage for weights and racetrack-based compute units, including multiply accumulator
+(MAC) engines for matrix multiplication. The MAC engine is composed of 256+16 DWM based full adders. The
+MAC unit is deeply pipelined into 48 stages. In order to increase parallelism, each PE uses two MAC engines, one
+for the main input Xt and one for the feedback input ht−1 .
+Each PE unit holds a set of weights and performs the dot product on the corresponding subset of inputs. Each PE
+only consumes inputs corresponding to the weights it stores. Each input to a PE is multiplied by its weight and
+accumulated with the result of the previous multiplication 2 . Each PE stores the result of the accumulation in its
+own output racetrack.
+3.2.2 Input and Weight Mapping. The inputs and weights assignment to racetracks is a trade-off between access
+latency and hardware overhead. In RNNFast, inputs are spread across multiple racetracks with 1 bit per track. This
+allows an entire input word to be read in a single cycle, as the top half of Figure 6 illustrates. Error detection bits
+are also included in the tracks and their role will be detailed in Section 4. Note that the input tracks do not require
+dummy domains (Figure 4-b). Values at the end of the track are read and sent to the neighboring track.
+Unlike inputs, which move from track to track along the chain, weights are stationary at PE level and are reused
+multiple times. This means that after scanning all weights, the tracks need to be returned to the initial weight. To
+minimize the number of shifts, weight values are distributed both within and across multiple racetracks. Weight
+racetracks are provisioned with multiple read/write heads (5 in our design) which divide the racetrack into 6 10-bit
+segments. The left-most segment domains are used as dummy domains and the rest of the segments are used to
+store weight values. Data layout is such that all read heads across all tracks can access all the bits of a single weight
+simultaneously. Racetracks are grouped in sets of 4, with each set storing 10 weights. The bottom of Figure 6
+illustrates this layout. Weight W0 (red) is currently aligned with the read heads. A single-position shift to the left
+will align the next weight W1 (blue) with all the read heads. Access to each set of weight racetracks is pipelined.
+When all 10 weights are read from the current set of racetracks, the next set of weights will be read from next set.
+While the new weights are accessed, the weights in previous set are shifted back to their initials positions. This
+takes place when the racetrack set is not being accessed and is therefore off the timing critical path.
+3.2.3 Result Aggregation. If more than one LSTM unit is mapped to a neuron the partial results of the individual
+LSTMs have to be combined to form the neuron’s output. Aggregation units 3 in each LSTM are used to sum up
+ACM J. Emerg. Technol. Comput. Syst., Vol. 1, No. 1, Article 1. Publication date: January 2020.
+
+RNNFast: An Accelerator for Recurrent Neural Networks Using Domain Wall Memory •
+
+1-LSTM Unit/
+LSTM Cell
+Network size =512
+One step
+aggregation
+2-LSTM Units/
+LSTM Cell
+Network size = 1024
+Two steps
+aggregation
+4-LSTM Unit/
+LSTM Cell
+Network size = 2048
+Three steps
+aggregation
+
+LSTM Cell-0
+
+LSTM Cell -1
+
+LSTM Cell-2
+
+LSTM Cell -3
+
+LSTM Unit-0
+PE PE
+PE PE
+
+LSTM Unit-1
+PE PE
+PE PE
+
+LSTM Unit-2
+PE PE
+PE PE
+
+LSTM Unit-3
+PE PE
+PE PE
+
+Aggregation
+Unit
+
+Aggregation
+Unit
+
+Aggregation
+Unit
+
+Aggregation
+Unit
+
+LSTM Cell-0
+LSTM Unit-0
+PE PE
+PE
+
+LSTM Cell-1
+
+LSTM Unit-1
+PE PE
+
+PE
+
+PE
+
+LSTM Unit-2
+PE PE
+
+PE
+
+Aggregation
+Unit
+
+Aggregation
+Unit
+
+LSTM Unit-0
+PE PE
+
+LSTM Unit-1
+PE PE
+
+PE
+
+LSTM Unit-3
+PE PE
+
+PE
+
+PE
+
+Aggregation
+Unit
+
+PE
+
+Aggregation
+Unit
+
+LSTM Cell-0
+
+PE
+
+PE
+
+PE
+
+Aggregation
+Unit
+
+LSTM Unit-2
+PE PE
+
+PE
+
+Aggregation
+Unit
+
+PE
+
+ẟ
+
+PE
+
+PE
+
+PE
+
+Aggregation
+Unit
+
+ẟ: delay
+
+2
+
+1 LSTM Unit
+
+LSTM Unit-3
+PE PE
+
+Aggregation
+Unit
+
+(a)
+
+PE
+
+1:9
+
+PE
+Weights Set
+
+PE0
+
+PE1
+
+PE2
+
+IG
+
+FG
+
+OG C G
+
+PE3
+
+Aggregation Unit
+
+Multipliers set
+MAC
+ADD
+
+3 Aggregation
+Unit
+
+From PEs
+Accumulator
+
+From
+LSTM Unit
+
+To LSTM
+Bypass line
+Unit
+
+PEs or Acc.
+output Activation
+Function
+
+To next layer
+
+MAC
+IG: Input Gate
+FG: Forget Gate
+OG: Output Gate
+CG: Wc×[X:H]
+
+(b)
+Fig. 5. (a) Three mapping examples of logical LSTM cells to LSTM units. (b) LSTM unit design.
+
+partial results in that LSTM block. In addition, the aggregation units apply the sigmoid and tanh functions and
+perform the multiplication and accumulation operations in order to generate the final output of the cell.
+For cases in which neurons span multiple LSTM blocks, aggregation units in those blocks are linked to produce
+the final result. This is achieved by collecting all the partial results computed by each LSTM unit (mapped to the
+same neuron) to a single aggregation unit. Aggregation units are also chained through adjacent LSTM units. Each
+aggregation unit sends out its final result to the adjacent aggregation unit to its left. The adjacent unit will use the
+incoming result to either accumulate or bypass it to the next unit (Figure 5- 3 ). Even-indexed aggregation units
+consume and odd-indexed aggregation units forward the incoming result. The leftmost LSTM in a neuron will
+ACM J. Emerg. Technol. Comput. Syst., Vol. 1, No. 1, Article 1. Publication date: January 2020.
+
+I115
+
+I215
+
+0
+
+I01
+
+I11
+
+I21
+
+...
+
+I601
+
+0
+
+I00
+
+I10
+
+I20
+
+...
+
+I600
+
+1
+
+0
+
+0
+
+1
+
+W0
+W1b[0:15]
+
+0
+
+1
+EDC
+
+Blank Cells
+R/W
+
+-
+
+w00
+
+w10
+
+-
+
+w04
+
+w14
+
+...
+
+-
+
+w08
+
+w18
+
+...
+
+-
+
+w012 w112
+
+...
+
+...
+
+...
+
+Input bits
+
+R/W
+
+EDC
+
+Weight bits
+
+R/W
+
+I6015
+
+R/W
+
+R/W
+
+...
+
+w01
+
+w11 ...
+
+w02
+
+w12
+
+...
+
+w05
+
+w15 ...
+
+w06
+
+w16
+
+...
+
+w09
+
+w19
+
+...
+
+w010
+
+w110
+
+w013 w113
+
+...
+
+w014 w114
+
+R/W
+
+...
+
+w03
+
+w13
+
+...
+
+0
+
+...
+
+w07
+
+w17
+
+...
+
+0
+
+...
+
+w011
+
+w111
+
+...
+
+0
+
+...
+
+w015 w115
+
+...
+
+0
+
+...
+...
+...
+...
+
+Weight Layout
+
+b[0:15]
+
+...
+
+I015
+
+0
+
+...
+
+: bit index
+In:bweight
+index
+b: bit index
+Wn: weight index
+
+Input Layout
+
+Mohammad Hossein Samavatian, Anys Bacha, Li Zhou, and Radu Teodorescu
+
+...
+
+•
+
+...
+
+1:10
+
+Fig. 6. Mapping of inputs and weights to racetracks.
+
+be responsible for the final aggregation and will apply the sigmoid and tanh. Aggregation time is a logarithmic
+function in the number of LSTM cells mapped to a single neuron. This is also done by setting multiplexers in the
+aggregation unit and power gating the inactive units in output generators at odd indexed LSTM units.
+The design tradeoff for LSTM units is driven by the need to support networks both large and small. If LSTM
+units and PEs are too large, storage space will be wasted when small networks are mapped. If they are too small,
+large networks will require several LSTM units per neuron, increasing the aggregation time.
+
+3.3
+
+Nonlinear Functions
+
+The nonlinear functions are an important component of the RNN cells and are used for output activation. RNNFast
+uses hardware acceleration for the sigmoid and tanh nonlinear functions. The hardware is included in each
+Aggregation Unit (Figure 5). We propose an area efficient approximate logic function-based unit implemented
+using DWM for the nonlinear functions.
+The approximation has been proposed by prior work [59] as an alternative to the standard sigmoid follows
+Equation 9:
+ 1 + ẑ
+2 4
+  2|z| i f z < 0
+σ z =
+(9)
+
+
+
+1 − σ −z i f z > 0
+This approximation has the advantage of being easier to implement in hardware. As Equation 9 shows, the hardware
+has to support division by 2n numbers. This can be implemented using shift operations which are a feature of
+racetrack memories. The tanh approximation function can be computed from the sigmoid function through two
+multiplications and a subtraction. Note that ẑ = z+ | z |, where z is the integer part of z.
+Figure 7 shows our DWM-based implementation of the sigmoid approximation. Sigmoid for a negative value
+will be computed as follows: a) the output integer part is initialized with binary ’1’; b) two right shifts are performed
+to compute ẑ/4; c) +1/2 is applied to the result; d) final result is shifted right | z | times. For a positive number two
+subtraction steps are added in the beginning and end of above steps. To compute the tanh approximation, a right
+shift (2 × z) and a subtraction will be applied in the first and last steps respectively. This design is very area and
+ACM J. Emerg. Technol. Comput. Syst., Vol. 1, No. 1, Article 1. Publication date: January 2020.
+
+RNNFast: An Accelerator for Recurrent Neural Networks Using Domain Wall Memory •
+
+MSB
+
+1:11
+
+LSB
+Integer part
+
+Sign
+bit
+Subtractor
+
+Counter
+
+(a) Initialization 1
+
+1
+
+Shift
+Logic
+(b)
+(d)
+
+(c)
+
++½
+
+Fractional part
+
+Fig. 7. DW based implementation of sigmoid/tanh.
+
+energy efficient utilizing only a 16 bit racetrack memory, along with some simple subtraction and counting logic.
+Section 6 evaluates the relative merits of the approximate designs regarding LUTs.
+
+3.4
+
+RNNFast Mapping and Configuration
+
+The RNNFast hardware can be configured to implement different network sizes and topologies. Moreover, multiple
+distinct neural networks can be mapped to the same chip.
+Outputs from one network can be delivered directly to the following network or stored in the on-chip memory
+for further processing, if needed. Figure 8 illustrates an example of four networks A, B, C and D mapped to two tile
+groups. Tile groups are connected through a wired interconnect. The racetrack chains for each row of tiles have
+additional read/write heads to provide access to the inter-tile network.
+Multilayer networks span multiple rows with different layers mapped to consecutive rows. Tile groups are
+designed with wide rows to accommodate most network sizes (e.g. Nets A and C). However, when a network layer
+cannot fit in a single row, RNNFast supports splitting it across tile groups (e.g. Nets B and D). This is achieved by
+extending the input/output racetrack chains to neighboring tile groups using the inter-group wire interconnect. We
+chose to split layers across tile groups (as opposed to within a tile group) in order to allow consecutive network
+layers to continue to be mapped to adjacent rows, preserving inter-layer communication.
+One important design constraint was to enable the extension of the racetrack chains across tile groups without
+adding to the track chain shift latency. This is accomplished by implementing a look-ahead read port at the end of
+the track that reads inputs several cycles ahead of the end of the track, as illustrated for Net D in Figure 8. This
+allows the input to reach the destination row in the neighboring tile through the higher latency interconnect by the
+time the same input reaches the end of the source track.
+3.4.1 Other LSTM Variants. RNNFast is designed for the more demanding LSTM design. However it is also
+compatible with LSTM variants like Gated Recurrent Unit (GRU) and Vanilla RNN, which require fewer compute
+resources. Unlike LSTM, the GRU unit does not use a memory element to control the flow of information and are
+ACM J. Emerg. Technol. Comput. Syst., Vol. 1, No. 1, Article 1. Publication date: January 2020.
+
+1:12
+
+•
+
+Mohammad Hossein Samavatian, Anys Bacha, Li Zhou, and Radu Teodorescu
+Net A
+
+Net B
+
+L1
+L2
+
+Tile
+
+Net C
+
+L1
+
+L1
+
+L2
+
+L2
+
+Interconnection
+network
+
+Net D
+
+Connection
+
+L3
+
+...
+...
+...
+
+...
+
+...
+...
+
+...
+...
+
+...
+...
+
+...
+...
+
+...
+
+...
+
+...
+...
+
+Tile group 0
+
+Tile group 1
+Look ahead
+read port
+
+0
+1
+
+0
+1
+
+Fig. 8. Mapping multiple LSTM networks to RNNFast. Interconnection network helps extend racetrack chains beyond tile
+groups for large networks.
+
+GRU
+
+LSTM
+PE PE PE PE
+
+σ
+
+C/H
+
+X
+
++
+T
+
++B
+
+Accumulator +0
+
++B
+
++0
+
+σ
+X
+
+σ
+
+σ
+
+T
+
+Output Generator
+
+σ
+
+T
+
+Aggregation
+Unit
+
++B
+
+Output Generator
+
++B
+
+Aggregation
+Unit
+
+Accumulator +B
+
+PE PE PE PE
++B
+
+σ
+X
+
+C/H
+
+X
+
++
+T
+
+Fig. 9. LSTM vs GRU cell configuration on RNNFast
+
+useful when input sequences are not very long. Figure 9 shows how a GRU cell can be mapped to a RNNFast
+LSTM unit. The shaded areas represent unutilized components. GRU utilizes 75% of the MAC resources.
+Simpler RNNs like Vanilla RNN, only utilize a single PE per neuron and do not need the aggregation unit. As a
+result, RNNFast can map four Vanilla RNN neurons in each LSTM unit.
+Moreover, RNNFast allows the mapping of other network types such as Bidirectional RNNs (BiRNN). A BiRNN
+consists essentially of two RNNs stacked on top of each other. The output is computed based on the hidden state
+of both networks. In our design the two networks are mapped on the hardware in an interleaved fashion. The
+aggregation hardware is used to link the two networks. The input data is also duplicated and interleaved in reverse
+order (x1 , xn , x2 , xn−1 , x3 , xn−2 , ..., xn , x1 ).
+ACM J. Emerg. Technol. Comput. Syst., Vol. 1, No. 1, Article 1. Publication date: January 2020.
+
+RNNFast: An Accelerator for Recurrent Neural Networks Using Domain Wall Memory •
+
+1:13
+
+3.4.2 RNNFast Configuration. The RNNFast configuration is programmed through configuration registers that
+control input assignment at PE level, input track chaining, result aggregation setup, etc. A configuration file with the
+LSTM network(s) specifications is loaded into the device driver of the accelerator and propagated to the appropriate
+registers.
+
+4 ERROR MITIGATION DESIGN
+4.1 DWM Position Errors
+As detailed in Section 2.2, "out-of-step" shift errors (in which the wrong bit is aligned with the read/write heads)
+are a significant reliability challenge for DWM. Since RNNFast accesses data sequentially, that means virtually all
+accesses require only single-position bit shifts, we focus on single-bit overshift errors which are expected to occur
+with a probability of 10−5 [74], which is quite high. We used Pytorch [49] to inject error in weights for both im2txt
+and seq2seq models.
+While prior work [52] has shown that neural networks are quite resilient to errors, we find that error rates on the
+order of DWM overshift errors can degrade output accuracy substantially. Figure 10 shows the accuracy of the
+output for two benchmarks, measured by the BLEU (bilingual evaluation understudy) metric [46], relative to an
+error-free baseline. BLEU is an algorithm for evaluating the quality of text which has been machine-translated
+from one natural language to another. Quality is considered to be the correspondence between a machine’s output
+and that of a human. The models that we used have reported very close BLEU scores to the state of the art models
+[60]. We inject single-bit overshift errors in different DWM components of RNNFast: the racetrack chains used
+to hold inputs and outputs for each NN layer, the weights associated with all PEs, the DWM components of the
+logic functions (MAC units and the nonlinear functions). Shift errors are modeled as a uniform distribution with an
+overshift probability of 4.55 × 10−5 [74].
+0.45
+
+0.45
+
+No Err.
+Err. in Logic
+Err. in Inputs
+Err. in Weights
+Combined
+
+0.4
+
+0.3
+0.25
+0.2
+0.15
+0.1
+
+0.3
+0.25
+0.2
+0.15
+0.1
+
+0.05
+0
+
+0.35
+Output BLEU score
+
+Output BLEU score
+
+0.35
+
+No Err.
+Weight: FRAC
+Input: FRAC
+Weight:INT
+Input: INT
+
+0.4
+
+0.05
+im2txt
+
+seq2seq
+
+Fig. 10. Output accuracy (BLEU score) for logic, inputs and
+weights components.
+
+0
+
+im2txt
+
+seq2seq
+
+Fig. 11. Output accuracy (BLEU score) for integer and fraction
+components.
+
+Figure 10 shows that when errors are injected only in the logic, the drop in output accuracy is very low: <1%
+for im2txt and 3% for seq2seq, two of the benchmarks we run. This is because overshift off-by-one errors in the
+MAC and nonlinear functions tend to produce results that are relatively close to the correct value. As a result,
+the accuracy of the output is very high. However, when errors are injected into the input chains and the weight
+arrays, the output accuracy drops dramatically to between 10% and 35% of the original. When errors are injected
+uniformly in all DWM tracks, the output accuracy drops below 5% for im2txt and below 10% for seq2seq, meaning
+that the results are essentially useless. This data highlights that mitigation solutions for errors in the inputs as well
+as weights are essential.
+ACM J. Emerg. Technol. Comput. Syst., Vol. 1, No. 1, Article 1. Publication date: January 2020.
+
+1:14
+
+•
+
+Mohammad Hossein Samavatian, Anys Bacha, Li Zhou, and Radu Teodorescu
+
+To better understand which errors have the worst effect on output quality, we selectively inject errors into
+different bits of data words. RNNFast uses 2’s complement fixed point representation for both inputs and weights.
+We inject errors separately into the integer and the fraction portions of the word. Figure 11 shows the results of this
+experiment. When errors are injected only in the fraction, the drop in accuracy is less than 3% for both inputs and
+weights in im2txt. For seq2seq the accuracy degradation is worse when errors are injected in the weights compared
+to inputs, but overall output quality is still reasonably high.
+Injecting errors with the same probability in the integer portion of the data words has a much more dramatic
+effect, leading to a drop in output accuracy of between 35% and 10%. The large effect is due to the fact that in
+these workloads both inputs and weights are represented with small fractional numbers. A single bit flip of the
+integer fraction can turn a small number into a much larger value, which has a disproportionate effect on the rest of
+the network.
+The large effect on output accuracy is caused by the fact that due to 2’s complement representation, a single shift
+error in a data word storing a small value can cause that value to be interpreted as a large value with the opposite
+sign. For example the binary "00000011.10000010" (3.5078125 in decimal) would flip into "00100011.10000010"
+(35.5078125) or "10000011.10000010" (-124.492188) when a non-sign or sign bit in integer part inverted, respectively. This is also true for a negative number, "11111111.00101010" (-0.8359375) turns into "01111111.00101010"
+(127.1640625) after a sign bit flip.
+
+4.2
+
+RNNFast Error Mitigation
+
+RNNFast addresses overshit errors by implementing an efficient error mitigation mechanism that considers the
+sensitivity of RNN workloads to errors that result in very large values. We implement different error detection and
+mitigation mechanisms for input/output racetrack chains and for weight arrays. We take advantage of their design
+characteristics to implement a more efficient SEDSEC design that has lower area overhead, requires fewer extra
+domains and access ports compared to prior DWM EDC solutions such as [74].
+4.2.1 Input Errors. In order to detect overshit errors in the input tracks, we append a 3-bit pattern to the left side
+of each track, as shown in the example in Figure 12. The figure shows a single track that stores bit n for multiple
+inputs I1 − I7 . In the initial state the Error Detection Code (EDC) "101" is stored in the leftmost bits of the track.
+Input I1 is read in the current cycle. At time t1 the track is shifted left by 1 to access the next input. If the shift is
+correct, the leading (check) bit should be a "1". Input I2 is read and sent to the LSTM units. A new EDC code is
+written at cycle t3 in the first three bits of the track using three parallel write ports. Note that updating the EDC
+does not introduce any time overhead since a write cycle already exists following each read to allow data to be
+written into the next track in the chain.
+At cycle t4 we show an overshift error. The track has incorrectly shifted left 2 positions instead of 1. This means
+that I3 (instead of I2 ) is now aligned with the read head. The check bit is now "0" indicating a shift error. To recover
+from this error we use an additional read head to also read I2 . The outputs of the two read heads are connected
+to a multiplexer. The check bit value selects the multiplexer output (shown in blue in Figure 12). A "1" selects
+the error-free output and a "0" selects the overshifted output. A similar mechanism selects the correct location for
+writing the input coming from the previous track in the chain. If an overshift error occurs, the write location is also
+shifted to the left, as the right hand side of Figure 12 shows.
+At t6 the EDC code is again updated. Following an overshift error the shift controller will not issue a shift
+command for the following cycle (t7 ) since the track is already properly aligned to access the next input (I4 ) during
+that cycle. Note that, since individual words are stored across multiple tracks to enable single-cycle access, an
+overshift error will affect all inputs that share that track (up to 60 in our design). It is therefore important to detect
+and correct these errors.
+ACM J. Emerg. Technol. Comput. Syst., Vol. 1, No. 1, Article 1. Publication date: January 2020.
+
+RNNFast: An Accelerator for Recurrent Neural Networks Using Domain Wall Memory •
+
+1:15
+
+4.2.2 Errors in Weight Arrays. A similar mechanism is deployed to detect and mitigate errors in weight arrays
+associated with each PE. However, because the access timing to the weights array is more critical and weights are
+stored in a more compact representation, the detection and mitigation steps are implemented differently. Unlike
+inputs, which move from track to track along the chain, weights are stationary at PE level and are reused multiple
+times. This means that after scanning all weights, the tracks need to be returned to the initial weight. To minimize
+the number of shifts, weight values are distributed both within and across multiple racetracks. Weight racetracks
+are provisioned with multiple read/write heads (5 in our design). Data layout is such that all read heads across all
+tracks can access all the bits of a single weight simultaneously.
+Also, unlike the input racetrack chain, access to the weight arrays does not require a write cycle, so an update to
+EDC code is not feasible. We instead store a fixed EDC pattern of "01010" at the rightmost edge of the weight
+tracks as shown in Figure 13. Error detection logic detects an overshift error when the current EDC bit does not
+match the expected value. For instance, in the initial state, the read heads are aligned with bits from weight W0 and
+the error detection logic expects to read "0" from the EDC.
+At time t1 a correct shift takes place and W1 can be read. At time t2 an overshift error occurs and weight W3 is
+read instead of W2 . A recovery mechanism similar to the one for inputs could be employed. This would require
+doubling the number of read heads in each track and extra logic. Since weight storage in RNNFast is substantial,
+the overhead would be nontrivial. We can, however, avoid this extra overhead by leveraging the observation that
+replacing the incorrect weight with "zero" yields very little loss in output accuracy compared to error-free execution.
+This is in contrast with using the erroneous weight, which can be a large value. The following cycle at t3 , the shift
+controller will not shift because the track is already aligned for accessing the next weight.
+
+5 EVALUATION METHODOLOGY
+5.1 RNNFast Modeling Infrastructure
+We implemented a detailed behavioral model to evaluate performance, chip area and energy consumption of the
+RNNFast design. A cycle-level model that accounts for the latency of each component in the design is used for
+the timing simulation. The simulated hardware is configured for each neural network in our benchmark set, by
+enabling the appropriate number of hardware tiles, LSTMs and PEs. Since all LSTM units execute independently
+and in parallel, only a single LSTM per tile is simulated to speed up simulation time. For the energy evaluation, the
+number of reads, writes, shifts as well as decoder, Adder/Multiplier and LUT accesses are counted for all the units
+in the design.
+To understand the energy consumption, shift and write latency of the Domain Wall Memory (DWM), an electrical
+model is necessary. A Verilog-A based SPICE model for DWM from [42, 43, 45] was simulated on Cadence
+Virtuoso. The DWM model estimates the effective resistance as a function of the length of the track and uses width
+and thickness of the strip to calculate current density and position shift. A Cadence component was created for the
+DWM model and a test-bench was setup to stimulate the device. A sensitivity analysis was conducted to study the
+effect of track length on shift latency and energy.
+Table 1 shows the characteristics of the DWM we model and also lists the architectural parameters for RNNFast
+and power/area breakdown for different components. As weight values are in 16-bits precision, each four set of
+racetracks stores 10 weights. For storing 512 weights each PE needs 205 racetracks (Table 1). We performed energy
+analysis on the number of LSTMs per tile and chose the number of LSTM per tile as 64. More details are in section
+6.4. The number of accumulator, multiplier, sigmoid and tanh units in the Aggregation unit (figures 1 and 9) is
+optimized for energy and performance. The smallest number of units that allows the LSTM to operate without stall
+cycles is chosen.
+
+ACM J. Emerg. Technol. Comput. Syst., Vol. 1, No. 1, Article 1. Publication date: January 2020.
+
+1:16
+
+•
+
+Mohammad Hossein Samavatian, Anys Bacha, Li Zhou, and Radu Teodorescu
+
+Write
+
+From previous track
+
+EDC
+
+I61,I62,...
+1
+0
+
+Read
+Initial
+State
+
+1
+
+0 I1 I2 I3 I4
+
+...
+
+0
+1
+
+0
+
+To the next track
+
+0 I1 I2 I3 I4 I5
+
+...
+I61
+
+0
+1
+
+I2
+
+1
+0
+
+t3: Write
+
+0
+
+0 I2 I3 I4 I5
+
+...
+
+t4: Shift
+
+0 I2 I3 I4 I5 I6 I7
+
+...
+I62
+
+0
+1
+
+I3
+
+t6: Write
+
+0
+
+1
+
+0 I4 I5 I6 I7
+
+t7:
+
+0
+
+1
+
+0 I4 I5 I6 I7
+
+No Shift
+
+I61
+
+1
+0
+
+t5: Read
+
+1
+
+Over Shift Err.
+
+t2: Read
+
+1
+
+Correct Shift
+
+t1: Shift
+
+To LSTMs
+
+...
+...
+
+I62
+I62
+
+Fig. 12. Mitigation mechanism for overshift errors in the input track chains.
+
+Delay Shift Sig.
+
+b: bit index
+
+Wn : weight index
+Initial State
+
+Error
+Detection logic
+
+R
+
+R
+
+...
+
+Shift Err. Sig.
+
+Shift
+Controller
+
+Adder
+Clock
+Gate Sig.
+
+EDC
+
+W00 W10
+
+W20
+
+...
+
+W01 W11
+
+W21
+
+... W98
+
+0
+
+1
+
+0
+
+...
+
+W10 W20
+
+W30
+
+...
+
+W11 W21
+
+W31
+
+...
+
+0
+
+1
+
+0
+
+1
+
+...
+
+t2:
+
+... W10 W20 W30 W40 W50
+
+...
+
+W31 W41
+
+W51
+
+...
+
+0
+
+1
+
+0
+
+1
+
+...
+
+t3: No Shift
+
+... W10 W20 W30 W40 W50
+
+...
+
+W31 W41
+
+W51
+
+...
+
+0
+
+1
+
+0
+
+1
+
+...
+
+t1:Correct
+Shift
+Over Shift
+Err.
+
+...
+
+W00
+
+Fig. 13. Mitigation mechanism for overshift errors in the weight track chains.
+
+5.1.1 RNNFast Design Variations. We compare our design with two alternative RNNFast architectures that use
+CMOS and Memristor technologies. We call them RNNFast-CMOS and ISAAC-RNN respectively. For RNNFastCMOS, we used SRAM buffers for both LSTM inputs and weight storage within PEs. MAC units are also
+ACM J. Emerg. Technol. Comput. Syst., Vol. 1, No. 1, Article 1. Publication date: January 2020.
+
+RNNFast: An Accelerator for Recurrent Neural Networks Using Domain Wall Memory •
+
+1:17
+
+DWM properties
+racetrack width/length/thickness
+number of bits per track
+read/shift/write latency
+read/shift/write energy
+
+1F / 64F / 3nm
+64
+1ns / 0.5ns / 0.5ns
+0.39pJ / 0.24pJ / 9.6fJ
+
+domain length
+Effective cell size
+Technology node
+
+1F
+2.56F 2
+32nm
+
+Power(mW)
+2.59
+
+area(µm2 )
+2.68
+
+9.74
+
+2046
+
+626
+
+0.130mm2
+
+2.43
+
+422
+
+0.004
+
+356
+
+Tile properties
+Component
+Input buffer
+LSTM unit
+
+Configuration
+1 track/tile
+with EDC
+64 per tile
+
+Total tile
+
+Specification
+16 stripes/track
+64 cell/stripe
+4 PEs/LSTM
+1 Aggre./LSTM
+256 PEs
+64 Aggre. Unit
+
+PE properties
+MAC
+Weight array
+
+2/PE
+2 track/PE
+with EDC
+
+Accumulator
+Multiplier
+sigmoid
+tanh
+
+4/LSTM
+2/LSTM
+3/LSTM
+2/LSTM
+
+272 Adder
+205 stripes/track
+64 cell/stripe
+
+Aggregation Unit properties
+Approx. nonlinear func. design
+Approx. nonlinear func. design
+
+On-chip DW Memory
+Size: 128MB, 4R/W ports, Area: 6.2mm2 , Acc. Eng.: 0.89nJ, Acc. lat.: 1.69ns, Leakage 24.3mW
+
+Table 1. Racetrack memory and RNNFast design parameters with associated power and area overheads.
+
+implemented with CMOS logic. We used SRAM-based LUTs for the nonlinear functions. Input SRAM buffers are
+also chained like racetrack memories in order to deliver all inputs to all LSTM units.
+ISAAC-RNN is an ISAAC [53]-like design for RNN that stores inputs in eDRAM and is entirely CMOS and
+memristor-based. ISAAC-RNN uses 128x128 2-bit memristor crossbars, similar to what was used in ISAAC, for
+the dot product engine. We kept the input buffer and aggregation unit designs same as RNNFast in order to only
+see the effect of memristor in the design and have a more fair comparison since eDRAM and CMOS logic has
+higher energy consumption than DWM. Each memristor dot product engine is capable of 128 × 16 multiplications
+in parallel (128 inputs by 16 weights). In an LSTM neuron each input is multiplied by 4 different weight sets. Thus,
+each memristor dot product engine can handle 4 neurons, making each crossbar in ISAAC-RNN computationally
+equivalent to 4 LSTMs in RNNFast. Thus there are 16 LSTM units per tile for ISAAC-RNN instead of 64 per tile
+in RNNFast. Inputs go bit by bit to the memristor crossbars. However, a chuck of 128 inputs needs to be supplied in
+a single cycle. We changed the input layout to maximize the performance of ISAAC-RNN, for a fair comparison.
+5.1.2 GPU Baseline. We choose as a baseline system for evaluation a GPGPU optimized for machine learning:
+the NVIDIA Tesla P100 (Pascal architecture) with 16GB of CoWoS-HBM2 memory. All our benchmarks use the
+DNN-optimized cuDNN NVIDIA libraries version 7 [2], which delivers roughly 6× performance improvement
+relative to a standard GPU implementation for LSTM on Torch [3]. We measure runtime of the forward passes
+through the LSTM layers using instrumentation in Deepbench. We measure power consumption using the NVIDIA
+SMI profiler. Since the SMI provides total board power, in order to isolate the active power of the GPU we subtract
+power measured at GPU idle. Since the board components are less energy proportional with activity compared to
+the GPU, they will account for most of the idle power.
+5.1.3 PUMA. We also compared our design with PUMA [6] a recently proposed DNN accelerator built with
+ReRAM. The authors of PUMA released a simulator and toolchain that we use to compile and run our benchmarks.
+We used the PUMA compiler to find the number of tiles required for each benchmark. We then set the simulator
+configuration file to inference mode and used the PUMA simulator to measure runtime and energy consumption.
+ACM J. Emerg. Technol. Comput. Syst., Vol. 1, No. 1, Article 1. Publication date: January 2020.
+
+1:18
+
+•
+
+5.2
+
+Mohammad Hossein Samavatian, Anys Bacha, Li Zhou, and Radu Teodorescu
+
+Benchmarks
+
+We used LSTM-based RNN workloads from the Deepbench [1] open source benchmark suite for DNNs, released
+by Baidu. For our experiments we used:
+Bench.
+
+Platform
+
+Precision
+
+im2txt
+seq2seq
+
+DeepBench
+DeepBench
+
+16 bit
+16 bit
+
+mach-tran
+
+DeepBench
+
+16 bit
+
+lang-mod
+D-Speech
+
+DeepBench
+DeepBench
+
+16 bit
+16 bit
+
+Layers×
+Neurons
+1×512
+3×1024
+1×512
+1×1024
+1×2048
+1×1536
+1×2816
+
+Timestep
+11
+15
+
+image caption
+language translation
+
+25
+
+Machine translation
+
+50
+1500
+
+language modeling
+Deep Speech
+
+Description
+
+Table 2. Summary of the benchmarks evaluated.
+
+Image Caption Generator: This benchmark is based on the “Show and Tell” Model [64], which is an encoderdecoder type neural network. The decoder is an LSTM RNN that generates captions from a fixed-length vector
+input.
+Sequence-to-Sequence Model: This benchmark is based on the RNN encoder-decoder model by Cho et al. [15],
+which performs language translation. The encoder and decoder are 3-layer LSTM networks. Machine Translation:
+also based on the RNN encoder-decoder model by Cho et al. [15].
+Language Modeling: a probability distribution over sequences of words. It is used in speech recognition,
+sentiment analysis, information retrieval and other applications [50].
+Deep Speech: a Speech-To-Text engine that uses a model trained by machine learning techniques, based on
+Baidu’s Deep Speech research [26].
+All benchmarks are run using 16-bit precision arithmetic on both RNNFast and the P100 GPU.
+
+6
+
+EVALUATION
+
+We evaluate the RNNFast performance and energy consumption compared to the NVIDIA GPU, the CMOS-based
+and the Memristor-based RNNFast design. We evaluate the reliability of the RNNFast error mitigation. We show
+an area utilization estimate for different benchmarks. We also include a high-level comparison to other RNN
+accelerators.
+GPU P100
+PUMA
+
+ISAAC-RNN
+RNNFast-CMOS
+
+RNNFast
+
+100
+
+10
+
+1
+
+0.1
+
+1
+Normalized Energy Consumption (log scale)
+
+Speedup Relative to GPU (log scale)
+
+1000
+
+im2
+tx
+
+t
+
+seq
+
+ma
+
+2se
+
+q
+
+ma
+ma
+lan
+D-S
+G-m
+g-m
+chchchpee
+ean
+tran
+tran
+tran
+od
+ch
+-51
+-10
+-20
+2
+24
+48
+
+GPU P100
+PUMA
+
+ISAAC-RNN
+RNNFast-CMOS
+
+RNNFast
+
+0.2
+
+0.04
+
+0.008
+
+im2
+
+txt
+
+seq
+
+2se
+
+ma
+q
+
+ch-
+
+tran
+
+ma
+ma
+lan
+D-S
+G- m
+g-m
+chchpee
+ean
+tran
+tran
+od
+ch
+-51
+-10
+-20
+2
+24
+48
+
+Fig. 14. RNNFast, RNNFast-CMOS, ISAAC-RNN and PUMA Fig. 15. Energy consumption for RNNFast, RNNFast-CMOS,
+runtime relative to the GPU P100 execution.
+ISAAC-RNN and PUMA relative to the GPU P100.
+
+ACM J. Emerg. Technol. Comput. Syst., Vol. 1, No. 1, Article 1. Publication date: January 2020.
+
+RNNFast: An Accelerator for Recurrent Neural Networks Using Domain Wall Memory •
+
+6.1
+
+1:19
+
+Performance Improvement and Energy Saving
+
+Figure 14 shows the execution time speedup for RNNFast, RNNFast-CMOS and ISAAC-RNN relative to the P100
+GPU for the seven benchmarks we run. RNNFast speedup relative to the GPU varies between 12× for im2txt
+and 34.5× for D-speech, with an average speedup of 21.8×. RNNFast speedups increase with the network size,
+demonstrating the excellent scalability of the design. For instance, in mach-trans we test three different network
+sizes ranging from 512 to 2048, We observe speedups increases from 15.4× to 29.3×. This is because the large
+number of threads required to handle the larger network becomes a bottleneck even for the GPU, whereas RNNFast
+scales much better.
+ISAAC-RNN also brings a substantial speedup relative to the GPU ranging between 1.88× for im2txt and
+5.8× for D-speech. Although this is significant, ISAAC-RNN is more than 6.1× slower than the DWM RNNFast
+implementation. This is primarily due to the higher latency of the LSTM unit in ISAAC-RNN, which is 7.3×
+higher than a RNNFast LSTM unit. The higher latency is due to the memristor array read latency (100ns) and
+overheads that stem from the ADC/DAC components. Even though a single memristor array can handle up to 4
+neurons, which increases throughput, ISAAC-RNN is still fundamentally slower than RNNFast. RNNFast-CMOS
+shows 2.1× speedup compared to RNNFast. This is due to faster CMOS adders and random memory access instead
+of the shift-based access in RNNFast.
+The PUMA ReRAM-based design is more general that ISSAC and RNNFast, supporting both CNNs and DNNs.
+However, its performance is lower than both ISAAC-RNN and RNNFast. In general, PUMA tends to have better
+performance than the GPU for larger networks, especially for multi-layer networks (seq2seq) where PUMA benefits
+from its pipelined architecture.
+Figure 15 shows the energy consumption for RNNFast, RNNFast-CMOS and ISAAC-RNN relative to the GPU
+in log scale. RNNFast reduces energy consumption on average by 70×. This is due to a much faster execution
+time achieved with about 1/3 the power of a GPU. The RNNFast-CMOS design has 55% higher energy compared
+to RNNFast. This is reaches a 100% increase for D-speech due to higher resource demand, which increases the
+leakage energy for both compute and memory logic in CMOS. This causes the CMOS design to reach its maximum
+TDP for smaller networks. ISAAC-RNN also has higher energy usage than RNNFast due to its ADC/DAC and
+CMOS logic.PUMA energy consumption is much lower than the GPU, however, as expected is not lower than
+ISAAC-RNN. RNNFast is much more energy efficient, using about 25% the energy of PUMA.
+RNNFast offers a much more scalable design relative to a GPU due to its modular design and very high storage
+density of DWM. Figure 16 shows the log scale of execution time for the mach-tran benchmark as a function of
+problem (neural network) size ranging from 128 nodes to 16K nodes per layer in a single-layer configuration. For
+problem sizes larger then 16K, the GPU runs fail because the device runs out of memory. The GPU execution
+time exhibits a super-linear increase in execution time with problem size due to memory pressure. RNNFast is
+consistently faster than the GPU in the range of 13.9× (0.5K) to 156× (16K) and also scales better to very large
+problem sizes of 16K nodes and beyond. ISAAC-RNN scales similarly to RNNFast but it is also 6.2× slower that
+RNNFast on average for mach-tran. RNNFast-CMOS shows almost 2× speedup over RNNFast, at the cost of
+much higher energy.
+Figure 17 shows a similar trend for im2txt. The GPU shows good performance up to 0.5K, but run time increases
+exponentially beyond that.
+
+6.2
+
+Error Mitigation
+
+We also evaluate RNNFast resilience to position errors. Figure 18 shows the accuracy of the output as evaluated
+by the BLEU metric [46], as a function of the probability of position errors. We can see that for a relatively low
+probability of errors of 4.5 × 10−7 the output accuracy is virtually unaffected. This is primarily due to the inherent
+robustness of the RNN to errors. However, without error mitigation, the output accuracy degrades substantially at
+ACM J. Emerg. Technol. Comput. Syst., Vol. 1, No. 1, Article 1. Publication date: January 2020.
+
+•
+
+Execution Time (log scale)
+
+10000
+
+1000
+
+Mohammad Hossein Samavatian, Anys Bacha, Li Zhou, and Radu Teodorescu
+
+10000
+
+GPU P100
+RNNFast-CMOS
+ISAAC-RNN
+RNNFast
+
+Execution Time (log scale)
+
+1:20
+
+100
+
+10
+
+1
+
+0.1
+0.125K
+
+0.25K
+
+0.5K
+
+1K
+
+2K
+
+4K
+
+8K
+
+16K
+
+1000
+
+GPU P100
+RNNFast-CMOS
+ISAAC-RNN
+RNNFast
+
+100
+
+10
+
+1
+
+0.1
+0.125K
+
+0.25K
+
+0.5K
+
+Number of LSTM Cells
+
+1K
+
+2K
+
+4K
+
+8K
+
+16K
+
+Number of LSTM Cells
+
+Fig. 16. RNNFast, ISAAC-RNN and GPU execution times vs. Fig. 17. RNNFast, ISAAC-RNN and GPU execution times vs.
+net size for mach-tran, normalized to RNNFast 0.125K.
+network size for im2txt, normalized to RNNFast 0.125K.
+
+higher errors rates. In the region around 4.5 × 10−5 (highlighted region), which is the expected rate for single bit
+position errors, the output accuracy drops to 45% for im2txt and 10% for seq2seq, an unacceptable performance for
+most applications. When RNNFast error mitigation is enabled the drop in output accuracy is negligible at less than
+2%.
+The RNNFast error mitigation produces outputs with less than 5% accuracy loss even for much higher error rates
+of 10−3 or around 20% accuracy loss for 10−2 . This shows that RNNFast EDC is robust to much higher error rates
+than what is expected for DWM technology.
+It is also worth highlighting the fact that error mitigation incurs no performance penalty even when errors are
+detected. Correction or mitigation are performed without stalling the execution pipeline. This is an important design
+consideration because of the highly synchronized nature of the design. A single stall to correct an error would
+result in lost cycles for thousands of functional units.
+
+6.3
+
+Nonlinear Function Hardware
+
+We evaluate two designs for the nonlinear function hardware: a LUT-based implementation, and an approximate
+logic function-based unit. The function-based implementation is area efficient since it does not require as much
+storage as the LUT-based design. However the computation required, albeit simple, is slower than the simple
+lookup of the LUT version. The activation functions are not a significant latency bottleneck. However, at this scale
+we have thousands of such units on chip and reducing their area adds up to real savings. Figure 19 shows the
+storage savings and performance degradation of the function-based sigmoid/tanh relative to the LUT design for
+multiple network sizes. The storage savings diminish as the network size increases because the storage space for
+the weights dominates. For large networks the storage savings are about 4%, which represents >1GB of DWM for
+a 16K network. As for the performance cost, it starts at about 9%, but falls below 1% for larger networks. The
+approximated nonlinear function does not result in loss of accuracy as measured by the BLEU score.
+
+6.4
+
+RNNFast Parameter Tuning
+
+We also conduct a sensitivity analysis on number of LSTM units per tile. Figure 20 illustrates the tile input buffer
+energy versus different number of LSTMs per tile for different network size. As the number of LSTMs per tile
+increases, the power/area overhead for the within tile bus increases super-linearly. The minimum energy point is
+different depending on the size of the network. The 64 LSTM units per tile represents a reasonable compromise for
+medium-to-large networks.
+ACM J. Emerg. Technol. Comput. Syst., Vol. 1, No. 1, Article 1. Publication date: January 2020.
+
+RNNFast: An Accelerator for Recurrent Neural Networks Using Domain Wall Memory •
+
+im2txt w/o Err Det
+im2txt RNNFast
+
+seq2seq w/o Err Det
+seq2seq RNNFast
+
+25
+
+1:21
+
+Storage Saving
+Performance Degradation
+
+0.45
+20
+
+0.4
+
+Percentage
+
+Output BLUE score
+
+0.35
+15
+
+0.3
+0.25
+
+10
+
+0.2
+0.15
+
+5
+
+0.1
+0.05
+
+0
+0
+
+1.00E-07
+
+1.00E-06
+1.00E-04
+1.00E-03
+Position Error Probability
+
+1.00E-02
+
+Fig. 18. Output accuracy for benchmarks
+
+im2txt and seq2seq with and without RNNFast EDC.
+
+Tile input energy (log scale)
+
+10
+
+128
+256
+
+0.125K
+
+0.25K
+
+0.5K
+
+1.00E-01
+
+1K
+
+2K
+
+4K
+
+8K
+
+16K
+
+Number of LSTM Cells
+
+Fig. 19. Storage saving and performance degradation for different network sizes for Approx. Function-based sigmoid design relative to LUT.
+
+512
+1024
+
+0.1
+
+2048
+power
+
+0.09
+
+1
+
+0.08
+0.07
+
+0.1
+
+0.06
+0.05
+
+0.01
+
+0.04
+
+Bus power
+
+0
+
+0.03
+0.001
+
+0.02
+0.01
+
+0.0001
+
+2
+
+4
+
+8
+
+16
+
+32
+
+64
+
+128
+
+256
+
+0
+
+LSTM per Tile for diﬀerent network size
+
+Fig. 20. Sensitivity analysis for the number of LSTMs per tile.
+
+6.5
+
+Comparison to Other RNN Accelerators
+
+Several recent papers have proposed FPGA-based accelerators for RNNs [18, 19, 24, 34, 36, 41, 58, 70, 75]. We
+provide a qualitative comparison with some of the more recent ones, for which runtime and energy numbers were
+available and similar applications were evaluated. Table 3 summarizes the energy and runtime for FPGA-based
+designs from [18, 19, 24, 41] as well as the energy and runtime of RNNFast while running networks of equivalent
+size.
+The networks used in [18, 24, 41] vary from vary small to large. RNNFast shows from 4.7× to 64× speedup.
+Compared to [18] RNNFast has 19× less energy consumption.
+Recently Fowers et al.[19] introduced Brainwave, an FPGA-based accelerator for RNN with no batching for real
+time AI. While a very efficient design, Brainwave has 50-70% higher energy energy than RNNFast. Brainwave
+also shows poorer performance for smaller networks, but slightly better performance for large ones, compared to
+RNNFast. Note that this is not a quantitative apples-to-apples comparison to our design given that Brainwave uses
+8 bit precision (vs 16 bit for RNNFast) and a 14nm techology node (vs. 32nm for RNNFast).
+The Google TPU is also capable of running RNN workloads efficiently. In [31] they report up to 8× better
+performance for LSTM workloads compared to NVIDIA K80. RNNFast is up to 260× faster than the newer
+NVIDIA P100 for workloads of similar size.
+ACM J. Emerg. Technol. Comput. Syst., Vol. 1, No. 1, Article 1. Publication date: January 2020.
+
+1:22
+
+•
+
+Mohammad Hossein Samavatian, Anys Bacha, Li Zhou, and Radu Teodorescu
+FPGA
+Design
+[18]
+[41]
+[24]
+[19]
+
+Net size
+
+Timesteps
+
+run time(µs)
+
+energy (µJ)
+
+32
+256
+1024
+256-1k-2K
+
+1
+7735
+1
+150-25-25
+
+1.586
+42.48E3
+82.7
+425-74-74
+
+0.8
+NA
+NA
+Est.: 425-1091-4356
+
+RNNFast
+run time (µs)
+0.332
+2.13E3
+1.29
+117-58-110.7
+
+RNNFast
+energy (µJ)
+0.0419
+1.28E3
+12.8
+252-643-2575
+
+Table 3. Energy and run time for FPGA-based RNNs.
+
+7
+
+OTHER RELATED WORK
+
+Many customized accelerators for machines learning algorithms and DNNs have been proposed recently [4, 11–
+14, 16, 17, 17, 25, 32, 37–39, 52, 53]. The majority of this work focuses on improving the performance of
+CNNs, exploring the potential for resources sharing, leveraging emerging memory technologies, optimizing basic
+operations, and developing domain specific methods.
+[25] used compression of the network model to reduce the memory footprint and accelerate real-time networks in
+which batching cannot be employed to improve data re-use. Eyeriss [12] explored local data reuse of filter weights
+and activations in high-dimensional convolutions in order to minimize the energy of data movement.
+Emerging memory technologies and in-memory processing have been leveraged for CNN designs to address
+memory latency limitations and to implement custom logic. PRIME [14] combined processor-in-memory architecture and ReRAM-based neural network computation. The crossbar array structure in ReRAM can be used to
+perform matrix-vector multiplication as well as regular memory to increase memory space. PUMA [6], a recently
+proposed general-purpose and ISA-programmable accelerator built with ReRAM. It has a spatial architecture
+organized in cores, tiles, and nodes. PUMA features a microarchitecture, ISA, and compiler co-designed to optimize
+data movement and maximize energy and area efficiency. The PUMA design is more general than ISAAC [53],
+and, as a result, it generally performs a bit worse in terms of throughput and energy efficiency. ReRAM-based
+DNN accelerators benefit from the speed and efficiency of the memristor crossbar; however the need for additional peripheral circuits such as ADCs and DACs, and other components, reduce the benefits of crossbar-based
+computation.
+Neurocube [32] proposed a programmable and scalable digital neuromorphic architecture based on 3D highdensity memory integrated with a logic tier for efficient neural computing. The design in [40] also used ReRAM
+cross bar for RNN acceleration for a case of human activity detection with small network size of 100 and simple
+vanilla RNN. Cambricon [39] propose a novel domain-specific Instruction Set Architecture (ISA) for neural
+network accelerators. PuDianNao [38] focuses on a range of popular machine learning algorithms. However all
+these optimizations are CNNs/DNNs specific. Chung et. al [16] used DWM for CNN computations as well. They
+proposed a new design that replaces the ReRAM cross bar with a DWM-based CNN layer for dot product. However,
+they still use costly ADC/DAC circuits and also did not address DWM shift errors in their design.
+
+8
+
+CONCLUSION
+
+The unprecedented growth of available data is accelerating the adoption of deep learning across a wide range of
+applications including speech recognition, machine translation, and language modeling. In this study, we propose
+RNNFast, a novel accelerator designed for recurrent neural networks. Our approach demonstrates that using domain
+wall memory is not only feasible, but also very efficient. We compare our design with a state-of-the-art P100
+NVIDIA GPU and find 21.8× better performance with 70× lower energy.
+
+REFERENCES
+[1] [n. d.]. DeepBench. https://svail.github.io/DeepBench/. ([n. d.]). https://svail.github.io/DeepBench/
+[2] [n. d.]. NVIDIA CUDA Deep Neural Network library. https://developer.nvidia.com/cudnn. ([n. d.]). https://developer.nvidia.com/cudnn
+[3] [n. d.]. Optimizing Recurrent Neural Networks in cuDNN 5. https://devblogs.nvidia.com/parallelforall/optimizing-recurrent-neuralnetworks-cudnn-5/. ([n. d.]). https://devblogs.nvidia.com/parallelforall/optimizing-recurrent-neural-networks-cudnn-5/
+ACM J. Emerg. Technol. Comput. Syst., Vol. 1, No. 1, Article 1. Publication date: January 2020.
+
+RNNFast: An Accelerator for Recurrent Neural Networks Using Domain Wall Memory •
+
+1:23
+
+[4] Jorge Albericio, Patrick Judd, Tayler Hetherington, Tor Aamodt, Natalie Enright Jerger, and Andreas Moshovos. 2016. Cnvlutin:
+ineffectual-neuron-free deep neural network computing. In Computer Architecture (ISCA), 2016 ACM/IEEE 43rd Annual International
+Symposium on. IEEE, 1–13.
+[5] Dario Amodei, Rishita Anubhai, Eric Battenberg, Carl Case, Jared Casper, Bryan Catanzaro, Jingdong Chen, Mike Chrzanowski,
+Adam Coates, Greg Diamos, Erich Elsen, Jesse Engel, Linxi Fan, Christopher Fougner, Awni Y. Hannun, Billy Jun, Tony Han, Patrick
+LeGresley, Xiangang Li, Libby Lin, Sharan Narang, Andrew Y. Ng, Sherjil Ozair, Ryan Prenger, Sheng Qian, Jonathan Raiman,
+Sanjeev Satheesh, David Seetapun, Shubho Sengupta, Chong Wang, Yi Wang, Zhiqian Wang, Bo Xiao, Yan Xie, Dani Yogatama,
+Jun Zhan, and Zhenyao Zhu. 2016. Deep Speech 2 : End-to-End Speech Recognition in English and Mandarin. In Proceedings of
+the 33nd International Conference on Machine Learning, ICML 2016, New York City, NY, USA, June 19-24, 2016. 173–182. http:
+//jmlr.org/proceedings/papers/v48/amodei16.html
+[6] Aayush Ankit, Izzat El Hajj, Sai Rahul Chalamalasetti, Geoffrey Ndu, Martin Foltin, R Stanley Williams, Paolo Faraboschi, Wen-mei W
+Hwu, John Paul Strachan, Kaushik Roy, et al. 2019. PUMA: A programmable ultra-efficient memristor-based accelerator for machine
+learning inference. In Proceedings of the Twenty-Fourth International Conference on Architectural Support for Programming Languages
+and Operating Systems. 715–731.
+[7] Aayush Ankit, Abhronil Sengupta, Priyadarshini Panda, and Kaushik Roy. 2017. RESPARC: A Reconfigurable and Energy-Efficient
+Architecture with Memristive Crossbars for Deep Spiking Neural Networks. arXiv preprint arXiv:1702.06064 (2017).
+[8] A. J. Annunziata, M. C. Gaidis, L. Thomas, C. W. Chien, C. C. Hung, P. Chevalier, E. J. O’Sullivan, J. P. Hummel, E. A. Joseph, Y. Zhu, T.
+Topuria, E. Delenia, P. M. Rice, S. S. P. Parkin, and W. J. Gallagher. 2011. Racetrack memory cell array with integrated magnetic tunnel
+junction readout. In 2011 International Electron Devices Meeting. 24.3.1–24.3.4. https://doi.org/10.1109/IEDM.2011.6131604
+[9] Elham Azari, Aykut Dengi, and Sarma Vrudhula. 2019. An Energy-Efficient FPGA Implementation of an LSTM Network Using
+Approximate Computing. In Proceedings of the 2019 ACM/SIGDA International Symposium on Field-Programmable Gate Arrays (FPGA
+’19). ACM, New York, NY, USA, 305–306. https://doi.org/10.1145/3289602.3293989
+[10] K. Chang and T. Chang. 2019. VSCNN: Convolution Neural Network Accelerator with Vector Sparsity. In 2019 IEEE International
+Symposium on Circuits and Systems (ISCAS). 1–5. https://doi.org/10.1109/ISCAS.2019.8702471
+[11] Tianshi Chen, Zidong Du, Ninghui Sun, Jia Wang, Chengyong Wu, Yunji Chen, and Olivier Temam. 2014. DianNao: a small-footprint
+high-throughput accelerator for ubiquitous machine-learning. In Architectural Support for Programming Languages and Operating
+Systems, ASPLOS ’14, Salt Lake City, UT, USA, March 1-5, 2014. 269–284. https://doi.org/10.1145/2541940.2541967
+[12] Yu-Hsin Chen, Joel S. Emer, and Vivienne Sze. 2016. Eyeriss: A Spatial Architecture for Energy-Efficient Dataflow for Convolutional
+Neural Networks. In 43rd ACM/IEEE Annual International Symposium on Computer Architecture, ISCA 2016, Seoul, South Korea, June
+18-22, 2016. 367–379. https://doi.org/10.1109/ISCA.2016.40
+[13] Yunji Chen, Tao Luo, Shaoli Liu, Shijin Zhang, Liqiang He, Jia Wang, Ling Li, Tianshi Chen, Zhiwei Xu, Ninghui Sun, and Olivier Temam.
+2014. DaDianNao: A Machine-Learning Supercomputer. In 47th Annual IEEE/ACM International Symposium on Microarchitecture,
+MICRO 2014, Cambridge, United Kingdom, December 13-17, 2014. 609–622. https://doi.org/10.1109/MICRO.2014.58
+[14] Ping Chi, Shuangchen Li, Cong Xu, Tao Zhang, Jishen Zhao, Yongpan Liu, Yu Wang, and Yuan Xie. 2016. PRIME: A Novel Processingin-Memory Architecture for Neural Network Computation in ReRAM-Based Main Memory. In 43rd ACM/IEEE Annual International
+Symposium on Computer Architecture, ISCA 2016, Seoul, South Korea, June 18-22, 2016. 27–39. https://doi.org/10.1109/ISCA.2016.13
+[15] Kyunghyun Cho, Bart van Merrienboer, Çaglar Gülçehre, Fethi Bougares, Holger Schwenk, and Yoshua Bengio. 2014. Learning Phrase
+Representations using RNN Encoder-Decoder for Statistical Machine Translation. CoRR abs/1406.1078 (2014). http://arxiv.org/abs/1406.
+1078
+[16] Jinil Chung, Jongsun Park, and Swaroop Ghosh. 2016. Domain Wall Memory based Convolutional Neural Networks for Bit-width
+Extendability and Energy-Efficiency. In Proceedings of the 2016 International Symposium on Low Power Electronics and Design, ISLPED
+2016, San Francisco Airport, CA, USA, August 08 - 10, 2016. 332–337. https://doi.org/10.1145/2934583.2934602
+[17] Zidong Du, Robert Fasthuber, Tianshi Chen, Paolo Ienne, Ling Li, Tao Luo, Xiaobing Feng, Yunji Chen, and Olivier Temam. 2015.
+ShiDianNao: shifting vision processing closer to the sensor. In Proceedings of the 42nd Annual International Symposium on Computer
+Architecture, Portland, OR, USA, June 13-17, 2015. 92–104. https://doi.org/10.1145/2749469.2750389
+[18] J. C. Ferreira and J. Fonseca. 2016. An FPGA implementation of a long short-term memory neural network. In 2016 International
+Conference on ReConFigurable Computing and FPGAs (ReConFig). 1–8. https://doi.org/10.1109/ReConFig.2016.7857151
+[19] J. Fowers, K. Ovtcharov, M. Papamichael, T. Massengill, M. Liu, D. Lo, S. Alkalay, M. Haselman, L. Adams, M. Ghandi, S. Heil, P. Patel,
+A. Sapek, G. Weisz, L. Woods, S. Lanka, S. K. Reinhardt, A. M. Caulfield, E. S. Chung, and D. Burger. 2018. A Configurable Cloud-Scale
+DNN Processor for Real-Time AI. In 2018 ACM/IEEE 45th Annual International Symposium on Computer Architecture (ISCA). 1–14.
+https://doi.org/10.1109/ISCA.2018.00012
+[20] S. Ghosh. 2013. Design methodologies for high density domain wall memory. In 2013 IEEE/ACM International Symposium on Nanoscale
+Architectures (NANOARCH). 30–31. https://doi.org/10.1109/NanoArch.2013.6623035
+[21] Alex Graves, Abdel-rahman Mohamed, and Geoffrey E. Hinton. 2013. Speech recognition with deep recurrent neural networks. In
+IEEE International Conference on Acoustics, Speech and Signal Processing, ICASSP 2013, Vancouver, BC, Canada, May 26-31, 2013.
+ACM J. Emerg. Technol. Comput. Syst., Vol. 1, No. 1, Article 1. Publication date: January 2020.
+
+1:24
+
+•
+
+Mohammad Hossein Samavatian, Anys Bacha, Li Zhou, and Radu Teodorescu
+
+6645–6649. https://doi.org/10.1109/ICASSP.2013.6638947
+[22] Klaus Greff, Rupesh K Srivastava, Jan Koutník, Bas R Steunebrink, and Jürgen Schmidhuber. 2016. LSTM: A search space odyssey.
+IEEE transactions on neural networks and learning systems (2016).
+[23] Y. Guan, Z. Yuan, G. Sun, and J. Cong. 2017. FPGA-based accelerator for long short-term memory recurrent neural networks. In 2017
+22nd Asia and South Pacific Design Automation Conference (ASP-DAC). 629–634. https://doi.org/10.1109/ASPDAC.2017.7858394
+[24] Song Han, Junlong Kang, Huizi Mao, Yiming Hu, Xin Li, Yubin Li, Dongliang Xie, Hong Luo, Song Yao, Yu Wang, et al. 2017. Ese:
+Efficient speech recognition engine with sparse lstm on fpga. In Proceedings of the 2017 ACM/SIGDA International Symposium on
+Field-Programmable Gate Arrays. ACM, 75–84.
+[25] Song Han, Xingyu Liu, Huizi Mao, Jing Pu, Ardavan Pedram, Mark A. Horowitz, and William J. Dally. 2016. EIE: Efficient Inference
+Engine on Compressed Deep Neural Network. In 43rd ACM/IEEE Annual International Symposium on Computer Architecture, ISCA
+2016, Seoul, South Korea, June 18-22, 2016. 243–254. https://doi.org/10.1109/ISCA.2016.30
+[26] Awni Y. Hannun, Carl Case, Jared Casper, Bryan Catanzaro, Greg Diamos, Erich Elsen, Ryan Prenger, Sanjeev Satheesh, Shubho
+Sengupta, Adam Coates, and Andrew Y. Ng. 2014. Deep Speech: Scaling up end-to-end speech recognition. CoRR abs/1412.5567 (2014).
+http://arxiv.org/abs/1412.5567
+[27] Sepp Hochreiter and Jürgen Schmidhuber. 1997. Long Short-Term Memory. Neural Computation 9, 8 (1997), 1735–1780. https:
+//doi.org/10.1162/neco.1997.9.8.1735
+[28] Kejie Huang, Rong Zhao, and Yong Lian. 2016. Racetrack Memory-Based Nonvolatile Storage Elements for Multicontext FPGAs. IEEE
+Trans. VLSI Syst. 24, 5 (2016), 1885–1894. https://doi.org/10.1109/TVLSI.2015.2474706
+[29] Anirudh Iyengar and Swaroop Ghosh. 2014. Modeling and Analysis of Domain Wall Dynamics for Robust and Low-Power Embedded
+Memory. In Proceedings of the 51st Annual Design Automation Conference (DAC ’14). ACM, New York, NY, USA, Article 65, 6 pages.
+https://doi.org/10.1145/2593069.2593161
+[30] Tian Jin and Seokin Hong. 2019. Split-CNN: Splitting Window-based Operations in Convolutional Neural Networks for Memory System
+Optimization. In Proceedings of the Twenty-Fourth International Conference on Architectural Support for Programming Languages and
+Operating Systems (ASPLOS ’19). ACM, New York, NY, USA, 835–847. https://doi.org/10.1145/3297858.3304038
+[31] Norman P Jouppi and et. al. 2017. In-Datacenter Performance Analysis of a Tensor Processing Unit. In Proceedings of the 44th Annual
+International Symposium on Computer Architecture (ISCA ’17). ACM, New York, NY, USA, 1–12. https://doi.org/10.1145/3079856.
+3080246
+[32] Duckhwan Kim, Jaeha Kung, Sek M. Chai, Sudhakar Yalamanchili, and Saibal Mukhopadhyay. 2016. Neurocube: A Programmable
+Digital Neuromorphic Architecture with High-Density 3D Memory. In 43rd ACM/IEEE Annual International Symposium on Computer
+Architecture, ISCA 2016, Seoul, South Korea, June 18-22, 2016. 380–392. https://doi.org/10.1109/ISCA.2016.41
+[33] H.T. Kung, Bradley McDanel, and Sai Qian Zhang. 2019. Packing Sparse Convolutional Neural Networks for Efficient Systolic Array
+Implementations: Column Combining Under Joint Optimization. In Proceedings of the Twenty-Fourth International Conference on
+Architectural Support for Programming Languages and Operating Systems (ASPLOS ’19). ACM, New York, NY, USA, 821–834.
+https://doi.org/10.1145/3297858.3304028
+[34] Chen-Lu Li, Yu-Jie Huang, Yu-Jie Cai, Jun Han, and Xiao-Yang Zeng. 2018. FPGA Implementation of LSTM Based on Automatic
+Speech Recognition. In 2018 14th IEEE International Conference on Solid-State and Integrated Circuit Technology (ICSICT). IEEE, 1–3.
+[35] S. Li, C. Wu, H. Li, B. Li, Y. Wang, and Q. Qiu. 2015. FPGA Acceleration of Recurrent Neural Network Based Language Model. In 2015
+IEEE 23rd Annual International Symposium on Field-Programmable Custom Computing Machines. 111–118. https://doi.org/10.1109/
+FCCM.2015.50
+[36] Z. Li, C. Ding, S. Wang, W. Wen, Y. Zhuo, C. Liu, Q. Qiu, W. Xu, X. Lin, X. Qian, and Y. Wang. 2019. E-RNN: Design Optimization for
+Efficient Recurrent Neural Networks in FPGAs. In 2019 IEEE International Symposium on High Performance Computer Architecture
+(HPCA). 69–80. https://doi.org/10.1109/HPCA.2019.00028
+[37] Robert LiKamWa, Yunhui Hou, Yuan Gao, Mia Polansky, and Lin Zhong. 2016. RedEye: Analog ConvNet Image Sensor Architecture for
+Continuous Mobile Vision. In 43rd ACM/IEEE Annual International Symposium on Computer Architecture, ISCA 2016, Seoul, South
+Korea, June 18-22, 2016. 255–266. https://doi.org/10.1109/ISCA.2016.31
+[38] Dao-Fu Liu, Tianshi Chen, Shaoli Liu, Jinhong Zhou, Shengyuan Zhou, Olivier Temam, Xiaobing Feng, Xuehai Zhou, and Yunji
+Chen. 2015. PuDianNao: A Polyvalent Machine Learning Accelerator. In Proceedings of the Twentieth International Conference on
+Architectural Support for Programming Languages and Operating Systems, ASPLOS ’15, Istanbul, Turkey, March 14-18, 2015. 369–381.
+https://doi.org/10.1145/2694344.2694358
+[39] Shaoli Liu, Zidong Du, Jinhua Tao, Dong Han, Tao Luo, Yuan Xie, Yunji Chen, and Tianshi Chen. 2016. Cambricon: An Instruction Set
+Architecture for Neural Networks. In 43rd ACM/IEEE Annual International Symposium on Computer Architecture, ISCA 2016, Seoul,
+South Korea, June 18-22, 2016. 393–405. https://doi.org/10.1109/ISCA.2016.42
+[40] Y. Long, E. M. Jung, J. Kung, and S. Mukhopadhyay. 2016. ReRAM Crossbar based Recurrent Neural Network for human activity
+detection. In 2016 International Joint Conference on Neural Networks (IJCNN). 939–946. https://doi.org/10.1109/IJCNN.2016.7727299
+
+ACM J. Emerg. Technol. Comput. Syst., Vol. 1, No. 1, Article 1. Publication date: January 2020.
+
+RNNFast: An Accelerator for Recurrent Neural Networks Using Domain Wall Memory •
+
+1:25
+
+[41] Thomas Mealey and Tarek M Taha. 2018. Accelerating Inference In Long Short-Term Memory Neural Networks. In NAECON 2018-IEEE
+National Aerospace and Electronics Conference. IEEE, 382–390.
+[42] Seyedhamidreza Motaman and Swaroop Ghosh. 2016. Adaptive Write and Shift Current Modulation for Process Variation Tolerance in
+Domain Wall Caches. IEEE Trans. VLSI Syst. 24, 3 (2016), 944–953. https://doi.org/10.1109/TVLSI.2015.2437283
+[43] Seyedhamidreza Motaman, Anirudh Iyengar, and Swaroop Ghosh. 2014. Synergistic circuit and system design for energy-efficient and
+robust domain wall caches. In International Symposium on Low Power Electronics and Design, ISLPED’14, La Jolla, CA, USA - August
+11 - 13, 2014. 195–200. https://doi.org/10.1145/2627369.2627643
+[44] S. Motaman, A. S. Iyengar, and S. Ghosh. 2015. Domain Wall Memory-Layout, Circuit and Synergistic Systems. IEEE Transactions on
+Nanotechnology 14, 2 (March 2015), 282–291. https://doi.org/10.1109/TNANO.2015.2391185
+[45] Seyedhamidreza Motaman, Anirudh Srikant Iyengar, and Swaroop Ghosh. 2015. Domain wall memory-layout, circuit and synergistic
+systems. IEEE Transactions on Nanotechnology 14, 2 (2015), 282–291.
+[46] Kishore Papineni, Salim Roukos, Todd Ward, and Wei-Jing Zhu. 2002. BLEU: A Method for Automatic Evaluation of Machine Translation.
+In Proceedings of the 40th Annual Meeting on Association for Computational Linguistics (ACL ’02). Association for Computational
+Linguistics, Stroudsburg, PA, USA, 311–318. https://doi.org/10.3115/1073083.1073135
+[47] Angshuman Parashar, Minsoo Rhu, Anurag Mukkara, Antonio Puglielli, Rangharajan Venkatesan, Brucek Khailany, Joel Emer, Stephen W.
+Keckler, and William J. Dally. 2017. SCNN: An Accelerator for Compressed-sparse Convolutional Neural Networks. In Proceedings of
+the 44th Annual International Symposium on Computer Architecture (ISCA ’17). ACM, New York, NY, USA, 27–40. https://doi.org/10.
+1145/3079856.3080254
+[48] Stuart S. P. Parkin, Masamitsu Hayashi, and Luc Thomas. 2008. Magnetic Domain-Wall Racetrack Memory. Science 320, 5873 (2008),
+190–194. https://doi.org/10.1126/science.1145799 arXiv:http://science.sciencemag.org/content/320/5873/190.full.pdf
+[49] Adam Paszke, Soumith Chintala, Ronan Collobert, Koray Kavukcuoglu, Clement Farabet, Samy Bengio, Iain Melvin, Jason Weston, and
+Johnny Mariethoz. [n. d.]. Pytorch: Tensors and dynamic neural networks in python with strong gpu acceleration, may 2017. ([n. d.]).
+[50] Jay M. Ponte and W. Bruce Croft. 1998. A Language Modeling Approach to Information Retrieval. In SIGIR ’98: Proceedings of the 21st
+Annual International ACM SIGIR Conference on Research and Development in Information Retrieval, August 24-28 1998, Melbourne,
+Australia. 275–281. https://doi.org/10.1145/290941.291008
+[51] A. Ranjan, S. G. Ramasubramanian, R. Venkatesan, V. Pai, K. Roy, and A. Raghunathan. 2015. DyReCTape: A dynamically reconfigurable
+cache using domain wall memory tapes. In 2015 Design, Automation Test in Europe Conference Exhibition (DATE). 181–186. https:
+//doi.org/10.7873/DATE.2015.0838
+[52] Brandon Reagen, Paul N. Whatmough, Robert Adolf, Saketh Rama, Hyunkwang Lee, Sae Kyu Lee, José Miguel Hernández-Lobato,
+Gu-Yeon Wei, and David M. Brooks. 2016. Minerva: Enabling Low-Power, Highly-Accurate Deep Neural Network Accelerators. In isca.
+[53] Ali Shafiee, Anirban Nag, Naveen Muralimanohar, Rajeev Balasubramonian, John Paul Strachan, Miao Hu, R. Stanley Williams, and
+Vivek Srikumar. 2016. ISAAC: A Convolutional Neural Network Accelerator with In-Situ Analog Arithmetic in Crossbars. In 43rd
+ACM/IEEE Annual International Symposium on Computer Architecture, ISCA 2016, Seoul, South Korea, June 18-22, 2016. 14–26.
+https://doi.org/10.1109/ISCA.2016.12
+[54] Yongming Shen, Michael Ferdman, and Peter Milder. 2017. Maximizing CNN Accelerator Efficiency Through Resource Partitioning. In
+Proceedings of the 44th Annual International Symposium on Computer Architecture (ISCA ’17). ACM, New York, NY, USA, 535–547.
+https://doi.org/10.1145/3079856.3080221
+[55] Clinton W. Smullen, Anurag Nigam, Sudhanva Gurumurthi, and Mircea R. Stan. 2011. The STeTSiMS STT-RAM simulation and
+modeling system. In iccad. IEEE Press, 318–325.
+[56] Z. Sun, X. Bi, W. Wu, S. Yoo, and H. (. Li. 2016. Array Organization and Data Management Exploration in Racetrack Memory. IEEE
+Trans. Comput. 65, 4 (April 2016), 1041–1054. https://doi.org/10.1109/TC.2014.2360545
+[57] Zhenyu Sun, Wenqing Wu, and Hai (Helen) Li. 2013. Cross-layer Racetrack Memory Design for Ultra High Density and Low Power
+Consumption. In Proceedings of the 50th Annual Design Automation Conference (DAC ’13). ACM, New York, NY, USA, Article 53,
+6 pages. https://doi.org/10.1145/2463209.2488799
+[58] Zhanrui Sun, Yongxin Zhu, Yu Zheng, Hao Wu, Zihao Cao, Peng Xiong, Junjie Hou, Tian Huang, and Zhiqiang Que. 2018. FPGA
+acceleration of LSTM based on data for test flight. In 2018 IEEE International Conference on Smart Cloud (SmartCloud). IEEE, 1–6.
+[59] MT Tommiska. 2003. Efficient digital implementation of the sigmoid function for reprogrammable logic. IEE Proceedings-Computers
+and Digital Techniques 150, 6 (2003), 403–411.
+[60] Antonio Toral and Andy Way. 2018. What level of quality can Neural Machine Translation attain on literary text? In Translation Quality
+Assessment. Springer, 263–287.
+[61] Swagath Venkataramani, Ashish Ranjan, Subarno Banerjee, Dipankar Das, Sasikanth Avancha, Ashok Jagannathan, Ajaya Durg, Dheemanth Nagaraj, Bharat Kaul, Pradeep Dubey, and Anand Raghunathan. 2017. ScaleDeep: A Scalable Compute Architecture for Learning
+and Evaluating Deep Networks. In Proceedings of the 44th Annual International Symposium on Computer Architecture (ISCA ’17). ACM,
+New York, NY, USA, 13–26. https://doi.org/10.1145/3079856.3080244
+
+ACM J. Emerg. Technol. Comput. Syst., Vol. 1, No. 1, Article 1. Publication date: January 2020.
+
+1:26
+
+•
+
+Mohammad Hossein Samavatian, Anys Bacha, Li Zhou, and Radu Teodorescu
+
+[62] Rangharajan Venkatesan, Vivek J. Kozhikkottu, Mrigank Sharad, Charles Augustine, Arijit Raychowdhury, Kaushik Roy, and Anand
+Raghunathan. 2016. Cache Design with Domain Wall Memory. IEEE Trans. Comput. 65, 4 (April 2016), 1010–1024. https://doi.org/10.
+1109/TC.2015.2506581
+[63] R. Venkatesan, M. Sharad, K. Roy, and A. Raghunathan. 2013. DWM-TAPESTRI - An energy efficient all-spin cache using domain wall
+shift based writes. In 2013 Design, Automation Test in Europe Conference Exhibition (DATE). 1825–1830. https://doi.org/10.7873/DATE.
+2013.365
+[64] Oriol Vinyals, Alexander Toshev, Samy Bengio, and Dumitru Erhan. 2016. Show and Tell: Lessons learned from the 2015 MSCOCO
+Image Captioning Challenge. CoRR abs/1609.06647 (2016). http://arxiv.org/abs/1609.06647
+[65] M. Wang, Z. Wang, J. Lu, J. Lin, and Z. Wang. 2019. E-LSTM: An Efficient Hardware Architecture for Long Short-Term Memory. IEEE
+Journal on Emerging and Selected Topics in Circuits and Systems (2019), 1–1. https://doi.org/10.1109/JETCAS.2019.2911739
+[66] Shuo Wang, Zhe Li, Caiwen Ding, Bo Yuan, Qinru Qiu, Yanzhi Wang, and Yun Liang. 2018. C-LSTM: Enabling Efficient LSTM Using
+Structured Compression Techniques on FPGAs. In Proceedings of the 2018 ACM/SIGDA International Symposium on Field-Programmable
+Gate Arrays (FPGA ’18). ACM, New York, NY, USA, 11–20. https://doi.org/10.1145/3174243.3174253
+[67] X. Wang, J. Yu, C. Augustine, R. Iyer, and R. Das. 2019. Bit Prudent In-Cache Acceleration of Deep Convolutional Neural Networks. In
+2019 IEEE International Symposium on High Performance Computer Architecture (HPCA). 81–93. https://doi.org/10.1109/HPCA.2019.
+00029
+[68] Yuhao Wang, Hao Yu, Leibin Ni, Guang-Bin Huang, Mei Yan, Chuliang Weng, Wei Yang, and Junfeng Zhao. 2015. An Energy-efficient
+nonvolatile in-memory computing architecture for extreme learning machine by domain-wall nanowire devices. IEEE Transactions on
+Nanotechnology 14, 6 (2015), 998–1012.
+[69] Yuhao Wang, Hao Yu, Dennis Sylvester, and Pingfan Kong. 2014. Energy efficient in-memory AES encryption based on nonvolatile
+domain-wall nanowire. In Design, Automation & Test in Europe Conference & Exhibition, DATE 2014, Dresden, Germany, March 24-28,
+2014. 1–4. https://doi.org/10.7873/DATE.2014.196
+[70] Zhisheng Wang, Jun Lin, and Zhongfeng Wang. 2017. Accelerating recurrent neural networks: A memory-efficient approach. IEEE
+Transactions on Very Large Scale Integration (VLSI) Systems 25, 10 (2017), 2763–2775.
+[71] Cong Xu, Dimin Niu, Xiaochun Zhu, Seung H. Kang, Matt Nowak, and Yuan Xie. 2011. Device-architecture co-optimization of STT-RAM
+based memory for low power embedded systems. In iccad. IEEE Press, 463–470.
+[72] Hao Yu, Yuhao Wang, Shuai Chen, Wei Fei, Chuliang Weng, Junfeng Zhao, and Zhulin Wei. 2014. Energy efficient in-memory machine
+learning for data intensive image-processing by non-volatile domain-wall memory. In 19th Asia and South Pacific Design Automation
+Conference, ASP-DAC 2014, Singapore, January 20-23, 2014. 191–196. https://doi.org/10.1109/ASPDAC.2014.6742888
+[73] Chao Zhang, Guangyu Sun, Weiqi Zhang, Fan Mi, Hai Li, and W. Zhao. 2015. Quantitative modeling of racetrack memory, a tradeoff
+among area, performance, and power. In The 20th Asia and South Pacific Design Automation Conference. 100–105. https://doi.org/10.
+1109/ASPDAC.2015.7058988
+[74] Chao Zhang, Guangyu Sun, Xian Zhang, Weiqi Zhang, Weisheng Zhao, Tao Wang, Yun Liang, Yongpan Liu, Yu Wang, and Jiwu Shu. 2015.
+Hi-fi Playback: Tolerating Position Errors in Shift Operations of Racetrack Memory. In Proceedings of the 42Nd Annual International
+Symposium on Computer Architecture (ISCA ’15). ACM, New York, NY, USA, 694–706. https://doi.org/10.1145/2749469.2750388
+[75] Yiwei Zhang, Chao Wang, Lei Gong, Yuntao Lu, Fan Sun, Chongchong Xu, Xi Li, and Xuehai Zhou. 2017. A Power-Efficient Accelerator
+Based on FPGAs for LSTM Network. In 2017 IEEE International Conference on Cluster Computing (CLUSTER). IEEE, 629–630.
+[76] Y. Zhang, C. Zhang, J. Nan, Z. Zhang, X. Zhang, J. O. Klein, D. Ravelosona, G. Sun, and W. Zhao. 2016. Perspectives of Racetrack
+Memory for Large-Capacity On-Chip Memory: From Device to System. IEEE Transactions on Circuits and Systems I: Regular Papers 63,
+5 (May 2016), 629–638. https://doi.org/10.1109/TCSI.2016.2529240
+[77] Weisheng Zhao, Nesrine Ben Romdhane, Yue Zhang, Jacques-Olivier Klein, and Define Ravelosona. 2013. Racetrack memory based
+reconfigurable computing. In Faible Tension Faible Consommation (FTFC), 2013 IEEE. IEEE, 1–4.
+
+ACM J. Emerg. Technol. Comput. Syst., Vol. 1, No. 1, Article 1. Publication date: January 2020.
+
+

@@ -1,0 +1,16 @@
+
+recurrent neural network (rnn) is an effective neural network in solving very
+complex supervised and unsupervised tasks. there has been a significant
+improvement in rnn field such as natural language processing, speech processing,
+computer vision and other multiple domains. this paper deals with rnn
+application on different use cases like incident detection, fraud detection, and
+android malware classification. the best performing neural network architecture
+is chosen by conducting different chain of experiments for different network
+parameters and structures. the network is run up to 1000 epochs with learning rate
+set in the range of 0.01 to 0.5.obviously, rnn performed very well when
+compared to classical machine learning algorithms. this is mainly possible
+because rnns implicitly extracts the underlying features and also identifies the
+characteristics of the data. this helps to achieve better accuracy.
+keywords
+deep neural networks (dnns), recurrent neural network (rnn), cyber security,
+android malware classification, incident detection, fraud detection.

@@ -1,0 +1,10 @@
+
+this paper presents a novel approach to recurrent neural network (rnn) regularization. differently from the widely adopted
+dropout method, which is applied to forward connections of feed-forward architectures or rnns, we propose to drop neurons directly in recurrent connections in a
+way that does not cause loss of long-term
+memory. our approach is as easy to implement and apply as the regular feed-forward
+dropout and we demonstrate its effectiveness for long short-term memory network, the most popular type of rnn
+cells. our experiments on nlp benchmarks show consistent improvements even
+when combined with conventional feedforward dropout.
+
+1 

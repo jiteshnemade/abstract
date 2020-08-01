@@ -1,0 +1,17 @@
+recurrent neural network (rnn) are a popular
+choice for modeling temporal and sequential tasks and achieve
+many state-of-the-art performance on various complex problems. however, most of the state-of-the-art rnns have millions
+of parameters and require many computational resources for
+training and predicting new data. this paper proposes an
+alternative rnn model to reduce the number of parameters
+significantly by representing the weight parameters based on
+tensor train (tt) format. in this paper, we implement the
+tt-format representation for several rnn architectures such as
+simple rnn and gated recurrent unit (gru). we compare
+and evaluate our proposed rnn model with uncompressed rnn
+model on sequence classification and sequence prediction tasks.
+our proposed rnns with tt-format are able to preserve the
+performance while reducing the number of rnn parameters
+significantly up to 40 times smaller.
+
+i. 

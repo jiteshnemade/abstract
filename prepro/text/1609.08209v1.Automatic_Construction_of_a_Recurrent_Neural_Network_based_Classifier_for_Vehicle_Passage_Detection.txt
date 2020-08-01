@@ -1,0 +1,372 @@
+Automatic Construction of a Recurrent Neural Network based
+Classifier for Vehicle Passage Detection
+Evgeny Burnaev1,2 , Ivan Koptelov2 , German Novikov2 , Timur Khanipov2
+1 Skoltech, 2 Institute for Information Transmission Problems RAS
+
+arXiv:1609.08209v1 [cs.CV] 26 Sep 2016
+
+ABSTRACT
+Recurrent Neural Networks (RNNs) are extensively used for time-series modeling and prediction. We propose an
+approach for automatic construction of a binary classifier based on Long Short-Term Memory RNNs (LSTM-RNNs) for
+detection of a vehicle passage through a checkpoint. As an input to the classifier we use multidimensional signals of various
+sensors that are installed on the checkpoint. Obtained results demonstrate that the previous approach to handcrafting a
+classifier, consisting of a set of deterministic rules, can be successfully replaced by an automatic RNN training on an
+appropriately labelled data.
+Keywords: Recurrent Neural Networks, Classification, Time-Series
+
+1. INTRODUCTION
+Paper [1] describes an Automatic Vehicle Classifier (AVC) for toll roads, based on video classification and installed
+on most of Russian toll roads. Vehicle Passage Detector (VPD) is one of the most important parts of the AVC system.
+VPD uses as input several binary signals from other AVC subsystems (binary detectors), and makes decisions about a
+vehicle passage (whether a vehicle is located in the checkpoint area). VPD is based on a “voting scheme”: a vehicle
+passage is detected if most of the binary detectors provide a positive answer. This logic is augmented by a set of empirical
+rules, provided by a human expert to quantify and take into account time delays between switches of the binary signals,
+properties of a sequence of these switches and other information. These rules were extended and modified during AVC
+test deployment based on an analysis of encountered errors.
+The previous paper, devoted to VPD in AVC [3], states that the VPD accuracy is 99.58%. Since then the test dataset
+has been extended by new detection and classification error cases. It should be noted that in the current paper we use
+tests which run with a disabled trailer coupler detector. AVC version, described in the previous paper, provides 83.47%
+accuracy on the new dataset if the coupler detector is disabled. At the same time the current classifier version provides
+88.90% accuracy without the coupler detector and 91.10% with it. Comparing to the previous version the new classifier
+has optimized algorithms for a shield and a trailer couplers detection, a correlational detector and an updated fusion method
+for binary detectors aggregation.
+Creating rules of this type is a painstaking job requiring creative approach. It would be interesting to develop an
+automatic method where a machine learning algorithm could replace a human expert. This approach potentially could also
+produce a higher classification quality. Therefore, in this paper we solve the problem of creating a method for automating
+an AVC synthesis and minimizing a human involvement.
+
+2. DATA DESCRIPTION
+The input data consists of AVC log records. Each file contains one or several vehicles passages. All the numerical
+experiments are conducted on a dataset consisting of 4761 log files. The system log is filled with three-dimensional signal
+samples Xt , each component of which is binarized and produced by one of the following sensors: a correlational detector
+(sensitive to changes in video-stream images), an induction loop (mounted inside a lane and sensitive to a metal), a shield
+detector (detects occlusions of a shield, located opposite to a camera). Also the records contain a frame sequence number,
+manually created reference signal (labels) and predictions of a basic classifier, which is based on human tweaked rules [1].
+A file record is created and saved in a database if and only if at least one of the input signals has changed.
+Table 1 shows a log sample. Notations: Shield — a shield detector, Loop — an induction loop, Cor — a correlational
+detector, Basic clf — a basic classifier prediction, Ref. pass — a reference passage.
+
+Frame
+No.
+196
+201
+202
+208
+246
+266
+268
+269
+270
+
+Shield
+
+Loop
+
+Cor
+
+Basic clf
+
+Ref. pass
+
+1
+0
+0
+0
+1
+1
+0
+0
+0
+1
+1
+1
+1
+1
+1
+1
+0
+1
+1
+1
+1
+1
+1
+1
+1
+1
+0
+1
+1
+0
+0
+0
+0
+0
+0
+0
+Table 1: A log and a labeled sample
+
+0
+0
+0
+1
+1
+0
+0
+0
+0
+
+3. QUALITY EVALUATION
+The problem specifics dictates that a special quality passage evaluation metric should be used, which is equal to the
+standard pointwise two-class classification metric Accuracy only in extreme cases. The reason is that the standard metrics
+using pointwise difference between a reference signal and a predicted signal are not able to estimate a passage classification
+quality from a physically sensible viewpoint. The metric used in this paper is a Pass Quality (PQ): PQ = R+∑R Err , where
+R is a number of correctly detected passages, while ∑ Err is a sum of classification error costs on a whole test dataset.
+Calculation of ∑ Err for various error types (missed passage, merged passages, etc.) is a complicated procedure described
+in [4], see also table 2. Here L denotes the true number of passages in the analysed test signal, K denotes the number of
+detected passages (see details in [4]).
+Ref. pass.
+1
+1
+0
+L
+1
+L
+
+Detected pass.
+Err. Desc.
+1
+no error
+0
+missed passage
+1
+false passage
+1
+merged passages
+K
+split passage
+K
+multiple error
+Table 2: Classification error costs
+
+Err. Weight
+0
+1
+1
+L
+K
+max(L, K)
+
+This quality metric does not take into account how far the detected passage is shifted from the ideal one. However
+the conducted experiments show that this is not needed for applications, since the sequence of correct passages and their
+intersections with real passages at least in one instant are important, not the delays themselves.
+
+4. EXPLORATORY ANALYSIS
+In this section we compare results obtained with various machine learning methods: gradient tree boosting XGB (see
+description of the algorithm in [5]; the implementation from [7] was used), logistic regression LR from the scikit-learn
+package [8], fully connected neural network NN with a one hidden layer consisting of 12 neurons (see approaches to
+training such networks in [9–12]), simple recurrent neural network SimpleRNN from the Keras package [6].
+Due to an atypical task partitioning of the data into the training and the control sets were organized as follows: logs for
+a respective set are randomly selected in a random order, but the order of frames inside every log remains unchanged.
+Results for training on the source signal Xt without accounting for past values are provided in table 3, see lines XGB1 ,
+LR1 , NN1 . The obtained results imply that due to the autocorrelation of Xt , classification using standard methods without
+taking into account the dependency of Xt on Xt−1 , . . . Xt−k , . . . , provides low PQ values. The situation that PQ values are
+comparable can be easily explained by the fact that at each moment of time the three-dimensional vector Xt can take only
+eight distinct values, thus in the considered case all methods can easily provide similar decision rules.
+The first idea to increase classification quality w.r.t. the PQ metric is to extend the feature space Xt by using previous
+values {Xt−1 , . . . , Xt−w }. The results of these experiments are provided in table 3, see lines XGB2 , LR2 , NN2 . The optimal
+window size w for each classifier type is selected using the cross-validation procedure. The threshold, producing a binary
+
+signal from a classifier output probability (provided by the logistic regression and the neural network), is selected by
+maximizing the objective function on the training set. One may see that this extension provides significant increase in
+quality. The NN2 gives the best result. This result, however, is not better than that of the basic classifier.
+The second natural idea is to use recurrent neural networks, which proved to be productive in labelling of sequences
+and time series classification. We will use the standard recurrent network SimpleRNN with a one recurrent layer and a
+one hidden layer [13]. It turns out that this model allows to obtain a higher quality which is pretty close to that of the basic
+classifier.
+Classifier
+R
+PQ
+∑ Err
+XGB1
+3090.2 2802.3 0.532
+LR1
+3090.2 2802.3 0.532
+NN1
+3090.2 2802.3 0.532
+XGB2
+1806.0 453.0 0.799
+LR2
+1794.1 302.6 0.856
+NN2
+1758.0 276.6 0.864
+SimpleRNN
+1784.8 214.3 0.892
+Basic Classifier 1684.3 158.7 0.914
+Table 3: Comparison of classifier models
+
+Note: the Basic Classifier uses an additional feature from the trailer coupler detector. This feature allows to distinguish
+between vehicles moving at a close distance and vehicles with trailers thus increasing the basic method accuracy PQ from
+0.889 to 0.914. In our experiments we do not use this feature, although this additional information could potentially
+increase classification quality.
+The primary reason for a low prediction accuracy is that all algorithms optimize not the target quality metric but a
+different value — the mean squared prediction error MSE, which is not in a good correspondence with the target metric
+PQ. Hereinafter by an error we mean PQE = 1 − PQ.
+
+5. CLASSIFICATION BASED ON RNNS
+From the results of section 4 we can notice that only the RNN model provides results with the accuracy comparable to
+that of the baseline classifier, constructed manually by collecting and ensembling rules, distributed in time. Thus, RNNs
+is a promising approach to automate construction of classifiers and further improve the accuracy of VPD.
+
+5.1 RNN Architecture
+The original recurrent neural network model SimpleRNN contains only one hidden layer; the output signal of each
+neuron is used as an input to the same neuron at the next moment of time. In case an input signal has a long duration,
+the exploding and the vanishing gradient problem appears when training the model and calculating gradients of a neural
+network performance function, see [16] for more details. This effect stems from the fact that the gradients of the RNN’s
+performance function depend on the product of the gradients of neurons in the hidden layer, calculated for all successive
+values of the training signal, see Fig. 1; as a consequence, this product can take big absolute values as well as tends to
+zero.
+One approach to avoid this effect is to use the Long Short-Term Memory Neural Network architecture (LSTM), which
+allows effective modelling of long range dependences in signals.
+
+Figure 1: Long Range Dependence in RNN
+In [17] (2014) the authors proposed the neural network architecture called Gated Recurrent Unit (GRU), based on the
+
+same principles as the LSTM, but it uses a more economical parametrization and fewer operations to compute an output
+signal. A more extensive overviews of RNN architectures can be found in [14, 15].
+
+5.2 Selection of RNN Architecture
+To use RNN in practice, it is necessary to search for its optimal architecture. This section describes results on this
+matter. In experiments we use the following types of RNN: LSTM, GRU and SimpleRNN. All experiments are performed
+using the Keras framework [6], which is a wrapper of the Python-libraries Theano [18] and TensorFlow [19].
+For each of the RNN types we conduct a series of experiments: we play with network hyper-parameters, activation
+function types and a window length w. Since the training time of an RNN with several layers is rather big, we fix the
+number of hidden layers to be equal to one, number of neurons in each layer is limited from above by eight, the maximum
+number of learning epochs is limited from above by 40. In table 4 we provide results (averaged over 30 experiments) of
+optimal architecture selection for each RNN type. One may see that selection of hyper-parameters, even in a limited space
+significantly improves the quality of SimpleRNN model, cf. with the first experiments presented in table 3. According to
+these results we decide to continue to use architecture containing LSTM layers, since it provides the highest performance.
+Model
+R
+PQ
+∑ Err
+SimpleRNN
+1723.0 161.1 0.915
+LSTM
+1751.8 145.3 0.923
+GRU
+1699.0 175.0 0.907
+Basic Classifier 1684.3 158.7 0.914
+Table 4: Comparison of different RNN models
+
+5.3 Further improvements
+Since when training a neural network we optimize a mean square point-wise error, which is not appropriate for the
+considered problem, in this section we consider various additional approaches to improve further the detection accuracy,
+evaluated by the PQ value. In particular, we consider the following tweaks: weighting of the mean square error, used as
+a performance function when training a neural network; smoothing the input signal by a morphological filter [20]; adding
+a penalty on a derivative of the neural network output, used when calculating the performance function; optimization of a
+threshold value, used to binarize the output signal, according to the target quality criterion PQ on the training set; applying
+the morphological filter to the neural network output signal.
+It turned out that improvement of the detection accuracy can be obtained when expanding significantly the structure
+of the LSTM neural network. In fig. 2 we provide the modified architecture we use: one input LSTM-layer and two
+hidden Dense layers. However, if we do not use Dropout transformation, despite the fact that the standard error MSE
+decreases on the validation sample up to 0.06 − 0.07, the target error PQE increases on the test set. In turn, if we use
+Dropout transformation before each Dense layer, then MSE increases up to 0.13, but at the same time the target error
+PQE decreases for about 0.005 − 0.010.
+Also we can achieve additional significant improvement of the detection accuracy by selecting the threshold value of
+the output signal via the cross-validation procedure on the training set and the subsequent application of the morphological
+filter to the neural network output, binarized using the selected threshold value.
+Also we evaluate an importance of each input signal component by estimating its influence on the accuracy of the final
+model. In table 5 we provide values of the performance criterion for models, constructed using all possible combinations
+of input features. We can see that the best set of features is a pair (Shield, Cor).
+
+6. CONCLUSIONS
+We can achieve significantly better quality of classification equal to 0.952 using only two input features, whereas in
+order to achieve the detection performance PQ equal to 0.914, the original (handcrafted) classifier takes as input additional
+fourth feature from the trailer coupler detector, without which the performance drops to 0.889. Thus, in this study we
+developed the automated approach for constructing and training a classifier which is superior in terms of VPD performance
+to the previously constructed classifiers. At this stage, further research is possible in several directions.
+First, we can increase the classification accuracy by a direct optimization of the PQ criterion when training the neural network. The implementation of such learning algorithm is possible through the use of gradient-free optimization
+algorithms.
+Second, we can create an aggregating mechanism for calculating a final decision from outputs of different detectors.
+
+Figure 2: Final LSTM-RNN model
+And finally, we can implement an integrated solution in order to eliminate the initial input data pre-processing, provided
+by classical image recognition methods and other additional steps of data processing, which happen between the event “a
+vehicle is shot with a camera” and the event “a binarized input signal Xt is produced”. In other words, we propose to
+use the following neural network structure, which realizes all VPD subsystems by a single stack of convolutional neural
+networks and RNNs:
+• On the first level we use a set of convolutional neural networks, processing images from all available cameras to
+extract features;
+• On the next levels features, extracted by the set of convolutional neural networks, are combined through the RNN
+architecture with signals, obtained from the induction loop and other devices of the AVC system;
+• Finally, the RNN type model with the structure similar to the one, shown in Fig. 2, is used for passage detection.
+Acknowledgements: The work of the first author was supported by the RFBR grants 16-01-00576 A and 16-29-09649
+ofi_m. The work of the other authors was conducted in IITP RAS and supported solely by the Russian Science Foundation
+grant (project 14-50-00150).
+
+REFERENCES
+[1] T. Khanipov, I. Koptelov, A. Grigoryev, E. Kuznetsova, D. Nikolaev. “Vision-based Industrial Automatic Vehicle
+Classifier”, Seventh International Conference on Machine Vision (ICMV 2014), Proc. of SPIE Vol. 9445, 944511
+
+Features
+R
+PQ
+∑ Err
+Cor
+1714.1 153.9 0.918
+Loop
+1621.6 255.9 0.864
+Shield
+1679.5 200.8 0.893
+(Loop, Cor)
+1713.4 170.6 0.910
+(Shield, Loop)
+1738.7 130.8 0.930
+(Shield, Cor)
+1769.9 91.8 0.952
+(Shield, Loop, Cor) 1767.6 93.2 0.950
+Base Classifier
+1684.3 158.7 0.914
+Table 5: Accuracy of the final LSTM-RNN model for different subsets of input signal components
+
+(2015)
+[2] N. Yigitbasi, M. Gallet, D. Kondo, A. Iosup, D. Epema. “Analysis and modeling of time-correlated failures in largescale distributed systems”, Seventh International Conference on Machine Vision (ICMV 2014), Proc. of SPIE Vol.
+9445 (2015)
+[3] D. Bocharov, I. Koptelov, E. Kuznetsova. “Image-based passes detectors in automatic vehicle classifier”, Proc. of
+Information Technology and Systems conference, pp. 485–497 (2015)
+[4] O. Malyugina, D. Nikolaev. “Performance measures for detection and classification in a stream of objects”, Proc. of
+Information Technology and Systems conference, pp. 414–427 (2015)
+[5] Tianqi Chen, Carlos Guestrin. “XGBoost: A Scalable Tree Boosting System”, https://arxiv.org/abs/
+1603.02754
+[6] Francois Chollet. “Keras”, https://github.com/fchollet/keras, (2016)
+[7] Tianqi Chen, Tong He, Bing Xu, Michael Benesty, Yuan Tang. “XGBoost”, https://github.com/dmlc/
+xgboost
+[8] Fabian Pedregosa, Gael Varoquaux, et al. “Scikit-learn: Machine Learning in Python”, Journal of Machine Learning
+Research, 12, pp. 2825–2830 (2011)
+[9] E. Burnaev, P. Erofeev. Influence of Initialization on Learning Time and Accuracy of Nonlinear Regression Model
+Journal of Communications Technology and Electronics, 61(6), pp. 646–660 (2016)
+[10] E. Burnaev, P. Prikhodko. On a method for constructing ensembles of regression models Automation and Remote
+Control, 74 (10), pp. 1630–1644 (2013)
+[11] S. Grihon, E. Burnaev, M. Belyaev, P. Prikhodko. Surrogate Modeling of Stability Constraints for Optimization of
+Composite Structures, Surrogate-Based Modeling and Optimization. Engineering applications. Eds. by S. Koziel, L.
+Leifsson. Springer, pp. 359–391 (2013)
+[12] M. Belyaev, E. Burnaev. Approximation of a multidimensional dependency based on linear expansion in a dictionary
+of parametric functions, Informatics and Applications, 7 (3), pp. 114–125 (2013)
+[13] S. Haykin. Neural Networks and Learning Machines, Prentice Hall (2009)
+[14] Rafal Jozefowicz, Wojciech Zaremba, Ilya Sutskever. An Empirical Exploration of Recurrent Network Architectures,
+Proceedings of the 32 nd International Conference on Machine Learning (Lille, France), JMLR: W&CP, 37 (2015)
+[15] Zachary C. Lipton, John Berkowitz, Charles Elkan. A Critical Review of Recurrent Neural Networks for Sequence
+Learning, https://arxiv.org/abs/1506.00019
+[16] Y. Bengio, P. Simard, P. Frasconi. Learning Long term dependencies with gradient descent is difficult, IEEE Trans
+Neural Networks, 5, pp. 157–166 (1994)
+[17] Kyunghyun Cho, Bart van Merrienboer, Dzmitry Bahdanau, Yoshua Bengio. On the properties of neural machine
+translation: Encoder-decoder approaches, https://arxiv.org/abs/1409.1259
+[18] Theano Development Team. Theano: A Python framework for fast computation of mathematical expressions,
+https://arxiv.org/abs/1605.02688
+[19] Martin Abadi, Ashish Agarwal, et al. TensorFlow: Large-scale machine learning on heterogeneous systems, http:
+//arxiv.org/abs/1603.04467
+[20] Morphological Filtering, http://scikit-image.org/docs/dev/auto_examples/applications/
+plot_morphology.html
+
+

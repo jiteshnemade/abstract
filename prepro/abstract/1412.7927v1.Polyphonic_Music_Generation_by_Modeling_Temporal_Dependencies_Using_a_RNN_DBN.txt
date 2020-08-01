@@ -1,0 +1,10 @@
+ in this paper, we propose a generic technique to model temporal dependencies and sequences using a combination of a recurrent neural network and a deep belief network. our technique, rnn-dbn, is
+an amalgamation of the memory state of the rnn that allows it to provide temporal information and a multi-layer dbn that helps in high level
+representation of the data. this makes rnn-dbns ideal for sequence
+generation. further, the use of a dbn in conjunction with the rnn
+makes this model capable of significantly more complex data representation than an rbm. we apply this technique to the task of polyphonic
+music generation.
+keywords: deep architectures, recurrent neural networks, music generation, creative machine learning, deep belief networks, generative models
+
+1
+

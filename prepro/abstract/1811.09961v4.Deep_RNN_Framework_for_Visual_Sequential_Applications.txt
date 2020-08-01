@@ -1,0 +1,23 @@
+
+extracting temporal and representation features efficiently plays a pivotal role in understanding visual sequence information. to deal with this, we propose a new
+recurrent neural framework that can be stacked deep effectively. there are mainly two novel designs in our deep
+rnn framework: one is a new rnn module called context
+bridge module (cbm) which splits the information flowing
+along the sequence (temporal direction) and along depth
+(spatial representation direction), making it easier to train
+when building deep by balancing these two directions; the
+other is the overlap coherence training scheme that reduces the training complexity for long visual sequential
+tasks on account of the limitation of computing resources.
+we provide empirical evidence to show that our deep
+rnn framework is easy to optimize and can gain accuracy from the increased depth on several visual sequence
+problems. on these tasks, we evaluate our deep rnn
+framework with 15 layers, 7× than conventional rnn networks, but it is still easy to train. our deep framework
+achieves more than 11% relative improvements over shallow rnn models on kinetics, ucf-101, and hmdb-51
+for video classification. for auxiliary annotation, after replacing the shallow rnn part of polygon-rnn with our
+15-layer deep cbm, the performance improves by 14.7%.
+for video future prediction, our deep rnn improves the
+state-of-the-art shallow model’s performance by 2.4% on
+psnr and ssim. the code and trained models are published accompanied by this paper: https://github.
+com/bopang1996/deep-rnn-framework.
+
+1. 

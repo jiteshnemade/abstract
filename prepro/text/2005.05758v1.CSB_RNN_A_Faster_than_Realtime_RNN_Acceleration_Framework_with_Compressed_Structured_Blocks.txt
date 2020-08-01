@@ -1,0 +1,2123 @@
+CSB-RNN: A Faster-than-Realtime RNN Acceleration
+Framework with Compressed Structured Blocks
+Runbin Shi1,2, ,† , Peiyan Dong2,† , Tong Geng3,† , Yuhao Ding1 , Xiaolong Ma2 ,
+Hayden K.-H. So1 , Martin Herbordt3 , Ang Li4 , Yanzhi Wang2
+∗
+
+arXiv:2005.05758v1 [cs.DC] 11 May 2020
+
+1 The
+
+University of Hong Kong, 2 Northeastern University, 3 Boston University, 4 Pacific Northwest National Laboratory
+{rbshi,yhding,hso}@eee.hku.hk,{dong.pe,ma.xiaol}@husky.neu.edu,{tgeng,herbordt}@bu.edu,ang.li@pnnl.gov
+yanz.wang@northeastern.edu
+
+ABSTRACT
+Recurrent neural networks (RNNs) have been widely adopted in
+temporal sequence analysis, where realtime performance is often
+in demand. However, RNNs suffer from heavy computational workload as the model often comes with large weight matrices. Pruning
+(a model compression method) schemes have been proposed for
+RNNs to eliminate the redundant (close-to-zero) weight values. On
+one hand, the non-structured pruning methods achieve a high pruning rate but introducing computation irregularity (random sparsity), which is unfriendly to parallel hardware. On the other hand,
+hardware-oriented structured pruning suffers from low pruning
+rate due to restricted constraints on allowable pruning structure.
+This paper presents CSB-RNN, an optimized full-stack RNN
+framework with a novel compressed structured block (CSB) pruning technique. The CSB pruned RNN model comes with both fine
+pruning granularity that facilitates a high pruning rate and regular
+structure that benefits the hardware parallelism. To address the
+challenges in parallelizing the CSB pruned model inference with
+fine-grained structural sparsity, we propose a novel hardware architecture with a dedicated compiler. Gaining from the architecturecompilation co-design, the hardware not only supports various
+RNN cell types, but is also able to address the challenging workload
+imbalance issue and therefore significantly improves the hardware
+efficiency (utilization). Compared to the vanilla design without optimizations, the hardware utilization has been enhanced by over
+2×. With experiments on 10 RNN models from multiple application domains, CSB pruning demonstrates 3.5×-25× lossless pruning
+rate, which is 1.6× to 3.9× over existing designs. With several other
+innovations applied, the CSB-RNN inference can achieve fasterthan-realtime latency of 0.79µs-6.58µs in an FPGA implementation,
+which contributes to 1.12×-12.57× lower latency and 3.53×-58.89×
+improvement on power-efficiency over the state-of-the-art.
+
+
+
+INTRODUCTION
+
+RNNs have been widely adopted for its high-accuracy on temporal
+sequence analysis, such as machine translation [4], speech recognition [9], or even stock-price prediction [26]. However, the increasingly large model size and tremendous computational workload
+of the RNN hampers its deployment on embedded (edge) devices,
+which strictly demand realtime processing with limited hardware resources. To address this issue, weight pruning techniques [11, 17, 30]
+have been proposed, which shrink the model size, reduce storage
+demand, and provide higher potential hardware performance by
+eliminating the redundant (close-to-zero) weights and the corresponding arithmetic operations in inference.
+The weight pruning schemes in some existing works [11, 27]
+are in a non-structured fashion and with extreme irregularities in
+the computation, which is unfriendly to either the modern parallel device or the hardware architecture design. Thus the performance degradation from the hardware inefficiency encroaches
+upon the gains from model compression. Therefore, researchers
+start to explore other pruning approaches, i.e., structured pruning
+[19, 21, 30], in which the regular computation patterns are maintained. Although these structured-pruned models are relatively
+hardware-friendly, the coarse pruning granularity (structure) leads
+to either a significant degradation on model accuracy or a limited
+pruning rate (the weight count ratio of the original model to pruned
+model). To keep the accuracy loss acceptable, the attainable pruning
+rates delivered in the existing structured pruning schemes are far
+lower than that the ones with the non-structured pruning, wasting
+potential pruning opportunities.
+In this paper, we aim to overcome the above limitations. We
+first propose a novel fine-grained structured pruning technique
+(CSB pruning) that provides a similar compression rate (and test
+accuracy) as non-structured pruning while offering a higher potential for hardware acceleration than the non-structured methods.
+During the training phase, each weight matrices are divided into
+fine-grained blocks, and a structured pruning is conducted on every
+
+ICS ’20, June 29-July 2, 2020, Barcelona, Spain
+Cell Type: GRU
+zt = (Wiz xt + Whz ht
+
+ht = (1
+
+XL
+
+zt )
+
+ht
+
+X3 X2 X1
+
+…
+
+1
+
+Cell Type: LSTM
+1
+
++ bz )
+
+1
+
++ br )
+
++ zt
+
+Embedded
+Vector
+
+<latexit sha1_base64="0Mlx27heNkOF63dxdTYdlJUpVEI=">AAADOnicfVJNb9NAEF27QEv4SsuRy4oIlKhqZJdKcEGq4MIxSKSpFEfWer22V117rd1xS2L5d3HhV3DjwIUDCHHlB7COHZSkFSNZ+/Rm5r3x7Aa54Boc56tl79y6fWd3727n3v0HDx919w/OtCwUZWMqhVTnAdFM8IyNgYNg57liJA0EmwQXb+v85JIpzWX2AeY5m6UkznjEKQFD+fvWCNdRLiof8PPX2NM8TknfSwkkQVROKr/ki6r8WKcP19nEsIk54cit8GEZVP5igD2v08ip/8ipG+XUtpxak/OueMiAi5DhZKXcNGMPEgYEb1rEKwu84RFX/WYyT4YSjO7KcTD4Z7XS77v4qFnLoClfG69dV6OyPZzf7TlDZxn4OnBb0ENtjPzuFy+UtEhZBlQQraeuk8OsJAo4FazqeIVmOaEXJGZTAzOSMj0rl1df4WeGCXEklfkywEt2vaMkqdbzNDCV9Sb0dq4mb8pNC4hezUqe5QWwjDZGUSEwSFy/IxxyxSiIuQGEKm5mxTQhilAwr61jluBu//J1cHY8dF8Mj9+f9E7ftOvYQ0/QU9RHLnqJTtE7NEJjRK1P1jfrh/XT/mx/t3/Zv5tS22p7HqONsP/8BW0cBnU=</latexit>
+
+rt = (Wir xt + Whr ht
+e
+ht = ✓(Wig xt + Whg (rt
+
+R. Shi, P. Dong, T. Geng, Y. Ding, X. Ma, H.K.-H. So, M. Herbordt, A. Li and Y. Wang
+
+Sequence Length (L)
+Input Frames:
+e.g., Words, Audio, Video
+
+ht 1 ))
+e
+ht
+INPUT
+
+ft = (Wf x xt + Wf h ht
+it = (Wix xt + Wih ht
+ct = ft
+
+ct
+
+1
+
++ it
+
+<latexit sha1_base64="YiI9yYHWTD9/3V3X+LI8I289NVU=">AAADbHicdVJda9swFFXsfXTZR9NuDxtlIBZWGsqC3RW2l0HZXvbYwdIU4mBkRY5FZctI16NB+GU/cW/7CXvZb5j8sa5OsgtCl3OvzjlX3CgXXIPn/ew57p279+7vPOg/fPT4ye5gb/9Cy0JRNqFSSHUZEc0Ez9gEOAh2mStG0kiwaXT1qapPvzGlucy+wipn85QsMx5zSsBC4V7vO67CxGUI+PADDjRfpuQoSAkkUWymZWji69JcV+XjDpqUJrE3vPFLfGyiMoxHOAj6DR3/Px3fSsc36PgtOtrSNTYDuZBQYW13I1ejASQMunr0Rg934I4grhTp6EZQNoJb7MvtdHLDv/zHlvy1L9d81oONwsHQG3t14M3Eb5MhauM8HPwIFpIWKcuACqL1zPdymBuigFPByn5QaJYTekWWbGbTjKRMz029LCV+bZEFjqWyJwNco7dfGJJqvUoj21nNp9drFbitNisgfj83PMsLYBlthOJCYJC42jy84IpRECubEKq49YppQhShYPezbz/BXx95M7k4GftvxydfTodnH9vv2EEH6BU6Qj56h87QZ3SOJoj2fjm7znPnhfPbfeYeuC+bVqfXvnmKOuEe/gFNTBUF</latexit>
+
+1
+
+1
+
+(a) Element-wise Pruning
+(non-structured)
+
++ bf )
+
++ bi )
+
+✓(Wcx xt + Wch ht
+
+ot = (Wox xt + Woh ht
+ht = o t
+
+1
+
+1
+
++ bc )
+
++ bo )
+
+SRU,
+Li-GRU,
+Future
+Types…
+
+(c) Fine-grained
+Structured
+
+✓(ct )
+
+RNN
+Cell
+Context Link
+
+hL
+OUTPUT
+
+CSB Pruning
+(This work)
+
+h3 h2 h1
+
+…
+
+✔ High pruning rate
+✘ Hardware unfriendly
+
+Output Frames:
+e.g., Translation, Prediction
+
+Figure 1: Computation flow of RNN inference. Note that
+there are multiple RNN cell types. The main workload is
+matrix-vector multiplication (MVM).
+block independently. The pruned blocks are encoded in a novel
+compressed structured block (CSB) sparse format for inference acceleration, which significantly reduces the weight storage demand
+while retaining the fine-grained content in the original model.
+To realize a realtime inference with parallel hardware, there are
+still multiple challenges to design an architecture that can exploit
+the benefits of CSB pruning in a seamless manner. In particular,
+the parallel architecture should handle massive fine-grained blocks
+with imbalanced workloads (sparsity) but maintain a high hardware
+efficiency (utilization). Meanwhile, the architecture should be programmable for various RNN cell types (e.g., LSTM [12], GRU [4]), although the existing RNN architectures are designed for a particular
+cell type. To address the issues above, we propose an architecturecompilation co-design to realize the best flexibility and acceleration
+performance. A programmable RNN dataflow architecture is designed that supports existing RNN cell types. In particular, the
+CSB-Engine in our architecture is designed with a novel workload
+sharing technique. With the one-shot compilation, the workload is
+automatically balanced among processing elements (PEs) in CSBEngine, which improves the hardware efficiency to a near theoretical value.
+The major contributions are summarized as follows:
+• We present CSB-RNN, an optimized full-stack RNN acceleration
+framework, which facilitates running various types of RNNs with
+faster-than-realtime latency. CSB-RNN includes three innovations: (1) an adaptive and fine-grained structured compression
+technique, CSB pruning; (2) a programmable RNN dataflow architecture equipped with CSB-Engine; (3) a compiler design with
+optimizations to achieve almost perfect workload balance.
+• The proposed CSB pruning technique provides ultra-high (3.5×25×) pruning rates without any loss on accuracy. Furthermore,
+CSB pruning does not incur high-degree computational irregularities, making highly efficient hardware acceleration possible.
+• An architecture-compilation co-design is proposed to sufficiently
+exploit the benefits of CSB pruning and provide close-to-theoretical
+peak performance with automatic workload balancing.
+• With experiments on 10 RNN models from various application
+domains, CSB pruning demonstrates 3.5×-25× lossless pruning
+rate, which is 1.6× to 3.9× over existing designs. With the proposed architecture-compilation co-design applied, the CSB-RNN
+delivers faster-than-realtime inference with the latency of 0.79µs6.58µs in an FPGA implementation. The proposed framework
+
+(b) Row/Column-wise
+Pruning (structured)
+
+✔ High pruning rate
+✔ Hardware friendly
+
+✘ Low pruning rate
+✔ Hardware friendly
+
+Figure 2: CSB pruning takes advantage of both nonstructured (random) pruning (a) and coarse-grained structured (row/column) pruning (b).
+contributes to 1.12×-12.57× lower latency (with even fewer computation resources) and 3.53×-58.89× improvement on powerefficiency over the state-of-the-art.
+
+2 BACKGROUND
+2.1 Temporal Sequence Processing with RNN
+The recurrent neural networks (RNNs) deliver high accuracy in
+the temporal sequence processing. A typical schematic of RNN
+computation is depicted in Fig. 1. Successive frames (e.g., word,
+phoneme) from the temporal sequence (e.g., sentence, voice) are
+embedded as input neuron-vectors (x t ), and then sent to RNN cells
+for inference computation. t represents the time point. The output
+neuron-vector (ht ) contains the inference results (e.g., translation,
+prediction) that may have different dimensions with x t .
+Multiple RNN cell types exist that are composed of different computational dataflow but almost the same arithmetic primitives. Fig. 1
+lists the arithmetic of two widely-used RNN cells, GRU [4] and
+LSTM [12]. The significant workload is matrix-vector multiplication
+(MVM) between the weight matrices and input/hidden neurons;
+And the rest workload is element-wise operations, including Sigmoid (σ )/Tanh (θ ) activation function, element-wise multiplication
+(⊙) and addition. In particular, the RNN cell computation at time t
+invokes the intermediate vector c t −1 and output vector ht −1 from
+the previous timestamp. The data dependency results in a context
+link between two successive RNN cell iterations, which helps to
+memorize the temporal feature during inference.
+
+2.2
+
+RNN Weight Pruning Techniques
+
+2.2.1 Non-structured Pruning v.s. Structured Pruning. The pruning
+technique has been proposed for deep learning models to reduce redundant (close-to-zero) weights and thus the computation workload.
+The early non-structured pruning [11] achieves a high pruning rate;
+however, the random sparse model (Fig. 2(a)) brings a high degree
+of irregularity to the inference computation, which is unfriendly
+to either the modern parallel device or the hardware architecture
+design. Some existing works [3, 10] address this issue by pruning
+model with region-balanced sparsity (between non-structured and
+structured sparsity), which reduced the attainable pruning rate. As
+Fig. 2(b), the structured pruning schemes [7, 31] were proposed for
+hardware friendly purpose that the entire row/column is removed
+as a whole in pruning. Although the pruned model maintains the
+regularity and can even be compacted to a dense matrix, the pruning rate with this scheme is relatively low due to the coarse pruning
+
+CSB-RNN: A Faster-than-Realtime RNN Acceleration Framework with Compressed Structured Blocks
+
+minimize
+{Wi }, {bi }
+
+s .t .
+
+f ({Wi }iN=1, {bi }iN=1 )
+Wi ∈ Si , i = 1, ..., N
+
+f ({Wi }iN=1, {bi }iN=1 ) +
+
+{Wi }, {bi }
+
+s .t .
+
+N
+Õ
+
+дi (Zi )
+
+i =1
+
+(2)
+
+Wi = Zi , i = 1, ..., N
+
+where Zi is an auxiliary variable for subproblem decomposition,
+and the indicator function (Eqn. 3) is used to replace the original
+constraint on feasible set.
+(
+дi (Zi ) =
+
+0
+if Wi ∈ Si ,
++∞ otherwise.
+
+(3)
+
+Then the Eqn. 2 can be decomposed to two subproblems listed in
+Eqn. 4 and Eqn. 5 with the formation of augmented Lagrangian [6].
+minimize
+
+f ({Wi }iN=1, {bi }iN=1 ) +
+
+minimize
+
+дi (Zi ) +
+
+{Wi }, {bi }
+
+{Zi }
+
+N
+Õ
+ρi
+| |Wi − Zit + Uit | |F2
+2
+i =1
+
+N
+Õ
+ρi
+| |Wit +1 − Zi + Uit | |F2
+2
+i =1
+
+(4)
+(5)
+
+where t denotes the iteration index in the ADMM process, Ui is
+the dual variable that is updated in each iteration through Uit =
+Uit −1 +Wit −Zit . Following the ADMM process, the two subproblems
+are iteratively solved till convergence. The first subproblem (Eqn. 4)
+is solved by the classical SGD method, and the solution for the
+second subproblem (Eqn. 5) is obtained by
+Zit +1 = proj(Wit +1 + Uit )
+
+2
+
+3
+
+4
+Block1
+
+Block3
+
+1
+4
+7
+
+2
+5
+
+3
+6
+
+8
+9
+Block2
+
+Block4
+
+(6)
+
+Si
+
+where proj is the Euclidean projection onto constraint set Si , which
+guarantees the weight matrices exhibit the specific sparse pattern
+defined in the constraint Si for each layer. In this work, we propose
+a new type of structured sparse matrix with the novel CSB sparse
+format, which is the target pattern (Si ) in our RNN weight pruning
+method. The detailed projection process for CSB formated weight
+will be given in §3.2.
+
+1
+4
+7
+
+2
+5
+
+3
+6
+
+8
+
+9
+
+Block2
+
+0 1 2 3 4 5
+
+0
+1
+2
+3
+4
+5
+
+m
+
+1 2 3
+n 4 5 6
+7 8 9
+Kernel Matrix
+(c) CSB Format
+
+Kernel Matrix Size
+n = { 2, 3, 3, 2, 2, 2 } -- for 6 blocks
+m = { 2, 3, 2, 2, 3, 2 }
+Non-zero Row/Column Index
+RowIdx = { 2, 4, 1, 2, 4,…}
+
+(1)
+
+where function f represents inference loss on the given dataset,
+Si is the feasible set of Wi , which is subject to the user constraints.
+In the regular RNN training, Si is R (i.e., no constraint), and thus
+the optimal weights (Wi ) and bias (bi ) for each layer can be obtained by classical stochastic gradient descent (SGD) method [1].
+However, once the weight pruning is conducted along with the
+training process, the constraint of weight-sparsity represented by
+Si becomes combinatorial and no longer convex, which prevents
+the Eqn. 1 from being solved by classical SGD. The advanced Alternating Direction Method of Multipliers (ADMM) method [2] is
+leveraged in our CSB pruning scheme. The ADMM separates the
+weight pruning (during training) problem into two subproblems,
+which are iteratively solved until convergence. First, the problem
+is reformulated as,
+minimize
+
+N
+
+1
+
+H / N (blocks)
+
+2.2.2 Model Training with ADMM-based Pruning Technique. The
+training process is to find a proper set of weight values that reach
+the minimal classification loss compared to the ground truth. The
+objective of training an N -layer RNN can be formulated as,
+
+(a) Weight Matrix Partition
+(b) Sparsify the Block in Row/Column-wise
+M
+Sparsified Columns
+Non-zero
+Zero
+Sparsified Rows
+
+granularity. With the advantages of both the non-structured and
+coarse-grained structured pruning methods, the CSB pruning in
+this work is a fine-grained structured method that not only achieves
+a high pruning rate but also makes the hardware acceleration possible.
+
+ICS ’20, June 29-July 2, 2020, Barcelona, Spain
+
+Block1 Block2
+
+Block5
+
+Block6
+
+W / M (blocks)
+
+ColIdx = { 1, 4, 0, 2, 4,…}
+Non-zero Values
+Val={1, 2, 3, 4, 1, 2, 3, 4, 5, 6, 7, 8, 9,…}
+Block1
+
+Block2
+
+Figure 3: A novel structured sparse matrix (CSB) with its dedicated storage format, which benefits both the pruning flexibility and hardware parallelism.
+
+3 CSB PRUNING TECHNIQUE
+3.1 A Novel Structured Sparse Weight Format
+3.1.1 Definition of CSB. We propose the compressed structured
+block (CSB), a novel structured sparse matrix for model pruning
+that benefits both the pruning flexibility and the hardware parallelism in inference acceleration. Fig. 3 illustrates the CSB matrix
+and the dedicated storage format. As Fig. 3(a), we consider the
+CSB-structured matrix (with a size of W × H ) to be composed of
+multiple blocks with the size M × N . Each block is sparsified in the
+row/column-wise, as Fig. 3(b), in which the certain rows/columns
+are set to zero as a whole. By doing so, the non-zero elements are
+located at the cross-points of the un-sparsified rows/columns only.
+A significant benefit of this structured sparsity is the non-zero elements in each block compose a dense kernel matrix that provides a
+higher potential for parallel hardware acceleration than the random
+sparsity. Corresponding to this particular sparsity, a new sparse
+matrix format is developed for efficient storage and computation.
+As Fig. 3(c), the CSB-format contains five arrays in three groups, (i)
+array n{} and m{} are the row and column counts of the kernel matrix in each block; (ii) array RowIdx{} and ColIdx{} store the index
+of un-sparsified (non-zero) rows and columns, respectively; Note
+that, the index count for each block equals to the corresponding
+value in n{} or m{}; (iii) the non-zero values in successive blocks
+(row-major order) are concatenated and stored continuously in the
+array Val{}. Because the inference computation accesses the sparse
+blocks in sequential, the offset for arbitrary access is omitted in the
+CSB-format.
+3.1.2 Advantages and Challenges of Pruning with CSB. We adopt
+the CSB structured sparsity in pruning the RNN models, which
+integrates two-fold advantages of both the non-structured pruning
+and coarse-grained structured pruning in Fig. 2. On one hand, CSB
+provides adequate pruning flexibility, because each block is pruned
+independently, and the pruning rate varies among blocks that helps
+to preserve the weights with important information. Physically,
+each element in the weight matrix represents the synapses (connection) between input neurons (matrix column) and output neurons
+(matrix row). The pruning process is zeroing the synapses between
+
+ICS ’20, June 29-July 2, 2020, Barcelona, Spain
+
+R. Shi, P. Dong, T. Geng, Y. Ding, X. Ma, H.K.-H. So, M. Herbordt, A. Li and Y. Wang
+
+two neurons without a strong connection. The CSB pruning automatically groups the strongly-connected neurons into blocks with
+high density while leaving the weakly-connected ones in the lowdensity blocks. Further, the pruning granularity is adjustable
+via changing the block size; Such that different weight matrices in
+RNN model can be pruned with various granularities. The above
+flexibilities enable a high pruning rate while maintaining the model
+accuracy. On the other hand, the un-pruned weight values in each
+block compose a dense kernel matrix that makes the inference computation friendly to parallel hardware. Nevertheless, the blocks
+may have different-sized kernel matrices that result in a workload imbalance issue while mapping computation of blocks to
+parallel hardware. This paper carefully addresses this issue with an
+architecture-compilation co-design in §4 and §5.
+
+achieved via the progressive pruning. The entire CSB pruning flow
+is presented in Algorithm 1 with carefully specified annotations. Initially, the baseline model (with dense weight matrix W) is obtained
+via classical SGD training and input to the flow. Note that the bias
+vector (b) is omitted as the CSB pruning flow does not touch it. The
+lossless accuracy (accu) is given as the constraint of the progressive
+pruning. Two input parameters, initial pruning rate (initPR) and
+initial step of pruning rate reduction (initPRStep) are set for tuning
+the pruning rate in the progressive flow. We use the progressive
+increase manner in approaching the maximum value of lossless
+pruning rate. Therefore, we set initPR to a small value (e.g., 4×) as
+the starting point, which surely meets the lossless constraint. The
+variables PruneRate and StepPruneRate are initialized to initPR
+and initPRStep, respectively, at the beginning. In each progressive
+iteration, the flow performs re-training and pruning on the model
+with multiple epochs (e.g., 100 in Algorithm 1) to obtain the CSBformatted weight matrix (Z) with the ADMM-pruning fashion. In
+each epoch, two subproblems are alternatively solved following the
+principle of the ADMM-pruning technique in §2.2.2. The function
+SGDTrain updates the weights with classical SGD (1st subproblem,
+Eqn. 4), and the subsequent process prunes the weight matrix and
+projects it to CSB-constrained set (2nd subproblem, Eqn. 5). The
+process in Algorithm 1 details the projection corresponding to the
+general representation in Eqn. 6. First, the weight from SGDTrain
+is partitioned to multiple blocks Zi, j following the CSB method in
+§3.1. Then the RowPrune process is applied to each block-column
+independently. Specifically, for each block-column, the ℓ2 -norm (accumulate the square of all elements) of each row (with the size of M)
+is obtained; Then, a row-wise pruning is conducted referring to the
+ℓ2 -norm values. Subsequently, the ColumnPrune is applied to each
+block-row with the same behavior to RowPrune. Note
+√ that the pruning rate in both RowPrune and ColumnPrune is 1− 1 − PruneRate,
+which results in the target PruneRate after the combined processes.
+Once the CSB-formatted weight matrix Z is obtained, it will be sent
+to SGDTrain of the next epoch, along with un-pruned weight matrix
+W∗ and accumulated difference matrix U. With multiple epochs,
+weight Z will eventually meet the CSB pattern constraints and
+achieve good accuracy.
+After each progressive iteration, the CSB pruned model is evaluated (Eval(Z)) and compared to the lossless accu. The PruneRate
+is increased by StepPruneRate in the next iteration if the accu is
+achieved. Once Eval(Z) < accu, the model is over-pruned and the
+optimum pruning rate is just between the PruneRate of the two
+neighboring iterations. Therefore, we reduce StepPruneRate by
+half and reduce the PruneRate by this new step to further approach
+the optimum point. The progressive CSB pruning flow terminates
+until the pruning rate reaches a target precision. For instance, as
+the last line in Algorithm 1, the flow terminates when the pruning
+rate precision (StepPruneRate) ≤ 14 initPRStep.
+
+3.2
+
+CSB Pruning Flow with ADMM
+
+Algorithm 1: Auto Lossless CSB Pruning with ADMM
+input : un-pruned RNN model W; lossless accuracy accu,
+block size in CSB M × N ; weight matrix size W × H
+initial pruning rate init P R
+initial step of pruning rate init P RSt ep
+output : maximally compressed model with CSB pruning Z
+// Initialization.
+U = 0; Z = W; W∗ = W; Flag =False
+PruneRate =init P R; StepPruneRate =init P RSt ep
+// Progressive iteration.
+repeat
+foreach t ∈ [0, 100) // Re-train and Pruning Epoch.
+do
+// Solve Eqn. 4 in ADMM (1st subproblem)
+W∗ =SGDTrain(W∗, U, Z)
+// Solve Eqn. 5 in ADMM (2nd subproblem)
+// Project weight matrix to CSB pattern S
+H
+Zi, j =Partition(W∗ + U), i ∈ [0, W
+M ), j ∈ [0, N )
+foreach j ∈ [0, H /N ) do
+√
+Z:, j =RowPrune(Z:, j , 1 − 1 − PruneRate)
+foreach i ∈ [0, W /M ) do
+√
+Zi, : =ColumnPrune(Zi, : , 1 − 1 − PruneRate)
+U = U + W∗ − Z // Update U
+// Set progressive pruning rate.
+if Eval(Z)< accu then
+Flag =True
+StepPruneRate =StepPruneRate/2
+PruneRate =PruneRate-StepPruneRate
+else
+if Flag then
+StepPruneRate =StepPruneRate/2
+PruneRate =PruneRate +StepPruneRate
+until StepPruneRate ≤ 14 init P RSt ep & Eval(Z)≥ accu;
+
+With the ADMM-based pruning technique in §2.2.2, the weight
+matrices can be pruned to an arbitrary sparse pattern by defining
+the constraint S and applying the pattern-specific projection in
+Eqn. 6. To obtain the RNN model with CSB pattern, we develop the
+CSB pruning algorithm following the ADMM principle. Further, the
+maximum pruning rate under lossless constraint is automatically
+
+4 UNIFIED ARCHITECTURE FOR CSB-RNN
+4.1 Overview of Acceleration Framework
+An overview of the CSB-RNN acceleration framework is illustrated
+in Fig. 4. Although the CSB pruning (STEP1) shrinks the model
+size and therefore reduces the computation in inference, parallel
+
+CSB-RNN: A Faster-than-Realtime RNN Acceleration Framework with Compressed Structured Blocks
+
+Original Dense Model
+
+STEP1:
+CSB Pruning (§3)
+
+CSB Pruned Weight
+…
+
+PE
+
+PE
+
+PE
+
+PE
+
+PE
+
+PE
+
+PE
+
+PE
+
+PE
+
+STEP2: Unified RNN
+Dataflow Architecture
+(§4.2, §4.3)
+
+Different RNN Types
+on One Design
+
+…
+
+…
+
+…
+
+LSTM
+
+SRU
+
+GRU
+
+…
+
+✔ High PE Efficiency
+✔ Super Real-time
+
+Imbalanced Workload
+Low PE Utilization✘
+Blk1
+Blk2
+Blk3
+Blk4
+
+Challenges in Parallel Acceleration
+
+FPGA Prototype
+(§6)
+
+Control
+Instructions
+STEP3:
+Compilation
+(§5)
+
+Figure 4: Overview of CSB RNN acceleration framework, including (i) CSB pruning algorithm, (ii) unified RNN dataflow
+architecture, (iii) workload compilation with CSB pruned
+model.
+hardware acceleration is still in demand to achieve realtime performance. The challenges in accelerating CSB-RNN are two-fold. First,
+the architecture should be adaptive to various RNN cell types, i.e.,
+LSTM, GRU, etc. Second, the kernel matrix in fine-grained blocks
+may not provide enough inner-block parallelism for large-scale
+hardware. To further improve the concurrency, inter-block parallelism should be leveraged. However, the pruned blocks may have
+different sparsities, leading to the workload imbalance issue for
+inter-block parallelism, which usually causes a low utilization of
+processing element (PE). To address these challenges, CSB-RNN
+proposes an architecture-compilation co-design. In the architecture
+aspect (STEP2), we propose a unified RNN dataflow architecture
+that is programmable for different RNN cell types (§4.2); In particular, a novel CSB-Engine is designed with the support of workload
+sharing and is equipped in CSB-RNN architecture to address the
+workload imbalance issue (§4.3). In the compilation aspect (STEP3),
+we define control instructions for the hardware and propose the
+compilation algorithms to conduct the particular RNN type computation and balanced workload scheduling (§5).
+
+4.2
+
+Programmable RNN Dataflow Architecture
+
+To generalize the architecture for different RNN cell types, we investigated the existing RNN cells and extracted the arithmetic primitives, which compose the RNN computation in a dataflow fashion.
+Fig. 5 presents the hardware components in this architecture, where
+each operation unit serves the corresponding arithmetic primitive.
+In particular, the CSB-Engine computes the main workload, MVM,
+with the weight matrices after CSB pruning (CSB-MVM). The units
+×, + are the element-wise multiplication and addition. δ and θ
+operate the activation functions Sigmoid and Tanh, respectively.
+The datapaths (arrows on Fig. 5) interconnect the operation units
+and on-chip buffers, which transmit the intermediate results and
+compose the dataflow graph for RNN cell computation. Importantly,
+RNN dataflow architecture provides the programmable datapath
+(red arrows on Fig. 5). Thus, the proper operation units can be interconnected by programming control instructions for a particular
+RNN cell type.
+
+4.3
+
+PE Array
+
+CSB-Engine
+
+The CSB pruning scheme greatly shrinks the weight matrix size
+and therefore reduces the main workload in inference. Although
+
+CSB Weight
+Buﬀer
+
+CSB-Engine
+
+ICS ’20, June 29-July 2, 2020, Barcelona, Spain
+
+BuﬀerA
+
+Load
+Unit
+
+BuﬀerB
+
+θ
+
+Input
+
+Programmable
+DataPath
+
+BuﬀerC
+
+Fixed
+DataPath
+OnChip Memory
+
+δ
+BuﬀerBias
+
+Operation Unit
+
+BuﬀerD
+
+BuﬀerE
+
+Store Output
+Unit
+
+Figure 5: RNN dataflow architecture. Operation units serve
+the RNN arithmetic primitives; The programmable datapaths construct the proper dataflow for target RNN cell via
+instructions.
+the fine-grained structure of CSB contributes to the regularity and
+makes efficient hardware acceleration possible, it is still challenging
+to design a parallel architecture that can fully exploit the benefits
+of CSB pruning. The challenges in an efficient CSB-Engine design
+are two-fold. First, both the inner-block and inter-block parallelism
+should be fully exploited, as the regular inner-block computation
+provides very limited concurrency with small block size. Second, the
+inter-block workload imbalance issue exists due to the sparsity
+varies among blocks. The following §4.3.1 and §4.3.2 address these
+two challenges, respectively.
+
+4.3.1 Hierarchical Design for Inner- and Inter-Block Parallelism.
+As illustrated in Fig. 6, the CSB-Engine design is in a two-level
+hierarchy, processing element (PE) level and PEGroup level. The
+hardware instances in each level are organized in a 2D fashion that
+the architecture is composed of K × L PEGroups, and each PEGroup
+contains P × Q PEs. The parallel PEs inside one PEGroup process
+inner-block multiplication concurrently, while the PEGroups computing different blocks in parallel (inter-block parallelism).
+Inside each PEGroup, because the size of CSB kernel matrix (m×n)
+might be larger than that of PE array (P × Q), multi-pass processing
+is required to handle the entire block. Thus, each PEGroup contains
+a NeuronAccumBuffer, which stores the partial results and sums
+up with the accumulation of horizontal PEs in each pass. The input neurons required by the current block are preloaded to the
+BlockNeuronBuffer and broadcasted to the PE array. Each PE column shares the same input neuron as the unpruned weights are
+vertically aligned in the structured block with CSB pruning. Importantly, the WeightBuffer provides the CSB-formatted weight
+(Fig. 3), including the weight values (kernel matrix) for PEs, column
+index for BlockNeuronBuffer to read the proper input neuron, row
+index for NeuronAccumBuffer to accumulate the multiplicationresults to proper address in NeuronAccumBuffer, and the kernel
+matrix size (m × n) for the PEGroup control logic which conducts
+proper pass count in both axes.
+In the higher-level of the design hierarchy, the PEGroups process
+blocks in the row-major order. The PEGroups in one column concurrently compute the vertical blocks. Therefore, the PEGroups in one
+column share the same partition of input neuron vector, while multiports are provided on BlockNeuronBuffer for concurrent access.
+Similarly, the blocks in horizontal axis are mapped to PEGroups in
+the same row, with multi-pass processing. After the computation
+
+PE
+(P,2)
+
+PE
+(P,Q)
+
+…
+
+PEGroup (L,1)
+
+PEGroup (1,1)
+
+BlockNeuronBuﬀer
+
+…
+
+Input
+Stream
+
+…
+
+…
+PEGroup (K,1)
+
+Weight
+Buﬀer
+
+ReorderLogic
+
+…
+
+…
+
+PE
+(P,1)
+
+PE Array
+
+PE
+(1,Q)
+
+NeuronAccum
+Buﬀer
+
+PE
+(1,2)
+
+R. Shi, P. Dong, T. Geng, Y. Ding, X. Ma, H.K.-H. So, M. Herbordt, A. Li and Y. Wang
+
+NeuronAccum
+Buﬀer
+
+PE
+(1,1)
+
+…
+
+CSB Weight
+Buﬀer
+
+ICS ’20, June 29-July 2, 2020, Barcelona, Spain
+
+PEGroup (K, L)
+
+…
+
+Input
+Stream BlockNeuronBuﬀer
+
+Ouput
+Stream
+
+Figure 6: Two-level hierarchical organization of CSB-Engine
+for the main workload (CSB-MVM) computation.
+of each block-row, the results in NeuronAccumBuffers are accumulated in horizontal and output to ReorderLogic to obtain the
+output neuron vector.
+4.3.2 Inter-PEGroup Workload Sharing.
+Workload Imbalance Challenge: The blocks in CSB pruned
+model may have different-sized kernel matrices, and the resultant
+inter-block workload imbalance brings challenges to exploit the interblock parallelism on hardware. As Fig. 7(b) demonstrates, with the
+straightforward design, the workload imbalance issue results in
+low utilization of PEGroups. The presented MVM workloads are
+allocated to 2 × 2 PEGrounps that each contains 4 PEs. During the
+execution, PEGroup1-3 enter the idle state before the PEGroup4 accomplishes its workload, which results in a severe under-utilization
+of the overall hardware. In fact, the imbalanced sparsity naturally
+exists in the RNN models. However, existing works [3, 10] relieve
+the hardware pain by pruning the model with a region-balanced
+sparsity compulsively. As a result, the neglect of natural sparsityimbalance significantly harms the pruning ratio and model accuracy.
+By contrast, we handle this issue by improving the architecture
+with the workload sharing technique.
+Inter-PEGroup Workload Sharing: The concept of workload
+sharing is illustrated in Fig. 7(c). Each PEGroup processes not only
+the originally allocated block but also a partition of block from the
+neighboring PEGroup, which is arranged with a heavier workload.
+In the hardware aspect, as Fig. 7(c), dedicated workload sharing
+paths (red arrows) are set for the inter-PEGroup data transmission,
+and the interconnection adopts the torus topology in both dimensions. With the hardware support of workload sharing, PEGroup4
+migrates the extra workloads to PEGroup2 and PEGroup3; And
+PEGroup2 migrates the Block2 workload partition to PEGroup1.
+That significantly balances the workload and improves the utilization. Considerations in the workload sharing design are two-fold.
+(i) The input neurons should be sharable between the PEGroups;
+(ii) The output neuron accumulation should be performed interPEGroups. We discuss these issues and our strategies within two
+cases, in which the workload is shared between neighboring PEGroups
+in horizontal or in vertical, respectively. For the horizontal sharing
+case, an extra data port is set on the BlockNeuronBuffer to solve
+the issue (i), which enables the PEGroup to access input neurons
+
+from the neighboring PEGroup in horizontal. The issue (ii) is naturally solved by the hierarchical CSB-Engine design, as the PEGroup
+can store the partial results of the shared workload partition in its
+local NeuronAccumBuffer, which will be accumulated in horizontal
+after processing the entire block-row. For the vertical sharing case,
+the PEGroup-column shares the same BlockNeuronBuffer, thus
+the issue (i) is naturally solved by hardware. About the issue (ii),
+the PEGroup should accumulate the vertically shared workload to its
+original PEGroup, as the vertical PEGroups compute different blockrows that cannot be accumulated in a mixed manner. However,
+concurrent accumulation to one address in NeuronAccumBuffer
+leads to the read-after-write (RAW) data hazard. To address this
+issue, an accumulation path is set between vertical PEGroups and
+connected to the adder, which accepts parallel results from neighboring PEGroups, sums up and stores to the NeuronAccumBuffer
+for one shot. With the hardware support on workload sharing, we
+propose the compilation scheme in next section that schedules the
+partition and sharing by analyzing the CSB pruned matrix and
+generates the instruction to control the hardware-sharing behavior.
+
+5
+
+COMPILATION FOR CSB PRUNED MODEL
+
+The proposed RNN dataflow architecture is controlled by the precompiled instructions. The instruction set includes the macroinstruction and micro-instruction, where the former one conducts the operation units (in Fig. 5) for the proper RNN dataflow
+(cell type); and the later one instructs the CSB-Engine with interPEGroup workload sharing behavior as described in §4.3.2. Correspondingly, the compilation is composed of two phases, RNN
+dataflow compilation (§5.1) and workload sharing scheduling (§5.2).
+
+5.1
+
+RNN Cell to Dataflow Architecture
+
+5.1.1 Macro-Instruction Set. We define the macro-instruction set
+for our RNN dataflow architecture (§4.2). As Fig. 8, the microinstruction is composed of multiple sections, that each section
+provides control signals for corresponding RNN primitive hardware. All sections are concatenated to form a very long instruction
+word (VLIW) item. Note that each section contains Count operand
+to indicate the size of workload for corresponding hardware primitive. Thus, one VLIW instruction is regarded as accomplished until
+all hardware primitives finish the workload. The operands in each
+instruction section are classified into two types, the Count type
+controls the hardware iteration count, and the other operands indicate the proper data source or destination for each primitive. For
+the first type, the value of Count in element-wise operation units
+(only CSB-Engine excluded) is measured by data element as these
+units perform element-wise operation. Differently, the CountH/V in
+CSB-Engine section represents the horizontal/vertical block iteration counts over the entire CSB-Engine in processing the particular
+weight matrix. For the second operand type, Addr(Memory) and
+Addr(Buffer) give the access address of external memory (normally DRAM) and built-in buffers in the architecture, respectively.
+Importantly, the programmable datapaths in the architecture (Fig. 5)
+are indexed, and the DataFlowIdx is set in the operand to indicate
+the proper data source or destination for hardware primitive. With
+
+CSB-RNN: A Faster-than-Realtime RNN Acceleration Framework with Compressed Structured Blocks
+
+(a) CSB Pruned Weight Matrix
+Block1
+
+ICS ’20, June 29-July 2, 2020, Barcelona, Spain
+
+(c)
+
+Horizontal Sharing
+
+(b)
+
+Block2
+
+PEGroup2
+
+PEGroup3
+
+PEGroup4
+
+PEGroup1
+
+Kernel
+Matrix
+
+PEGroup2
+
+Vertical Sharing
+
+PEGroup1
+
+Workload
+Sharing Path
+
+PEGroup3
+
+PEGroup4
+
+Horizontal Sharing
+
+Block3
+
+Block4
+
+PEGroup1
+PEGroup2
+PEGroup3
+PEGroup4
+Clock
+Cycle
+Utilization
+11.1%
+44.4%
+11.1%
+100%
+
+Clock
+Cycle
+Utilization
+
+PEGroup1
+
+PEGroup2
+
+PEGroup3
+
+PEGroup4
+
+75%
+
+100%
+
+100%
+
+100%
+
+Figure 7: Inter-block workload imbalance issue occurs when mapping the CSB pruned matrix (a) to the vanilla (basic) CSBEngine (b), which results in a low hardware utilization. We propose the workload sharing technique that significantly increases
+the utilization and reduces the time consumption, as demonstrated in (c).
+Primitive
+
+SrcOp1
+
+SrcOp2
+
+SrcOp3
+
+(a) Partition of
+kernel matrix workload
+m' Δmv vertical
+
+Dst
+
+Addr(Memory)
+Count
+Addr(BufferA)
+LoadUnit
+Addr(BufferA)
+BlockSizeH/V CountH/V
+Addr(BufferB)
+CSB-Engine
+Addr(BufferB)
+Addr(BufferBias)
+Count
+Sum1
+Count
+Addr(BufferE)
+Sum2
+Count DataFlowIdx, Addr(BufferC)
+Sigmod (δ)
+DataFlowIdx, Addr(BufferC)
+Count
+Tanh (θ)
+DataFlowIdx, Addr(Buffer)
+StreamIdx
+Count DataFlowIdx, Addr(BufferD)
+Mult1
+Addr(BufferC)
+Addr(BufferE)
+Count
+Mult2
+Count
+Addr(Memory)
+StoreUnit DataFlowIdx, Addr(BufferE)
+
+sharing
+
+n'
+
+Δnv
+Δnh
+Δmh
+
+horizontal
+sharing
+
+(b) Micro-Instruction
+with partition scheduling for workload balance
+Sharing TripCount
+No (Local)
+Horizontal
+Vertical
+
+RowIdx
+
+ColIdx
+
+m' & n’
+RowIdx 1…n'
+ColIdx 1…m'
+Δmh & Δnh
+RowIdx 1…Δnh ColIdx 1…Δmh
+Δmv & Δnv
+RowIdx 1…Δnv ColIdx 1…Δmv
+Micro-Instruction for next blocks
+
+…
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+
+1 block iteration
+
+Idx
+
+Figure 8: Macro-instruction set (VLIW-like) for RNN
+dataflow architecture that constructs proper arithmetic
+dataflow for different RNN cell types.
+
+Figure 9: Micro-instruction indicates the kernel matrix
+workload and the scheduling of partition for workload balancing.
+
+the above settings, RNN models with various cell types can be translated to several VLIW instructions that are repetitively executed
+during RNN inference.
+
+three items, (i) local workload that is originally allocated, excluding
+the portion shared to other PEGroups; (ii) workload shared from
+the neighboring PEGroup in horizontal; (iii) workload shared from
+the neighboring PEGroup in vertical. The micro-instruction contains 4 operands, as Fig. 9(b). The operand Sharing gives a flag
+(local/horizontal/vertical) to indicate the data source, where local
+means the input and output neurons are in local PEGroup; horizontal (sharing) indicates the input neurons should be read from the
+BlockNeuronBuffer of left PEGroup; Vertical (sharing) means the
+output should be accumulated to the NeuronAccumBuffer of upper
+PEGroup. The operand TripCount gives the size of workload. Note
+that, for each block, the kernel matrix is divided to tree regular
+partitions as Fig. 9(a), for local (no-sharing), vertical- and horizontalsharing, respectively. The sizes of partitioned matrices are denoted
+as m ′ ×n ′ , ∆mv × ∆nv , ∆mh × ∆nh , which are turned to TripCount
+values in the three micro-instruction items. The operands RowIdx
+and ColIdx provide the non-zero row and column indices of each
+submatrix. Note that each micro-instruction item may contain multiple RowIdx and ColIdx corresponding to the TripCount value.
+Further, these two operands are stored in individual instruction
+memories that are read and reused periodically in the submatrix
+computation.
+
+5.1.2 Macro-Instruction Compilation. The objective of compilation is to minimize the VLIW instruction count that maximizes
+the utilization of operation units. We invoke the list scheduling
+method [14] that is usually applied in VLIW compilation. The RNN
+model with a particular cell type is translated to the directed acyclic
+graph (DAG), in which the nodes represent the arithmetic primitives and the edges are data dependencies. In the list scheduling,
+we adopt the as soon as possible (ASAP) strategy that the operation
+nodes are mapped to the corresponding hardware resources once
+the resource is available and the dependency edge is ready. With the
+proper operation units and interconnection in the RNN dataflow
+architecture, the macro-instruction compilation can quickly achieve
+an optimum point, in which the processing throughput is bounded
+by the main workload (CSB-MVM) on CSB-Engine.
+
+5.2
+
+Workload Scheduling on CSB-Engine
+
+5.2.1 Micro-Instruction Set. The micro-instructions are generated
+for each PEGroup individually, which control the CSB-MVM operations on CSB-Engine. Specifically, the micro-instruction contains
+the CSB-compression information (i.e., kernel matrix size, row- and
+column-index in Fig. 3(c)) for the block workload allocated to the
+certain PEGroup. In particular, the kernel matrix workload is partitioned to three submatrices and shared to neighboring PEGroups
+(as Fig. 9(a)), the micro-instructions for one block iteration include
+
+5.2.2 Micro-Instruction Compilation. The compilation of microinstruction is essentially searching the workload partition scheme to
+achieve the optimal balance, which facilitates a higher hardware utilization (efficiency). Specifically, the compiler analyzes the weight
+
+ICS ’20, June 29-July 2, 2020, Barcelona, Spain
+
+R. Shi, P. Dong, T. Geng, Y. Ding, X. Ma, H.K.-H. So, M. Herbordt, A. Li and Y. Wang
+
+matrices and selects the proper partition variables (as Fig. 9(a)) for
+each kernel matrix. Every K × L blocks (one block iteration) are analyzed individually, which are executed on PEGroups in concurrent.
+Within one block iteration, each PEGroup is supposed to take the
+equivalent workload after balancing.
+We regard the search of optimal partition variable as a satisfiability modulo theories (SMT) problem [33], which searches the feasible
+solutions in the constrained region. The existing SMT solver [5]
+takes the constraints with logic programming and gives the satisfiability (existence of solution) and feasible solutions. In the compilation for each block iteration, we declare the integer variables
+including m ′ (k, l), n ′ (k, l), ∆mh (k, l), ∆nh (k, l), ∆mv (k, l), ∆nv (k, l),
+where k ∈ [1, K] and l ∈ [1, L]. The constraints are represented
+with the constraint logic programming (CLP), in which each clause
+gives a specific search limitation. The CLP in compilation is listed in
+Eqn. 7, where ∧ represents logic AND and ∨ represents OR. CLP1,2
+constraint the feasible search region, as the size of the partitioned
+workload should ≤ kernel matrix size (m × n). CLP3,4 guarantee
+regular partitions as Fig. 9(a). CLP5 determines the values of m ′
+and n ′ . To improve the PEGroup utilization, we set CLP6 constraint
+that the size of partition workload should be integer-multiple of the
+PEGroup size. Thus, the PEs are fully utilized on the shared workload
+partition. Also, it helps to shrink the search space and speed up the
+compilation. Within the idealized situation, each PEGroup is scheduled with workload that is the average value over all PEGroups in
+the current block iteration. Otherwise, the PEGroup with maximum
+workload determines the run time (clock cycle) for this iteration.
+CLP7 gives the constraint on the maximum workload that, to all
+PEGroups, the exceeding part of scheduled workload to the average
+value (avд) should ≤ marдin, which is given before search. The last
+CLP combines all above constraints to a conjunctive form, which is
+subsequently sent to SMT-solver for a feasible solution.
+
+Algorithm 2: Micro-Instruction Compilation
+input : CSB pruned weight matrix Wc sb ;
+block size in CSB M × N ; weight matrix size W × H ;
+size of each PEGroup P × Q ; PRGroup count K × L
+output : Micro-instruction list Micr oI nst
+// Temporal block iterations in vertical.
+for i ← 1 to ⌈H /N /K ⌉ do
+// Temporal block iterations in horizontal.
+for j ← 1 to ⌈W /M /L ⌉ do
+mar дin=0
+// ∀k ∈ [1, K ], ∀l ∈ [1, L].
+[m(k, l ), n(k, l ), avд]=Analyze (Wc sb ,i,j)
+// Search with multiple rounds.
+repeat
+CLP =BuildCLP (m(k, l ), n(k, l ), avд, mar дin)
+// Give solution if satisified.
+[Satisfiability, PartitionVar ] = SMTSolver (CLP)
+mar дin+=P × Q
+until Satisfiability =True;
+Micr oI nst =Append (Micr oI nst , PartitionVar)
+
+Once the SMT problem is satisfied, the search stops and the partition variables (m ′ , n ′ , ∆mv , ∆nv , ∆mh , ∆nh ) for each PEGroup are
+assembled and appended to the micro-instruction list, that conducts
+the CSB-Engine computation in a workload balanced fashion.
+
+6
+
+EVALUATION
+
+In this section, we first brief the implementation of the CSB-RNN
+framework (§6.1), and then give deep evaluations from the performance of CSB pruning algorithm (§6.2) to the improvement
+with the architecture-compilation co-design (§6.3). Meanwhile, 10
+mainstream RNN models from multi-domains are invoked as the
+evaluation benchmarks and presented in Table 1, in which we also
+list the non-structured pruning rates as the theoretical optimum.
+
+CLP1 :
+
+{0 ≤ ∆mh (k, l ) ≤ m(k, l )} ∧ {0 ≤ ∆nh (k, l ) ≤ n(k, l )}
+
+CLP2 :
+
+{0 ≤ ∆mv (k, l ) ≤ ⌊m(k, l )/2⌋ } ∧ {0 ≤ ∆nv (k, l ) ≤ n(k, l )}
+
+CLP3 :
+
+{∆mh (k, l ) = m(k, l )} ∧ {∆nv (k, l ) + ∆nh (k, l ) = n(k, l )}
+
+CLP4 :
+
+{∆nv (k, l ) = n(k, l )} ∧ {∆mh (k, l ) + ∆mv (k, l ) = m(k, l )}
+
+CLP5 :
+
+{m ′ (k, l ) = m(k, l ) − ∆mv (k, l )} ∧ {n ′ (k, l ) = n(k, l ) − ∆nh (k, l )}
+
+CLP6 :
+
+{∆mh (k, l )%P = mv′ (k, l )%P = 0} ∧ {∆nh (k, l )%Q = nv′ (k, l )%Q = 0}
+
+6.1
+
+CLP7 :
+
+| (m ′ (k, l ) × n ′ (k, l ) + ∆mh (k, l − 1) × ∆nh (k, l − 1)
+
+The CSB pruning flow was implemented with PyTorch [23], a framework for deep learning model development. The benchmark models
+were first trained with the SGD and the accuracy is regarded as the
+lossless target value in the subsequent CSB pruning. These baseline
+models were fed in the CSB pruning flow and get compressed with
+the lossless constraints. In regarding the architecture-compilation
+co-design, the proposed RNN dataflow architecture was realized
+with Verilog RTL and implemented on an FPGA vendor evaluation board (Xilinx-ZCU102), on which the FPGA contains enough
+resources for our architecture with different design scales. The
+compiler was implemented in C++ with the strategies in §5 and
+Z3 [5] as the SMT solver. With the CSB pruned model, the compiler dumps the macro-instructions (§5.1) to build the proper RNN
+dataflow and micro-instructions (§5.2) for the workload balancing.
+These instructions are loaded to the RNN dataflow architecture before processing sequence continuously. With regard to the detailed
+hardware efficiency (i.e, CSB-Engine utilization), cycle-level RTL
+simulation was performed to profile the inference behavior.
+
++ ∆mv (k − 1, l ) × ∆nv (k − 1, l )) − avд | ≤ mar дin
+CLP :
+
+CLP1 ∧ CLP2 ∧ (CLP3 ∨ CLP4 ) ∧ CLP5 ∧ CLP6 ∧ CLP7
+
+(7)
+
+Based on the above formulation, we propose the compilation
+scheme in Algorithm 2 that seeks out the optimal scheduling solution. For a given CSB formatted weight matrix Wcsb , the compiler
+partitions it to ⌈W /M/L⌉ × ⌈H /N /K⌉ temporal block iterations and
+schedules each iteration individually. Before the multi-round search,
+the compiler firstly analyzes the weight partition for current block
+iteration that gives the kernel matrix size (m, n) for each block and
+the average workload (avд). The marдin is initialized to 0 that targets to schedule an idealized average workload on each PEGroup.
+In the search round, BuildCLP constructs the constraints representation, which is input to SMTSolver. In case the constraints cannot
+be satisfied (Satisfiability is False) over the feasible region, the
+marдin value is supposed to increase by P × Q in the next round.
+
+Implementation and Experiments Setup
+
+CSB-RNN: A Faster-than-Realtime RNN Acceleration Framework with Compressed Structured Blocks
+
+ICS ’20, June 29-July 2, 2020, Barcelona, Spain
+
+Table 1: Benchmark Models in CSB-RNN Evaluation
+App.
+Abbr.
+Idx.
+
+Applications
+
+Dataset
+
+Layer
+Index
+1
+LSTM[12]
+2
+3
+LSTM[12]
+4
+5
+LSTMP[25]
+6
+7
+GRU[4]
+8
+9
+Li-GRU[24]
+10
+GRU[4]
+11
+12
+LSTM[12]
+13
+14
+LSTM[12]
+15
+16
+LSTM[12]
+17
+18
+LSTM[12]
+19
+20
+
+#Layer RNN Cell
+
+1
+
+MT1
+
+Machine Translation
+
+PTB[20]
+
+2
+
+2
+
+MT2
+
+Machine Translation
+
+PTB[20]
+
+2
+
+3
+
+SR1
+
+Speech Recognition
+
+TIMIT[8]
+
+2
+
+4
+
+SR2
+
+Speech Recognition
+
+TIMIT[8]
+
+2
+
+5
+
+SR3
+
+Speech Recognition
+
+TIMIT[8]
+
+2
+
+6
+
+SR4
+
+Speech Recognition
+
+TDIGIT[15]
+
+1
+
+7
+
+SPP
+
+Stock Price Prediction
+
+S&P500[13]
+
+2
+
+8
+
+SC1
+
+Sentiment Classification IMDB[18]
+
+3
+
+9
+
+SC2
+
+Sentiment Classification
+
+MR[22]
+
+1
+
+10
+
+QA
+
+Question Answering
+
+BABI[32]
+
+3
+
+#Input
+Neuron
+128
+256
+1500
+1500
+153
+512
+39
+1024
+39
+512
+39
+1
+128
+32
+512
+512
+50
+50
+256
+256
+
+#Hidden
+Neuron
+256
+256
+1500
+1500
+1024
+1024
+1024
+1024
+512
+512
+256
+128
+128
+512
+512
+512
+256
+256
+256
+256
+
+Original Model
+Non-Structued Pruning
+#Weight+Bias Result PruneRate #Weight Result
+Perplexity
+393K+1K
+13.2× 29.8K
+110.89
+111.62
+(PPL, lower is better) 524K+1K
+13.2× 39.7K
+18M+6K
+16.3× 1.1M
+Perplexity (PPL)
+80.66
+82.33
+18M+6K
+16.3× 1.1M
+Phoneme Error Rate 3.25M+4K
+14.5× 224.0K
+19.39%
+19.70%
+14.5× 325.4K
+(PER, lower is better) 4.72M+4K
+3.3M+3K
+21.7× 150.5K
+PER
+19.24%
+19.80%
+6.3M+3K
+21.7× 289.9K
+564.2K
+7.1×
+79.5K
+PER
+16.87%
+17.30%
+1M
+7.1×
+147.7K
+Accuracy
+226.6K+0.8K 99.98% 25.7× 8.8K
+99.21%
+Normalized Price Dist. 66K+0.5K
+4.1×
+16.1K
+0.47
+0.51
+(lower is better)
+131K+0.5K
+4.1×
+32K
+1.11M+2K
+10.4× 107.1K
+Accuracy
+86.37% 10.4× 201.6K 85.65%
+2.1M+2K
+(higher is better)
+2.1M+2K
+10.4× 201.6K
+Accuracy
+313.3K+1K
+78.23%
+7.2×
+43.5K
+76.31%
+313.3K+1K
+7.9×
+39.7K
+65.37%
+64.51%
+Accuracy
+524.3K+1K
+7.9×
+66.4K
+524.3K+1K
+7.9×
+66.4K
+Evaluation Metric
+
+Non-structured pruning
+CSB pruing (block 16)
+CSB pruing (block 32)
+CSB pruing (block 64)
+CSB pruing (block 128)
+
+Figure 10: (a) shows the pruning rate comparison between non-structured pruning (optimum) and CSB pruning in different
+block sizes. (b) shows the normalized index overhead (NIO). Comparing (a) and (b), we gain the insight that CSB pruning
+dramatically reduces the NIO while maintaining a high pruning rate.
+
+6.2
+
+Evaluation of CSB pruning Rate
+
+The CSB pruning is first evaluated in the aspect of pruning rate,
+which is a significant metric to score the model compression methods. Because the parameterizable block size determines the structural granularity in pruning, we present the attainable maximum
+pruning rate with various block sizes in §6.2.1. Further, comparison
+with the prior art RNN compression schemes is given in §6.2.2.
+6.2.1 Selection of Optimum Structural Granularity. CSB pruning
+provides the flexibility that improves the pruning rate and also
+the hardware-friendly regularity. Importantly, a trade-off exists between these two targets that motivate the following investigation.
+Reducing the block size facilitates a more fine-grained pruning and
+thus a higher pruning rate. However, more individual blocks require
+extra storage for row and column index with the CSB-formatted
+weight matrix (Fig. 3). Therefore, we present both the attainable
+pruning rate and the index overhead with different block sizes in
+each benchmark model. The block is set to square with sizes of 16,
+32, 64, 128, considering the weight matrix dimensions in different
+models. Note that for matrix with very small size (e.g., 256 × 39 in
+SR4), the short dimension (39) is partitioned to Q blocks uniformly
+after padding a zero-column. Multiple layers in one model adopt
+
+the same pruning rate. The attainable pruning rate for each case is
+presented in Fig. 10(a); Further, the index overheads are divided by
+the corresponding weight count for normalization, and the values
+of the normalized index overhead (NIO) are presented in Fig. 10(b).
+Notably, the results with non-structured pruning are given for comparison (leftmost bar for each application); And its index overhead
+is obtained by compressing the non-structured weight matrices
+with the compressed sparse row (CSR) format.
+As a result, the CSB pruning rate ranges from 3.5× to 25×, which
+dramatically reduces the original model size by order of magnitude.
+With the growth of block size, the pruning rate decreases as the
+coarse-granularity block reduces the pruning flexibility. We note
+that, in all benchmarks, the CSB pruning is capable of reaching a
+maximum pruning rate with the block size of 16 or 32, which is
+close to non-structured pruning. In the aspect of NIO, the index
+overhead of non-structured pruning exceeds 100%, as at least one
+index is required for a non-zero element. Nevertheless, for CSB
+pruning, the NIO is below 50% in most cases due to index reusability in the structured blocks. The NIO shows a significant decay
+while enlarging the block size. With the block size of 32, the NIO
+declines to ≈ 20%, which is 1/5 of that in non-structured pruning.
+Interestingly, we gain the insight that with a block size of 32 and
+
+ICS ’20, June 29-July 2, 2020, Barcelona, Spain
+
+R. Shi, P. Dong, T. Geng, Y. Ding, X. Ma, H.K.-H. So, M. Herbordt, A. Li and Y. Wang
+
+Table 2: Pruning Rate Comparison
+
+MT1
+MT2
+
+SR1
+
+SR2
+SR4
+
+Compression
+Technique
+column pruning [29]
+CSB pruning
+row-column [30]
+bank balanced [3]
+CSB pruning
+block circulant [28]
+row balanced [10]
+bank balanced [3]
+CSB pruning
+block circulant [16]
+CSB pruning
+column pruning [7]
+CSB pruning
+
+Prune
+Rate
+8×
+12.5×
+3×
+5×
+12×
+8×
+8.9×
+10×
+13×
+8×
+20×
+14.3×
+23×
+
+Weight
+Width
+16-bit
+16-bit
+floating
+16-bit
+16-bit
+16-bit
+16-bit
+16-bit
+16-bit
+16-bit
+16-bit
+16-bit
+16-bit
+
+Metric
+PPL
+PPL
+
+PER
+
+PER
+Accu
+
+Result
+112.73
+112.02
+82.59
+82.59
+82.33
+24.57%
+20.70%
+23.50%
+20.10%
+20.20%
+20.01%
+98.43%
+99.01%
+
+Improvement
+1×
+1.6×
+1×
+1.65×
+3.9×
+1×
+1.1×
+1.3×
+1.6×
+1×
+2.5×
+1×
+1.6×
+
+16, most models achieve the close pruning rate. For instance, 13×
+and 12× in MT1; both are 20× in SR2. Therefore, the larger block
+size (32) is preferable for its low index overhead.
+6.2.2 Comparison with Prior Art Compression Schemes. The CSB
+pruning rate is further compared to the prior art RNN compression techniques in Table 2. The listed competitive techniques are
+proposed to enable a faster, hardware-friendly RNN inference with
+the compressed model. Note that these competitors quantized the
+weight to 16-bit fixed-point numbers; Thus, we do the same quantization on CSB pruned model and report the corresponding results
+for a fair comparison. In Table 2, row-column [30] technique prunes
+each weight matrix as an entire block. Comparing to it, our finegrained CSB pruning improves the compression rate to 3.9×. The
+row balanced [10] or bank balanced [3] techniques compulsively
+train the model to a balanced sparse pattern; However, CSB pruning remains the natural unbalanced sparsity in RNN model and
+achieves a higher (1.6×) pruning rate. Overall, the CSB pruning
+improves the pruning rate to 1.6×-3.9× of the existing schemes,
+while maintaining an even better model accuracy.
+
+6.3
+
+Evaluation of RNN dataflow Architecture
+with CSB Pruned Model
+
+6.3.1 Hardware-resource Consumption. The hardware-resource
+consumption (cost) of the RNN dataflow architecture is given in
+Fig. 11, with various CSB-Engine configs (P,Q,K,L and max supported block size). Notably, the CSB-Engine with different workload
+sharing configs, including no-sharing, vertical-sharing, horizontalsharing, 2D-sharing, are synthesized individually to evaluate the
+hardware overhead on workload sharing technique. The consumption of hardware logic and memory from the FPGA vendor tool are
+presented in Fig. 11. The configurable logic block (CLB, left axis)
+is the FPGA building block for logic, which is used as the logic
+resource metric; The memory resource is given in megabit (Mb
+in the right axis). Note that most memory resource on our FPGA
+device is configured as the weight buffer, although they may not be
+fully used by small RNN models. The multiplier in each PE (16-bit
+fixed-point) is mapped to digital signal processor (DSP) on FPGA,
+and the DSP count in design is ≈ P × Q × K × L that is omitted
+here. As a result, the hardware support of workload sharing costs
+an acceptable overhead, which is 11.6%, 3.8%, and 15.6% for three
+sharing cases (vertical/horizontal/2D-sharing), respectively.
+
+CLB (Architecture
+without workload sharing)
+CLB (Workload sharing
+hardware overhead)
+
+(PxQxKxL)
+
+4x4x4x4
+MaxBlock32
+
+4x4x4x4
+MaxBlock64
+
+No
+-Sh
+V-S arin
+ha g
+H-S ring
+h
+2D aring
+-Sh
+ari
+ng
+
+Abbr.
+
+Memory Size
+
+4x4x4x4
+MaxBlock128
+
+3x3x5x5
+MaxBlock32
+
+3x3x5x5
+MaxBlock64
+
+3x3x5x5
+MaxBlock128
+
+Figure 11: Hardware resource consumption with multi CSBEngine configs.
+6.3.2 Performance. Due to the workload imbalance issue, the processing performance of RNN dataflow architecture, CSB-Engine in
+specific, is not deterministic. Hardware efficiency, the ratio of effective computation on PEs, is invoked to evaluate the improvement
+of our workload sharing technique. We obtained the CSB-Engine
+efficiency by measuring the PE pipeline utilization using 10 benchmarks listed in Table 1 with different design choices of workload
+sharing. Moreover, CSB pruned models with different block sizes are
+used to evaluate the impact of block size on efficiency. The efficiency
+is measured layer-by-layer on hardware with 4 × 4 PEGroups and
+each contains 4 × 4 PEs. The results are presented in Fig. 12. Overall,
+for the CSB-Engine without workload sharing, the efficiency is 42%
+on average, which results from the imbalanced workload (sparsity)
+of blocks. The single dimensional sharing (vertical or horizontal)
+improves the efficiency to an average of 72%. After the 2D-sharing
+is adopted, the efficiency is further improved to 94% on average, i.e.,
+only 6% execution time of CSB-Engine is invalid. This 6% pipeline
+gap is inevitable, as a few extremely imbalanced sparsity exists
+in some weight matrices. For instance, we found diagonal dense
+matrix exists that the blocks on the matrix diagonal contain significant workload compared to other blocks. In this case, the workload
+sharing path in the current design is not enough, while adding more
+sharing paths brings extra hardware costs.
+Comparing the efficiency within the same layer but different
+pruning block sizes, it is apparent that the smaller block size is
+applied, the lower hardware efficiency CSB-Engine can achieve,
+particularly in the no-sharing CSB-Engine cases. This is because
+the small block includes less workload (with the same pruning
+rate) but more temporal block iterations, which lead to PE idle
+more easily. As mentioned in §6.2.1, using smaller block sizes in
+compression guarantees higher model pruning rates, which benefits are significantly encroached by the performance degradation
+with small compression block in the no-sharing cases. Nevertheless,
+we gain the insight that our architecture-compilation co-design
+for 2D-sharing cases significantly subdues the degradation. For
+instance, in Layer-2 (L2) of MT1 case, the no-sharing degradation
+from block-64 to block-32 is 12%, while it is reduced to 3% by the
+2D-sharing. On average, the degradation is reduced from 15% to
+4%. In summary, with the proposed workload sharing technique, a
+smaller block size in CSB pruning does not bring significant degradation on hardware efficiency anymore (only 4% on average), so
+that the benefits from higher pruning rates can be more sufficiently
+exploited.
+
+CSB-RNN: A Faster-than-Realtime RNN Acceleration Framework with Compressed Structured Blocks
+
+No-Sharing
+
+Vertical-Sharing Only
+
+Horizontal-Sharing Only
+
+ICS ’20, June 29-July 2, 2020, Barcelona, Spain
+
+2D-Sharing, with both vertical & horizontal
+
+Figure 12: The efficiency (utilization) of the proposed architecture with different sharing strategies. The novel workload sharing technique significantly improves the average efficiency from 42% (no-sharing) to 94% (2D-sharing). This improvement fully
+exploits the benefits of fine-grained CSB pruning.
+Table 3: Latency and Power Efficiency Comparison
+Abbr.
+
+MT1
+
+SR1
+
+SR2
+
+#PE Freq.
+(MHz)
+BBS [3]
+1518 200
+CSB-RNN 512 200
+C-LSTM [28] 2680 200
+E-RNN [16] 2660 200
+ESE [10]
+1504 200
+CSB-RNN 512 200
+E-RNN [16] 2280 200
+CSB-RNN 512 200
+Work
+
+Latency
+( µ s)
+1.30
+0.79
+8.10
+7.40
+82.70
+6.58
+6.70
+5.18
+
+Power
+(Watt)
+19
+8.9
+22
+24
+41
+8.9
+29
+8.9
+
+Power Eff.
+(k-frames/W)
+40.49
+142.72
+5.61
+5.63
+0.29
+17.08
+5.15
+21.69
+
+Power Eff.
+Improv.
+1×
+3.53×
+19.35×
+19.41×
+1×
+58.89×
+1×
+4.21×
+
+6.3.3 Comparison with Related Works. The overall performance
+of CSB-RNN, i.e., CSB pruned model inference speed on the proposed RNN dataflow architecture, is listed in Table 3 and compared
+with the prior art designs. We collected the statistics including the
+PE count (#PE), operating frequency, latency in processing one
+input frame and the power of design. As Table 3 shows, with the
+same benchmark applications, the CSB-RNN reduces the latency
+by 39%-92% that speeds up the processing from 1.12× to 12.57×
+correspondingly; Nevertheless, CSB-RNN only uses 19%-34% PE
+counts (hardware resource) of the competitors to attain this performance. The latency ranges from 0.79µs to 6.58µs with different
+model sizes. For generic high-precision speech recognition, at most
+≈ 2000 frames should be processed per second, which requires a
+latency ≤ 500µs to meet the realtime performance. As the achieved
+latency with benchmark models is much lower than this requirement, the CSB-RNN provides a faster-than-realtime performance
+and facilitates the device processing more complex RNN models in
+the future. Besides the latency, we compare the power efficiency
+(k-frames per Watt) among these competitive designs. The results
+show the CSB-RNN achieves significant improvements from 3.53×
+to 58.89× on power efficiency in processing the same model, which
+makes the CSB-RNN quite suitable for embedded scenarios. Further,
+while the existing works were designed for a particular RNN cell
+type, CSB-RNN can be reprogrammed to adapt to different cells.
+
+7
+
+CONCLUSION
+
+This paper presents CSB-RNN, an optimized full-stack RNN acceleration framework. The fine-grained structured CSB pruning significantly improves the pruning rate compared to existing hardwarefriendly pruning schemes. Meanwhile, an architecture-compilation
+co-design is proposed that sufficiently exploits the benefits of the
+CSB pruned model. The experiments show that the entire CSB-RNN
+
+acceleration framework delivers a faster-than-realtime performance
+on extensive RNN models, and dramatically reduces the latency and
+improves the power efficiency compared with the existing works.
+Future work: We are extending the CSB technique to other neural
+network layers. In particular, the transformer models are composed
+of more complex dataflow, however, the same MVM primitive as
+RNN. With improvement on the dataflow abstraction, the proposed
+CSB pruning and CSB-Engine will contribute to the realtime transformer inference.
+
+ACKNOWLEDGMENTS
+We would like to thank the anonymous reviewers for their valuable
+comments. This research was supported in part by the Croucher
+Foundation (Croucher Innovation Award 2013), the Research Grants
+Council of Hong Kong grant number CRF C7047-16G, GRF 17245716.
+This research was supported in part by the U.S. DOE Office of Science, Office of Advanced Scientific Computing Research, under
+award 66150: “CENATE - Center for Advanced Architecture Evaluation”. This research was supported, in part, by the NSF through
+awards CCF-1618303, CCF-1919130, CCF-1937500, CNS-1909172,
+and CCF-1919117; the NIH through awards 1R41GM128533 and
+R44GM128533; and by a grant from Red Hat.
+
+REFERENCES
+[1] Léon Bottou. 2010. Large-scale machine learning with stochastic gradient descent.
+In Proceedings of COMPSTAT’2010. Springer, 177–186.
+[2] Stephen Boyd, Neal Parikh, Eric Chu, Borja Peleato, Jonathan Eckstein, et al. 2011.
+Distributed optimization and statistical learning via the alternating direction
+method of multipliers. Foundations and Trends® in Machine learning 3, 1 (2011),
+1–122.
+[3] Shijie Cao, Chen Zhang, Zhuliang Yao, Wencong Xiao, Lanshun Nie, Dechen
+Zhan, Yunxin Liu, Ming Wu, and Lintao Zhang. 2019. Efficient and effective
+sparse LSTM on FPGA with bank-balanced sparsity. In Proceedings of the 2019
+ACM/SIGDA International Symposium on Field-Programmable Gate Arrays. 63–72.
+[4] Kyunghyun Cho, Bart van Merriënboer, Caglar Gulcehre, Dzmitry Bahdanau,
+Fethi Bougares, Holger Schwenk, and Yoshua Bengio. 2014. Learning phrase
+representations using RNN encoder-decoder for statistical machine translation.
+In Proceedings of the 2014 Conference on Empirical Methods in Natural Language
+Processing (EMNLP). 1724–1734.
+[5] Leonardo De Moura and Nikolaj Bjørner. 2008. Z3: An efficient SMT solver. In
+International conference on Tools and Algorithms for the Construction and Analysis
+of Systems. Springer, 337–340.
+[6] Michel Fortin and Roland Glowinski. 2000. Augmented Lagrangian methods:
+applications to the numerical solution of boundary-value problems. Elsevier.
+[7] Chang Gao, Daniel Neil, Enea Ceolini, Shih-Chii Liu, and Tobi Delbruck. 2018.
+DeltaRNN: A power-efficient recurrent neural network accelerator. In Proceedings
+of the 2018 ACM/SIGDA International Symposium on Field-Programmable Gate
+Arrays. ACM, 21–30.
+
+ICS ’20, June 29-July 2, 2020, Barcelona, Spain
+
+R. Shi, P. Dong, T. Geng, Y. Ding, X. Ma, H.K.-H. So, M. Herbordt, A. Li and Y. Wang
+
+[8] John S Garofolo, Lori F Lamel, William M Fisher, Jonathan G Fiscus, and David S
+Pallett. 1993. DARPA TIMIT acoustic-phonetic continous speech corpus CD-ROM.
+NIST speech disc 1-1.1. NASA STI/Recon technical report n 93 (1993).
+[9] Alex Graves, Abdel-rahman Mohamed, and Geoffrey Hinton. 2013. Speech
+recognition with deep recurrent neural networks. In 2013 IEEE international
+conference on acoustics, speech and signal processing. IEEE, 6645–6649.
+[10] Song Han, Junlong Kang, Huizi Mao, Yiming Hu, Xin Li, Yubin Li, Dongliang
+Xie, Hong Luo, Song Yao, Yu Wang, et al. 2017. ESE: Efficient speech recognition
+engine with sparse LSTM on FPGA. In Proceedings of the 2017 ACM/SIGDA
+International Symposium on Field-Programmable Gate Arrays. 75–84.
+[11] Song Han, Huizi Mao, and William J Dally. 2015. Deep compression: Compressing
+deep neural networks with pruning, trained quantization and huffman coding.
+arXiv preprint arXiv:1510.00149 (2015).
+[12] Sepp Hochreiter and Jürgen Schmidhuber. 1997. Long short-term memory. Neural
+computation 9, 8 (1997), 1735–1780.
+[13] S&P Dow Jones Indices. 2019. S&P Dow Jones Indices (2019). Retrieved January
+2, 2020 from http://us.spindices.com/indices/equity/sp-500
+[14] Monica Lam. 1988. Software pipelining: An effective scheduling technique
+for VLIW machines. In Proceedings of the ACM SIGPLAN 1988 conference on
+Programming Language design and Implementation. 318–328.
+[15] R.G. Leonard, G.R. Doddington, and Linguistic Data Consortium. 1993. TIDIGITS.
+Linguistic Data Consortium.
+[16] Zhe Li, Caiwen Ding, Siyue Wang, Wujie Wen, Youwei Zhuo, Chang Liu, Qinru
+Qiu, Wenyao Xu, Xue Lin, Xuehai Qian, et al. 2019. E-RNN: Design optimization
+for efficient recurrent neural networks in FPGAs. In 2019 IEEE International
+Symposium on High Performance Computer Architecture (HPCA). IEEE, 69–80.
+[17] Sangkug Lym, Esha Choukse, Siavash Zangeneh, Wei Wen, Sujay Sanghavi, and
+Mattan Erez. 2019. PruneTrain: fast neural network training by dynamic sparse
+model reconfiguration. In Proceedings of the International Conference for High
+Performance Computing, Networking, Storage and Analysis. 1–13.
+[18] Andrew L Maas, Raymond E Daly, Peter T Pham, Dan Huang, Andrew Y Ng,
+and Christopher Potts. 2011. Learning word vectors for sentiment analysis.
+In Proceedings of the 49th annual meeting of the association for computational
+linguistics: Human language technologies-volume 1. Association for Computational
+Linguistics, 142–150.
+[19] Huizi Mao, Song Han, Jeff Pool, Wenshuo Li, Xingyu Liu, Yu Wang, and William J
+Dally. 2017. Exploring the regularity of sparse structure in convolutional neural
+networks. arXiv preprint arXiv:1705.08922 (2017).
+[20] Mitchell Marcus, Beatrice Santorini, and Mary Ann Marcinkiewicz. 1993. Building
+a large annotated corpus of English: The Penn Treebank. (1993).
+[21] Sharan Narang, Eric Undersander, and Gregory Diamos. 2017. Block-sparse
+recurrent neural networks. arXiv preprint arXiv:1711.02782 (2017).
+[22] Bo Pang and Lillian Lee. 2005. Seeing stars: Exploiting class relationships for
+sentiment categorization with respect to rating scales. In Proceedings of the
+43rd annual meeting on association for computational linguistics. Association for
+Computational Linguistics, 115–124.
+[23] Adam Paszke, Sam Gross, Francisco Massa, Adam Lerer, James Bradbury, Gregory
+Chanan, Trevor Killeen, Zeming Lin, Natalia Gimelshein, Luca Antiga, et al.
+2019. PyTorch: An imperative style, high-performance deep learning library. In
+Advances in Neural Information Processing Systems. 8024–8035.
+[24] Mirco Ravanelli, Philemon Brakel, Maurizio Omologo, and Yoshua Bengio. 2018.
+Light gated recurrent units for speech recognition. IEEE Transactions on Emerging
+Topics in Computational Intelligence 2, 2 (2018), 92–102.
+[25] Haşim Sak, Andrew Senior, and Françoise Beaufays. 2014. Long short-term memory based recurrent neural network architectures for large vocabulary speech
+recognition. arXiv preprint arXiv:1402.1128 (2014).
+[26] Sreelekshmy Selvin, R Vinayakumar, EA Gopalakrishnan, Vijay Krishna Menon,
+and KP Soman. 2017. Stock price prediction using LSTM, RNN and CNN-sliding
+window model. In 2017 international conference on advances in computing, communications and informatics (ICACCI). IEEE, 1643–1647.
+[27] Runbin Shi, Junjie Liu, K-H Hayden So, Shuo Wang, and Yun Liang. 2019. E-LSTM:
+Efficient Inference of Sparse LSTM on Embedded Heterogeneous System. In 2019
+56th ACM/IEEE Design Automation Conference (DAC). IEEE, 1–6.
+[28] Shuo Wang, Zhe Li, Caiwen Ding, Bo Yuan, Qinru Qiu, Yanzhi Wang, and Yun
+Liang. 2018. C-LSTM: Enabling efficient lstm using structured compression techniques on FPGAs. In Proceedings of the 2018 ACM/SIGDA International Symposium
+on Field-Programmable Gate Arrays. ACM, 11–20.
+[29] Shaorun Wang, Peng Lin, Ruihan Hu, Hao Wang, Jin He, Qijun Huang, and Sheng
+Chang. 2019. Acceleration of LSTM with structured pruning method on FPGA.
+IEEE Access 7 (2019), 62930–62937.
+[30] W Wen, Y Chen, H Li, Y He, S Rajbhandari, M Zhang, W Wang, F Liu, and B Hu.
+2018. Learning intrinsic sparse structures within long short-term memory. In
+International Conference on Learning Representations.
+[31] Wei Wen, Chunpeng Wu, Yandan Wang, Yiran Chen, and Hai Li. 2016. Learning
+structured sparsity in deep neural networks. In Advances in neural information
+processing systems. 2074–2082.
+[32] Jason Weston, Antoine Bordes, Sumit Chopra, Alexander M Rush, Bart van Merriënboer, Armand Joulin, and Tomas Mikolov. 2015. Towards ai-complete question
+
+answering: A set of prerequisite toy tasks. arXiv preprint arXiv:1502.05698 (2015).
+[33] Pawel Winter and J MacGregor Smith. 1992. Path-distance heuristics for the
+Steiner problem in undirected networks. Algorithmica 7, 1-6 (1992), 309–327.
+
+

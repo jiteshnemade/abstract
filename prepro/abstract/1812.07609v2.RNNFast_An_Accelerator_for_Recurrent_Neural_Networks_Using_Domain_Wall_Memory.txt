@@ -1,0 +1,18 @@
+
+
+recurrent neural networks (rnns) are an important class of neural networks designed to retain and incorporate context into
+current decisions. rnns are particularly well suited for machine learning problems in which context is important, such as
+speech recognition and language translation.
+this work presents rnnfast, a hardware accelerator for rnns that leverages an emerging class of non-volatile memory
+called domain-wall memory (dwm). we show that dwm is very well suited for rnn acceleration due to its very high density
+and low read/write energy. at the same time, the sequential nature of input/weight processing of rnns mitigates one of the
+downsides of dwm, which is the linear (rather than constant) data access time.
+rnnfast is very efficient and highly scalable, with flexible mapping of logical neurons to rnn hardware blocks. the basic
+hardware primitive, the rnn processing element (pe) includes custom dwm-based multiplication, sigmoid and tanh units for
+high density and low-energy. the accelerator is designed to minimize data movement by closely interleaving dwm storage
+and computation. we compare our design with a state-of-the-art gpgpu and find 21.8× higher performance with 70× lower
+energy.
+
+
+1
+

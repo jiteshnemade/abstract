@@ -1,0 +1,10 @@
+
+this paper analyzes the behavior of stackaugmented recurrent neural network (rnn)
+models. due to the architectural similarity between stack rnns and pushdown transducers, we train stack rnn models on a number of tasks, including string reversal, contextfree language modelling, and cumulative xor
+evaluation. examining the behavior of our networks, we show that stack-augmented rnns
+can discover intuitive stack-based strategies
+for solving our tasks. however, stack rnns
+are more difficult to train than classical architectures such as lstms. rather than employ stack-based strategies, more complex networks often find approximate solutions by using the stack as unstructured memory.
+
+1
+

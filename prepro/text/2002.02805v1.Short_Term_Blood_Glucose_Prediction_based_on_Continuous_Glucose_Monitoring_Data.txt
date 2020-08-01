@@ -1,0 +1,625 @@
+Short Term Blood Glucose Prediction based on
+Continuous Glucose Monitoring Data
+
+arXiv:2002.02805v1 [eess.SP] 6 Feb 2020
+
+Ali Mohebbi1,2,3 , Alexander R. Johansen1 , Nicklas Hansen1 , Peter E. Christensen1
+Jens M. Tarp4 , Morten L. Jensen3 , Henrik Bengtsson2 , Morten Mørup1
+Abstract— Continuous Glucose Monitoring (CGM) has enabled important opportunities for diabetes management. This
+study explores the use of CGM data as input for digital decision
+support tools. We investigate how Recurrent Neural Networks
+(RNNs) can be used for Short Term Blood Glucose (STBG)
+prediction and compare the RNNs to conventional time-series
+forecasting using Autoregressive Integrated Moving Average
+(ARIMA). A prediction horizon up to 90 min into the future is
+considered. In this context, we evaluate both population-based
+and patient-specific RNNs and contrast them to patient-specific
+ARIMA models and a simple baseline predicting future observations as the last observed. We find that the population-based
+RNN model is the best performing model across the considered
+prediction horizons without the need of patient-specific data.
+This demonstrates the potential of RNNs for STBG prediction
+in diabetes patients towards detecting/mitigating severe events
+in the STBG, in particular hypoglycemic events. However,
+further studies are needed in regards to the robustness and
+practical use of the investigated STBG prediction models.
+
+I. INTRODUCTION
+People with insulin requiring diabetes are challenged to
+achieve and maintain metabolic control. One key challenge
+is that insulin is a drug with a very narrow therapeutic index,
+i.e. a short range between having too high blood glucose
+(BG) levels (hyperglycemia) and dangerously low BG levels
+(hypoglycemia). In this context, identifying the optimal dose
+size and timing of insulin doses are critical. For patients who
+make meal time injections, adjusting the individual meal dose
+to the meal at hand, potentially making a correction bolus
+or eating correction carbohydrates, is part of managing their
+diabetes.
+Digital tools to support the management of diabetes are
+becoming available [1], and often contain some predictive
+capabilities. For instance, Short Term BG (STBG) predictions
+can benefit patients on insulin treatment who are at risk
+of hypoglycemia. Due to the narrow therapeutic index of
+insulin and the risk of prompting an adverse insulin treatment
+behaviour, the predictive capabilities of current and future
+digital tools must be as precise as possible given the available
+data. Obviously, predictions of future BG levels depend on
+the amount and quality of the past BG level data. Furthermore, the need for insulin is dynamically impacted by several
+factors such as meal size/composition and physical activity
+1 Department of Applied Mathematics and Computer Science, Cognitive Systems, Technical University of Denmark (DTU), Denmark,
+
+xaim@novonordisk.com / mmor@dtu.dk
+2
+3
+4
+
+Novo Nordisk A/S, Device R&D, Hillerd, Denmark
+Novo Nordisk A/S, Medical & Science, Sborg, Denmark
+Novo Nordisk A/S, Data Analytics, Sborg, Denmark
+
+level. Hence, predictions of future BG levels benefit from
+having such data available as well [2]. However, although
+access to more data sources (carbohydrates, exercise, dose
+size) add further information and can improve the prediction
+performance, the availability of such data suffer from it
+typically having to be actively collected and therefore are
+either completely lacking or in low quality. As a result, BG
+predictions have to perform well even when only BG data
+are available. Another issue is that there may be situations
+where the immediate historic data are not available, e.g.
+when a patient is using the tool for the first time or if data
+has not been generated or collected during a weekend or
+vacation. Therefore, BG predictions also have to perform
+well or fail safe in situations where the immediate historic
+data is limited.
+The use of Continuous Glucose Monitoring (CGM) is
+increasing and unlocks new possible approaches to diabetes
+therapy [3]–[5]. With CGM, an abundance of real-time BG
+measurements become available for patients with type 1
+diabetes (T1D) and progressed type 2 diabetes (T2D). The
+question is how the CGM data can be optimally leveraged to
+prepare future decision support tools. For example, access to
+large quantities of CGM data creates an opportunity to learn
+structural properties of the CGM signal, which may be used
+for predicting future BG values. Thus, optimised predictive
+modeling could be leveraged to improve the opportunities for
+patients to make therapeutic decisions based on forecasted
+BG levels.
+Several well-established predictive methods exist in timeseries analysis, e.g. the Autoregressive Integrated Moving
+Average (ARIMA), which is a robust linear approach [6]. A
+recent addition to predictive methods for time-series is the
+use of Recurrent Neural Networks (RNNs) in Deep Learning
+(DL). RNNs have proven effective for a variety of sequence
+modeling and forecasting tasks, most notably in language
+and speech [7]. RNNs are typically implemented with Long
+Short Term Memory (LSTM) units that provides a gating
+mechanism enabling the RNNs to preserve in memory events
+further in the past [8], [9]. In this context, previous studies
+have indicated the benefits of RNNs for STBG prediction [2],
+[10], [11]. Motivated by recent results in Transfer Learning
+(TL), we would like to investigate the ability of transferring
+models learned from one task to another [12]. The question
+is whether there would be benefits of deploying the more
+advanced predictive methods for BG predictions compared
+to traditional methods such as ARIMA.
+
+The specific research questions in the study are:
+1) Does a population based LSTM model generalize well
+to unseen patients, i.e. if CGM trends acquired from a
+population can enable STBG prediction on individual
+patients?
+2) Does increasingly added patient-specific CGM data
+to a pretrained population based LSTM (i.e., using
+TL) improve predictive performance on individual patients?
+3) How does the LSTM based solely on patient-specific
+data perform when trained on limited CGM data?
+In order to answer the specific research questions, this
+study systematically investigates LSTM based RNNs for
+STBG prediction up to 90 min horizon into the future in
+comparison to ARIMA. Additionally, the study explores the
+feasibility/application of TL in this context. The models
+outlined below are compared in this study:
+1) Population based LSTM (pretraining),
+2) Finetuned Patient-specific LSTM (with pretraining),
+3) Patient-specific LSTM (without pretraining),
+4) Patient-specific ARIMA.
+II. METHODS
+In this section, a comprehensive description of the included CGM data, examined models, and experimental setup
+is provided. An overview is supplied in Fig. 1.
+A. CGM Data
+The CGM data used in this study is acquired from the
+Cornerstones4Care R platform powered by Glooko which
+is a diabetes management application capturing real-world
+CGM data. 14 consecutive days of CGM data (henceforth
+referred to as a period) are acquired from 50 patients with
+diabetes with readings every 5 minutes (i.e. 288 BG readings
+per day). However, CGM data from real-life patients often
+have missing values (or gaps) caused either by sensor or
+human error. Inspired by the international CGM consensus,
+only CGM days and periods with more than 70% available
+BG readings are included [3]. However, an average of 96%
+available BG readings is present for the included periods.
+Furthermore, no information exist about the diabetes type,
+demographics or treatment regimens of the patients based
+on missing access.
+B. ARIMA
+ARIMA models are considered some of the most flexible
+and popular autoregressive techniques for continuous timeseries forecasting [6]. ARIMA is specified by 3 parameters:
+p, d, and q. Here, p refers to the number of autoregressive
+terms, d represents the number of nonseasonal differences,
+and q depicts the number of lagged forecast errors in the
+prediction equation. When working with a data sequence
+x1 , x2 , . . . xn , we can describe ARIMA as
+0
+0
+xt0 = c + φ1 xt−1
++ · · · + φ p xt−p
++
+
+εt + θ1 εt−1 + θq εt−q , (1)
+
+where xt0 denotes the differenced time-series, which has
+been differenced d times, c is a constant, φ is the AR(p)
+component, θ is the MA(q) component, and ε is the lagged
+forecast errors.
+C. Long Short-Term Memory Network (LSTM)
+RNN is a type of DL architecture which repeatedly uses
+the same weights along a sequence of data. The LSTM cell
+extends the recurrent computation of an RNN with a gating
+mechanism. This gating mechanism allows the LSTM to
+represent relationships between data points far apart [8], [9].
+The CGM data is modeled as a one-dimensional time
+series, i.e. the BG value at each time step, see Eq. 2. To
+limit the complexity, we only allowed the LSTM to observe
+the k preceding BG values (denoted as the historical window)
+before predicting the next BG value.
+x̂t = f (xt−1 , xt−2 . . . , xt−k )
+
+(2)
+
+where xi is a single BG measurement, x̂i is the predicted BG
+value, k corresponds to the historical window size, and f
+is an LSTM based function with a multilayered perceptron
+(MLP) resulting in one continuous value, x̂t . The network
+architecture, f , is defined as follows,
+x̂t = f (xt−1 , xt−2 . . . , xt−k ) = w> gt
+
+(3)
+
+gt = a(Uht + b)
+
+(4)
+
+ht = LSTM(xt−1 , ht−1 , θ )
+
+(5)
+
+where a is the Rectified Linear Unit (ReLU) activation
+function [13] applied element-wise; w, U, b, and the parameters θ of the LSTM are trainable with gradient descent
+methods; and ht−k is the zero vector. We optimize f using the
+Root Mean Square Error (RMSE) between the target xt , and
+predicted value x̂t . When training f we regularize the model
+by having a historical window size sequentially increased
+from 1 to k as used in language modeling [8], [9].
+D. CGM Data Partitions
+As shown in Fig. 1, CGM data from 50 patients and
+their corresponding periods (14 consecutive CGM days)
+are partitioned into two separate sets; a training set of 35
+randomly selected patients for training of the populationbased LSTM and the remaining 15 patients as a test set for
+patient-specific models.
+For each of the 15 patients, their period of 14 CGM days
+is divided into two 7-day parts. The latter 7 days are used
+for testing all developed models and the first 7 days are
+used for training. The training data is then further restricted
+into either 1, 3 or 7 preceding days such that the test data
+is contiguous with the preceding training days (dark blue
+boxes in Fig. 1). These restrictions are made to examine
+whether increasingly added CGM days will have an impact
+and improve the performance of the patient-specific models.
+E. Data Processing & Inclusion Criteria
+The CGM data is normalized to have zero mean and a
+variance of one for all models, i.e. standardizing training
+data and applying equivalent standardization with training
+
+Fig. 1: Flowdiagram of the experimental setup including both the population-based and patient-specific models presented
+by two different blocks. Furthermore, the flow of information within/between blocks and in which order are depicted by
+the numbered squares. All model specifications for both LSTMs and ARIMA are outlined with corresponding color-coded
+boxes within the two blocks. Blue box: Population-based LSTM (pretraining), Orange box: Finetuned patient-specific LSTM
+(with pretraining), Green box: Patient-specific LSTM (without pretraining), Red box: Patient-specific ARIMA.
+
+mean and standard deviation on the test data. When training
+the LSTMs, only historical windows with no missing values
+are used. At test time, windows with missing values are
+discarded if they fulfill at least one of two conditions: 1)
+Input window contains more than 4 missing values within
+the last hour, and 2) Most recent value is missing. Missing
+values of remaining windows are linearly interpolated. All
+missing values are linearly interpolated when fitting ARIMA.
+Only samples, xt , at which all models have made predictions
+are considered when evaluating on the test set.
+F. Population-based LSTM (Pretraining)
+Taking the population block into account in Fig. 1, the
+population training set is fed to the population-based LSTM
+(blue box), also considered as pretraining for the patientspecific LSTMs. In this context, a sliding window (using 20
+minute steps) of BG values are used as input in batches of
+64 windows.
+Bayesian optimization (BO) implemented in SigOpt [14]
+is used to efficiently explore a predefined bounded hyperparameter space for LSTMs, dropout level of the MLP layer,
+and historical window size. 15 distinct LSTM networks
+(experiments) with the outlined parameters suggested by BO
+are then trained on 30 patients and evaluated on a validation
+set of 5 patients. The architecture and configuration corresponding to the best performing population-based LSTM are
+found in terms of root-mean square error (RMSE) on the
+validation set. Networks are optimized by the Rectified Adam
+(RAdam) gradient descent method using default parameters
+as proposed by [15].
+
+G. Patient-specific LSTMs
+The best performing LSTM and its configuration found by
+BO are used to produce patient-specific LSTMs based on the
+patient-specific CGM data. To evaluate whether any knowledge from the population-based LSTM can be transferred to
+patient-specific LSTMs, we evaluate two conditions.
+In the first case, we use TL to finetune the populationbased LSTM to individual patients (orange box), i.e. learnable parameters of the population-based LSTM are transferred and finetuned with patient-specific training data (1,
+3 and 7 CGM days). Given the limited data available on a
+patient level, a sliding window with 5 minute steps is used
+while 90% and 10% of the data is partitioned into training
+and validation sets, respectively. Networks are finetuned with
+Stochastic Gradient Descent (SGD) (using a momentum of
+0.9) and a learning rate of 10−3 to mitigate catastrophic
+forgetting.
+For the second case, patient-specific LSTMs with the
+same hyperparameters and patient-specific data as in the
+first condition are used (green box) but with their network
+weights randomly initialized rather than transferred from the
+population-based LSTM. Networks in the second condition
+are optimized using RAdam with default parameters (as for
+the population-based LSTM).
+H. Scheduling & Early Stopping
+All LSTMs use a factor-10 reduce-on-plateau learning
+rate schedule, i.e. learning rate is reduced by a factor of
+10 whenever no improvement is obtained within 10 epochs,
+hence reducing oscillations near local optima. Similarly, in
+order to prevent overfitting, early stopping is applied when
+
+Fig. 2: Example of 90 minutes of predictions for a all the
+examined models where historical data is followed by ground
+truth BG values.
+
+no improvement is observed on a held-out validation set
+within 20 epochs.
+
+Fig. 3: MAE [mmol/L] for the 15 test patients as function
+of provided CGM training days (PH = 60 min) for all the
+models illustrated as boxplots.
+
+I. Patient-specific ARIMA
+For the patient-specific ARIMA models, AutoARIMA
+[16] is able to fit a suitable model for every case of CGM
+training day(s) available (1, 3 or 7) for each specific patient
+(red box). Thus, a total 45 ARIMA models are fitted. The
+parameter search ranges for d, p, and q in the AutoARIMA
+are presented in Fig. 1 allowing larger ARIMA models to
+be examined (i.e. taking up to 2 hours of historical BG
+values and their errors into account). AutoARIMA conducts
+differencing tests to determine d, fit multiple models within
+a given range for p and q, followed by selecting the best
+model based on the lowest Akaike Information Criterion
+[16]. The best performing model parameters are evaluated
+on the test data. In practice, AutoARIMA is implemented
+by the pdmarima Python module and the models are fitted
+using Newton’s method.
+J. Prediction Horizon
+Prediction horizons (PHs) of 15, 30, 45, 60, and 90 min
+into the future are tested, i.e. all models predict 18 BG
+values into the future (90 min) conditioned on the preceding
+historical window.
+The LSTM models are trained using teacher forcing [17],
+in which during training the model receives the ground
+truth output at time t as input at time t + 1. For testing,
+we sequentially predict the next BG value and update the
+input sequence with the computed prediction in an autoregressive manner. To improve performance of the LSTMs,
+the ensemble BG prediction acquired from 3 different seeds
+is computed as the final prediction, i.e. the average of 3
+separately predicted BG values.
+For the ARIMA models, we similarly predict the next
+BG sequentially and update the input sequence with the
+computed prediction in an autoregressive manner during
+testing. Fig. 2 shows 90 minutes of predictions for all the
+examined models where historical data is followed by ground
+truth BG values.
+As performance metrics, the Mean Absolute Error (MAE)
+
+Fig. 4: MAE [mmol/L] for the 15 test patients as function
+of different PHs (CGM training days = 7) illustrated as
+boxplots.
+
+(Eq. 6) and RMSE (Eq. 7) are used for model comparison.
+
+ 1 n
+(s) (s)
+(s)
+(s)
+MAE x j , x̂ j = ∑ xi, j − x̂i, j
+(6)
+n i=1
+
+
+(s) (s)
+RMSE x j , x̂ j =
+
+s
+
+
+1 n  (s)
+(s) 2
+xi, j − x̂i, j
+∑
+n i=1
+
+(7)
+
+Here, n represents the number of predictions, s the considered
+subject and j is the index of PH ranging from 1 to 18.
+III. RESULTS & DISCUSSION
+The best performing LSTM model found by BO is defined
+by the following specifications: 2 layers of bidirectional
+LSTM with a hidden state of size 64, no dropout on the MLP
+layer (64 hidden units), and 2 hour historical window as input
+sequence. AutoARIMA generally found small models to
+perform best, with the most commonly occurring complexity
+
+TABLE I: Tables for all the model performances in terms of average mae and rmse with corresponding standard error of
+the mean based on the 7 CGM test days of the 15 patients (CGM training days = 7).
+Model
+Population-based LSTM (pretraining)
+Finetuned Patient-specific LSTM (with pretraining)
+Patient-specific LSTM (without pretraining)
+Patient-specific ARIMA
+Last Observation Carried Forward
+
+MAE (Standard Error) [mmol/L]
+15 min
+0.4392 ± 0.0282
+0.4406 ± 0.0297
+0.4753 ± 0.0330
+0.4569 ± 0.0306
+0.5650 ± 0.0356
+
+30 min
+0.8219 ± 0.0507
+0.8261 ± 0.0547
+0.8788 ± 0.0598
+0.8587 ± 0.0558
+0.9925 ± 0.0654
+
+15 min
+0.6492 ± 0.0449
+0.6493 ± 0.0459
+0.6961 ± 0.0512
+0.6782 ± 0.0483
+0.8023 ± 0.0528
+
+30 min
+1.1557 ± 0.0753
+1.1570 ± 0.0776
+1.2374 ± 0.0882
+1.2158 ± 0.0821
+1.3761 ± 0.0925
+
+Model
+Population-based LSTM (pretraining)
+Finetuned Patient-specific LSTM (with pretraining)
+Patient-specific LSTM (without pretraining)
+Patient-specific ARIMA
+Last Observation Carried Forward
+
+45 min
+1.1741 ± 0.0738
+1.1826 ± 0.0804
+1.2406 ± 0.0842
+1.2307 ± 0.0817
+1.3648 ± 0.0931
+
+60 min
+1.4919 ± 0.0980
+1.5049 ± 0.1066
+1.5607 ± 0.1071
+1.5721 ± 0.1082
+1.6901 ± 0.1185
+
+90 min
+1.9996 ± 0.1403
+2.0170 ± 0.1510
+2.0669 ± 0.1431
+2.1241 ± 0.1542
+2.2097 ± 0.1617
+
+RMSE (Standard Error) [mmol/L]
+
+being d = 4, p = 1, and q = 2.
+Tab. I shows all the model performances in terms of
+average MAE and RMSE with corresponding standard error
+of the mean based on the 7 CGM test days of the 15
+patients (CGM training days = 7). Additionally, to ground
+our results from other methods, Last Observation Carried
+Forward (LOCF) is also included which applies the last
+available BG observation as its future prediction for all times.
+In Tab. I, the overall best performing model is the
+population-based LSTM with MAE ranging between 0.4392
+± 0.0282 to 1.9996 ± 0.1403 [mmol/L] for PH = 15 and
+90 min, respectively. This is followed by the finetuned
+patient-specific LSTM both in terms of MAE and RMSE.
+Patient-specific ARIMA performs slightly better than patientspecific LSTM until PH = 45 min whereas for PH = 60 and
+90 min patient-specific LSTM achieves a modestly better
+performance. As expected, LOCF performs worse than the
+other models as it does not benefit from the historical
+trends other than the last BG value. Furthermore, within the
+investigated models exploiting CGM dynamics, we deal with
+small performance differences. Fig. 3 shows the MAE for all
+models (as boxplots) across the 15 patients as a function of
+available training CGM days of 1, 3, and 7 having PH fixed
+to 60 min.
+Given the described setup in this study, we find that the
+population-based LSTM (blue) performs most favorable for
+STBG prediction as the model does not rely on patientspecific CGM training days available. This implies that
+learning from a population can be beneficial on patient level.
+In other words, generalizing well when applied on the unseen
+patients considered for STBG prediction. From Fig. 3 it is
+further clear that performance is patient-dependent given the
+width of the boxplots.
+The finetuned patient-specific LSTM (orange) performs
+similarly to the population-based LSTM. In other words,
+the added patient-specific CGM data (7 CGM days) to a
+pretrained population based LSTM (TL) do not improve
+predictive performance on individual patients. In this context,
+there are two possible explanations of the given outcome:
+1) More patient-specific CGM data with longer periods are
+
+45 min
+1.6191 ± 0.1067
+1.6218 ± 0.1107
+1.7101 ± 0.1195
+1.7013 ± 0.1161
+1.8662 ± 0.1284
+
+60 min
+2.0317 ± 0.1397
+2.0364 ± 0.1446
+2.1187 ± 0.1469
+2.1358 ± 0.1500
+2.2876 ± 0.1610
+
+90 min
+2.6718 ± 0.1974
+2.6796 ± 0.2016
+2.7415 ± 0.1881
+2.8284 ± 0.2098
+2.9442 ± 0.2166
+
+required for training purposes of the LSTMs in order to
+improve performance on patient level, and 2) TL is known
+for being difficult to deploy in practice e.g. sub-optimal
+local minima, slow convergence, and catastrophic forgetting
+indicating undesired pitfalls during training.
+On the other hand, considering the patient-specific LSTM
+(green), the number of available CGM days for each specific
+patient have an impact. The model transcends LOCF with
+7 training days, initially being the worst performing model
+with only one training day (see Fig. 3). This suggests
+that more patient-specific historical data will benefit the
+performance and enable learning individual trends.
+The patient-specific ARIMA models (red) perform well
+in general regardless of available CGM training days. Nevertheless, it has a larger midspread than the population-based
+LSTM (blue). Hence, the linear models perform comparably
+with the more complex LSTM-based models. Simultaneously, if only limited CGM data is available (in this case
+up to 7 CGM days), a patient-specific ARIMA would be a
+promising alternative to the patient-specific LSTM.
+Fig. 4 visualizes the change of MAE as a function of
+different PHs, with the number of CGM training days fixed
+to 7. MAE is increased by increased PH for all the models.
+At the same time, it also indicates for the LOCF approach
+that a short PH of e.g. 15 minutes might still provide some
+insight of the BG level depending on the task.
+Limitations of this study includes the relatively small
+number of patients. Considering a total sample of 50 patients
+may show indications, but more patients and CGM data
+are required to investigate consistency and robustness to the
+developed models.
+Another limitation is unspecified patient information, i.e.
+we do not know the diabetes type, demographics or treatment
+regimens, all of which are known to impact BG. In particular,
+T1D and T2D BG dynamics are very different and their
+dissimilar effects might distort the underlying signal in the
+CGM data.
+Future studies should focus on a specific cohort of patients
+with known treatment regimens, demographics and if possible other data sources (carbohydrates, exercise, dose size). In
+
+particular, examining population- and patient-tailored STBG
+prediction models aimed towards specific groups of patients.
+Moreover, the problem could also be approached as a classification problem as opposed to regression. In this context,
+targeted towards hypoglycemic event detection including
+e.g. expert-dependent features acquired from the CGM data,
+a strategy successfully used in other tasks [4], [5], [18].
+Ideally, future solutions could be based on different hybrid
+models which are dynamically deployed depending on data
+availability and quality.
+IV. CONCLUSION
+In this study, we explore the effectiveness and potential of
+using LSTM-based RNNs for STBG prediction in contrast to
+a linear model such as ARIMA. We find that a populationbased LSTM model generalizes well to individual patients,
+being the best performing model in all PH cases. Adding
+up to 7 CGM training days in the finetuned patient-specific
+LSTM (TL) do not seem to suffice/improve performance.
+This indicates the need for further investigation and more
+patient-specific CGM data with longer periods. The patientspecific LSTM does not perform well when only one day of
+CGM data are available. On the other hand, it benefits by
+added patient-specific training days performing similar to the
+patient-specific ARIMA with 7 days of CGM data available.
+Given the outcome of this study, advanced predictive
+models could be deployed when designing decision support
+tools with BG forecasting capabilities. However, in some
+situations the conventional linear ARIMA approach performs
+as well or better, in particular when little CGM data are
+available. A future solution may be a hybrid predictive
+approach dynamically deploying different models depending
+on data availability and quality.
+REFERENCES
+[1] S. Grock, J.-h. Ku, J. Kim, and T. Moin, “A review of technologyassisted interventions for diabetes prevention,” Current diabetes reports, vol. 17, no. 11, p. 107, 2017.
+[2] C. Zecchin, A. Facchinetti, G. Sparacino, and C. Cobelli, “How much
+is short-term glucose prediction in type 1 diabetes improved by adding
+insulin delivery and meal content information to cgm data? a proof-ofconcept study,” Journal of diabetes science and technology, vol. 10,
+no. 5, pp. 1149–1160, 2016.
+[3] T. Battelino, T. Danne, R. M. Bergenstal, S. A. Amiel, R. Beck,
+T. Biester, E. Bosi, B. A. Buckingham, W. T. Cefalu, K. L. Close et al.,
+“Clinical targets for continuous glucose monitoring data interpretation:
+Recommendations from the international consensus on time in range,”
+Diabetes care, p. dci190028, 2019.
+[4] A. Mohebbi, J. M. Tarp, M. L. Jensen, S. Puthusserypady,
+E. Hachmann-Nielsen, H. Bengtsson, and M. Mørup, “Fast assessment
+of glycemic control based on continuous glucose monitoring data,” in
+2019 41st Annual International Conference of the IEEE Engineering
+in Medicine and Biology Society (EMBC). IEEE, 2019, pp. 7185–
+7188.
+[5] A. Mohebbi, T. B. Aradóttir, A. R. Johansen, H. Bengtsson, M. Fraccaro, and M. Mørup, “A deep learning approach to adherence detection
+for type 2 diabetics,” in 2017 39th Annual International Conference
+of the IEEE Engineering in Medicine and Biology Society (EMBC).
+IEEE, 2017, pp. 2896–2899.
+[6] G. E. Box, G. M. Jenkins, G. C. Reinsel, and G. M. Ljung, Time series
+analysis: forecasting and control. John Wiley & Sons, 2015.
+[7] Y. LeCun, Y. Bengio, and G. Hinton, “Deep learning,” nature, vol.
+521, no. 7553, p. 436, 2015.
+
+[8] S. Hochreiter and J. Schmidhuber, “Long short-term memory,” Neural
+computation, vol. 9, no. 8, pp. 1735–1780, 1997.
+[9] A. Graves, “Generating sequences with recurrent neural networks,”
+arXiv preprint arXiv:1308.0850, 2013.
+[10] K. Li, J. Daniels, C. Liu, P. Herrero-Vinas, and P. Georgiou, “Convolutional recurrent neural networks for glucose prediction,” IEEE Journal
+of Biomedical and Health Informatics, 2019.
+[11] S. Fiorini, C. Martini, D. Malpassi, R. Cordera, D. Maggi, A. Verri,
+and A. Barla, “Data-driven strategies for robust forecast of continuous
+glucose monitoring time-series,” in 2017 39th Annual International
+Conference of the IEEE Engineering in Medicine and Biology Society
+(EMBC). IEEE, 2017, pp. 1680–1683.
+[12] A. Zhang, H. Wang, S. Li, Y. Cui, Z. Liu, G. Yang, and J. Hu, “Transfer
+learning with deep recurrent neural networks for remaining useful life
+estimation,” Applied Sciences, vol. 8, no. 12, p. 2416, 2018.
+[13] X. Glorot, A. Bordes, and Y. Bengio, “Deep sparse rectifier neural
+networks,” in Proceedings of the fourteenth international conference
+on artificial intelligence and statistics, 2011, pp. 315–323.
+[14] I. Dewancker, M. McCourt, and S. Clark, “Bayesian optimization
+primer,” 2015.
+[15] L. Liu, H. Jiang, P. He, W. Chen, X. Liu, J. Gao, and J. Han, “On
+the variance of the adaptive learning rate and beyond,” arXiv preprint
+arXiv:1908.03265, 2019.
+[16] T. G. Smith et al., “pmdarima: Arima estimators for Python,”
+2017–, [Online; accessed 10.11.2019]. [Online]. Available: http:
+//www.alkaline-ml.com/pmdarima
+[17] R. J. Williams and D. Zipser, “A learning algorithm for continually
+running fully recurrent neural networks,” Neural computation, vol. 1,
+no. 2, pp. 270–280, 1989.
+[18] D. Thyde, A. Mohebbi, H. Bengtsson, M. L. Jensen, and M. Mrup,
+“Machine learning based adherence detection of type 2 diabetes
+patients on once-daily basal insulin injections,” Journal of diabetes
+science and technology (Submitted), 2019.
+
+

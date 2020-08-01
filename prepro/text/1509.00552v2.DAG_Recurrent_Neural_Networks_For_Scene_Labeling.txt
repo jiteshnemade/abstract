@@ -1,0 +1,1301 @@
+DAG-Recurrent Neural Networks For Scene Labeling
+Bing Shuai∗ , Zhen Zuo∗ , Gang Wang, Bing Wang
+School of Electrical and Electronic Engineering, Nanyang Technological University, Singapore.
+
+arXiv:1509.00552v2 [cs.CV] 23 Nov 2015
+
+{bshuai001,wanggang,zzuo1,wang0775}@ntu.edu.sg ∗
+
+Input Image
+
+CNN
+
+DAG-RNN
+
+Ground Truth
+
+Input Image
+
+CNN
+
+DAG-RNN
+
+Ground Truth
+
+Figure 1: With the local representations extracted from Convolutional Neural Networks (CNNs), the ‘sand’ pixels (in the first image) are likely to be
+misclassified as ‘road’, and the ‘building’ pixels (in the second image) are easy to get confused with ‘streetlight’. Our DAG-RNN is able to significantly boost
+the discriminative power of local representations by modeling their contextual dependencies. As a result, it can produce smoother and more semantically
+meaningful labeling map. The figure is best viewed in color.
+
+Abstract
+
+1, the ‘sand’ and ‘road’ pixels are hard to be distinguished
+even for humans with limited context. In contrast, their differentiation becomes conspicuous when they are considered
+in the global scene. Thus, how to equip local features with
+a broader view of contextual awareness is a pivotal issue in
+image labeling.
+In this paper, recurrent neural networks (RNNs) [9][16]
+are introduced to address this issue by modeling the contextual dependencies of local features. Specifically, we adopt
+undirected cyclic graphs (UCG) to model the interactions
+among image units. Due to the loopy property of UCGs,
+RNNs are not directly applicable to UCG-structured images. Thus, we decompose the UCG to several directed
+acyclic graphs (DAGs, and four DAGs are used in our experiments). In other words, an UCG-structured image is approximated by the combination of several DAG-structured
+images. Then, we develop the DAG-RNNs, a generalization
+of RNNs [8][9], to process DAG-structured images. Each
+hidden layer is generated independently through applying
+DAG-RNNs to the corresponding DAG-structured image,
+and they are integrated to produce the context-aware feature maps. In this case, the local representations are able to
+embed the abstract gist of the image, so their discriminative
+power are enhanced remarkably.
+We integrate the DAG-RNNs with the convolution and
+deconvolution layers, thus giving rise to an end-to-end trainable full labeling network. Functionally, the convolution
+layer transforms RGB raw pixels to compact and discriminative representations. Based on them, the proposed DAG-
+
+In image labeling, local representations for image
+units are usually generated from their surrounding image
+patches, thus long-range contextual information is not effectively encoded. In this paper, we introduce recurrent
+neural networks (RNNs) to address this issue. Specifically,
+directed acyclic graph RNNs (DAG-RNNs) are proposed to
+process DAG-structured images, which enables the network
+to model long-range semantic dependencies among image
+units. Our DAG-RNNs are capable of tremendously enhancing the discriminative power of local representations, which
+significantly benefits the local classification. Meanwhile,
+we propose a novel class weighting function that attends to
+rare classes, which phenomenally boosts the recognition accuracy for non-frequent classes. Integrating with convolution and deconvolution layers, our DAG-RNNs achieve new
+state-of-the-art results on the challenging SiftFlow, CamVid
+and Barcelona benchmarks.
+
+1. Introduction
+Scene labeling refers to associating one of the semantic
+classes to each pixel in a scene image. It is usually defined
+as a multi-class classification problem based on their surrounding image patches. However, some classes may be indistinguishable in a close-up view. As an example in Figure
+∗ Equal
+
+Contribution
+
+1
+
+RNNs model the contextual dependencies of local features,
+and output the improved context-aware representation. The
+deconvolution layer upsamples the feature maps to match
+the dimensionality of the desired outputs. Overall, the full
+labeling network accepts variable-size images and generates the corresponding dense label prediction maps in a single feed-forward network pass. Furthermore, considering
+that the class frequency distribution is highly imbalanced in
+natural scene images, we propose a novel class weighting
+function that attends to rare classes.
+We test the proposed labeling network on three popular and challenging scene labeling benchmarks (SiftFlow
+[13], CamVid [2] and Barcelona[26]). On these datasets, we
+show that our DAG-RNNs are capable of greatly enhancing the discriminative power of local representations, which
+leads to dramatic performance improvements over baselines
+(CNNs, even the VGG-verydeep-16 network [23]). Meanwhile, the proposed class weighting function is able to boost
+the recognition accuracy for rare classes. Most importantly,
+our full labeling network significantly outperforms current
+state-of-the-art methods.
+Next, related work are firstly reviewed, compared and
+discussed in Section 2. Section 3 elaborates the details of
+the DAG-RNNs and how they are applied to image labeling.
+Besides, it presents the details of the full labeling network
+and the class weighting function. The detailed experimental
+results and analysis are presented in Section 4. In the end,
+section 5 concludes the paper.
+
+2. Related Work
+Scene labeling (also termed as scene parsing, semantic
+segmentation) is one of the most challenging problems in
+computer vision. It has attracted more and more attention
+in recent years. Here we would like to highlight and discuss
+three lines of works that are most relevant to ours.
+The first line of work is to explore the contextual modeling. One attempt is to encode context into local representation. For example, Farabet et al. [7] stacks surrounding
+contextual windows from different scales; Pinheiro et al.
+[17] increases the size of input windows. Sharma et al. [19]
+adopts recursive neural networks to propagate global context to local regions. However, they do not consider any
+structure for image units, thus their correlations are not effectively captured. In contrast, we interpret the image as an
+UCG, within which the connections allow the DAG-RNNs
+to explicitly model the dependencies among image units.
+Another attempt is to pass context to local classifiers by
+building probabilistic graphical models (PGM). For example, Shotton et al. [20] formulates the unary and pairwise
+features in a 2nd-order Conditional Random Field (CRF).
+Zhang et al.[34] and Roy et al. [18] build a fully connected
+graph to enforce higher order labeling coherence. Shuai
+et al.[21] models the global-order dependencies in a non-
+
+parametric framework to disambiguate the local confusions.
+Our work also differs from them. First, the label dependencies are defined in terms of compatibility functions in PGM,
+while such dependencies are modeled through a recurrent
+weight matrix in RNNs. Moreover, the inference of PGM is
+inefficient as the convergence of local beliefs usually takes
+many iterations. In contrast, RNNs only need a single forward pass to propagate the local information.
+Some of the previous work exploit ‘recurrent’ ideas in
+a different way. They generally refer to applying the identical model recurrently at different iterations (layers). For
+example, Pinheiro et al.[17] attachs the RGB raw data with
+the output of the Convolutional Neural Network (CNN) to
+produce the input for the same CNN in the next layer. Tu
+et al.[28] augments the patch feature with the output of the
+classifier to be the input for the next iteration, and the classifier parameters are shared across different iterations. Zheng
+et al.[35] transforms Conditional Random Fields (CRF) to
+a neural network, so the inference of CRF equals to applying the same neural network recurrently until some fixed
+point (convergence) is reached. Our work differs from them
+significantly. They model the context in the form of intermediate outputs (usually local beliefs), which implicitly encodes the neighborhood information. In contrast, the contextual dependencies are modeled explicitly in DAG-RNNs
+by propagating information via the recurrent connections.
+Recurrent neural networks (RNNs) have achieved great
+success in temporal dependency modeling for chainstructured data, such as natural language and speeches. Zuo
+et al. [37] applies 1D-RNN to model weak contextual dependencies in image classification. Graves et al. [8] generalizes 1D-RNN to multi-dimensional RNN (MDRNN) and
+applies it to offline arabic handwriting recognition. Shuai
+et al.[22] also adopts 2D-RNN to real-world image labeling. Recently, Tai et al.[25] and Zhu et al.[36] demonstrate that considering tree structure (constituent / parsing
+trees for sentences) is beneficial for modeling the global
+representation of sentences. Our proposed DAG-RNN is a
+generalization of chain-RNNs [1][10], tree-RNNs [25][36]
+and 2D-RNNs [8][22], and it enables the network to model
+long-range semantic dependencies for graphical structured
+images. The most relevant work to ours is [22]. In comparison with which, (1), we generalize 2D-RNN to DAG-RNN
+and show benefits in quantitative labeling performance; (2),
+we integrate the convolution layer, deconvolution layer with
+our DAG-RNNs to a full labeling network; and (3), we
+adopt a novel class weighting function to address the extremely imbalanced class distribution issue in natural scene
+images. To the best of our knowledge, our work is the first
+attempt to integrate the convolution layers with RNNs in an
+end-to-end trainable network for real-world image labeling.
+Moreover, the proposed full network achieves state-of-theart on a variety of scene labeling benchmarks.
+
+3. Approach
+To densely label an image I, the image is processed by
+three different functional layers sequentially: (1), Convolution layer produces the corresponding feature map x. Each
+feature vector in x summarizes the information from a local
+region in I. (2), DAG-RNNs model the contextual dependency among elements in x, and generates the intermediate
+feature map h, whose element is a feature vector that implicitly embeds the abstract gist of the image. (3), Deconvolution layer [14] upsamples the feature maps. From which,
+the dense label prediction maps are derived. We start by introducing the proposed DAG-RNNs, and the details of the
+full network are elaborated in the following sections.
+
+DAG (GSE)
+
+UCG (8-neighborhood)
+sky
+
+sand
+
+sea
+
+Figure 2: An 8-neighborhood UCG and one of its induced DAG in the
+southeastern (SE) direction.
+
+3.1. RNNs Revisited
+A recurrent neural network (RNN) is a class of artificial
+neural network that has recurrent connections, which equip
+the network with memory. In this paper, we focus on the
+Elman-type network [6]. Specifically, the hidden layer h(t)
+in RNNs at time step t is expressed as a non-linear function
+over current input x(t) and hidden layer at previous time
+step h(t−1) . The output layer y (t) is connected to the hidden
+layer h(t) .
+Mathematically, given a sequence of inputs {x(t) }t=1:T ,
+an Elman-type RNN operates by computing the following
+hidden and output sequences:
+h(t) = f (U x(t) + W h(t−1) + b)
+y (t) = g(V h(t) + c)
+
+(1)
+
+where U, W are weight matrices between the input and
+hidden layers, and among the hidden units themselves,
+while V is the output matrix connecting the hidden and output layers; b, c are corresponding bias vectors and f (·), g(·)
+are element-wise nonlinear activation functions. The initial
+hidden unit h(0) is usually assumed to be 0. The local information x(t) is progressively stored in the hidden layers by
+applying Equation 1. In other words, the contextual information (the summarization of past sequence information) is
+explicitly encoded into local representation h(t) , which improves their representative power dramatically in practice.
+Training a RNN can be achieved by optimizing a discriminative objective with a gradient-based method. Back
+Propagation through time (BPTT) [30] is usually used to
+calculate the gradients. This method is equivalent to unfolding the network in time and using back propagation in
+a very deep feed-forward network except that the weights
+across different time steps (layers) are shared.
+
+3.2. DAG-RNNs
+The aforementioned RNN is designed for chainstructured data (e.g. sentences or speeches), where temporal dependency is modeled. However, interactions among
+
+image units are beyond chain. In other words, traditional
+chain-structured RNNs are not suitable for images. Specifically, we can reshape the feature tensor x ∈ Rh×w×d to
+x̂ ∈ R(h·w)×d , and generate the chain representation by
+connecting contiguous elements in x̂. Such a structure loses
+spatial relationship of image units, as two adjacent units in
+image plane may not necessarily be neighbors in the chain.
+The graphical representations that respect the 2-D neighborhood system are more plausible solutions, and they are pervasively adopted in probabilistic graphical models (PGM).
+Therefore in this work, undirected cyclic graphs (UCG , an
+example is shown in Figure 2) are used to model the interactions among image units.
+Due to the loopy structure of UCGs, they are unable
+to be unrolled to an acyclic processing sequence. Therefore, RNNs are not directly applicable to UCG-structured
+images. To address this issue, we approximate the topology of UCG by a combination of several directed acyclic
+graphs (DAGs), each of which is applicable for our proposed DAG-RNNs (one of the induced DAGs is depicted
+in Figure 2). Namely, an UCG-structured image is represented as the combination of a set of DAG-structured images. We now start introducing the detailed mechanism of
+our DAG-RNNs here, and later elaborate how they are applied to UCG-structured images in the next section.
+We first assume that an image I is represented as a DAG
+G = {V, E}, where V = {vi }i=1:N is the vertex set and
+E = {eij } is the arc set (eij denotes an arc from vi to vj ).
+The structure of the hidden layer h follows the same topology as G. Therefore, a forward propagation sequence can be
+generated by traversing G, on the condition that one node
+should not be processed until all its predecessors are processed. The hidden layer h(vi ) is represented as a nonlinear
+function over its local input x(vi ) and the summarization
+of hidden representation of its predecessors. The local input x(vi ) is obtained by aggregating (e.g. average pooling)
+from constituent elements in the feature tensor x. In detail,
+the forward operation of DAG-RNNs is calculated by the
+
+following equations:
+(vi )
+
+ĥ
+
+=
+
+X
+
+Convolution
+Layer
+
+(vj )
+
+h
+
+DAG-Recurrent
+Neural Network
+
+Deconvolution
+Layer
+
+vj ∈PG (vi )
+
+(2)
+
+h(vi ) = f (U x(vi ) + W ĥ(vi ) + b)
+o(vi ) = g(V h(vi ) + c)
+
+where x(vi ) , h(vi ) , o(vi ) are the representations of input,
+hidden and output layers located at vi respectively, PG (vi )
+is the direct predecessor set of vertex vi in the graph G, ĥ(vi )
+summarizes the information of all the predecessors of vi .
+Note that the recurrent weight W in Equation 2 is shared
+across all predecessor vertexes in PG (vi ). We may learn a
+specific recurrent matrix W for each predecessor when vertexes (except source and sink vertex) in the DAG G have a
+fixed number of predecessors. In this case, a finer-grained
+dependency may be captured.
+The derivatives are computed in the backward pass, and
+each vertex is processed in the reverse order of forward
+propagation sequence. Specifically, to derive the gradients
+at vi , we look at equations (besides Equation 2) that involve
+h(vi ) in the forward pass:
+h(vk ) = f (U x(vk ) + W h(vi ) + W h̃(vk ) + b)
+X (v )
+h̃(vk ) =
+h j
+
+(3)
+
+where SG (vi ) is the direct successor set for vertex vi in
+the graph G. It can be inferred from Equation 2, 3 that
+the errors backpropagated to the hidden layer (dh(vi ) ) at vi
+∂o(vi )
+have two sources: direct errors from vi ( ∂h
+(vi ) ), and summation over indirect errors propagated from its successors
+P ∂o(vk ) ∂h(vk )
+( vk ∂h
+(vk ) ∂h(vi ) ). The derivatives at vi can then be computed by the following equations: 1
+∆V (vi ) = g 0 (o(vi ) )(h(vi ) )T
+X
+dh(vi ) = V T g 0 (o(vi ) ) +
+W T dh(vk ) ◦ f 0 (h(vk ) )
+vk ∈SG (vi )
+
+∆W
+
+=
+
+dh
+
+(vk )
+
+◦ f 0 (h(vk ) )(h(vi ) )T
+
+(4)
+
+∆U
+
+(vi )
+
+hd
+
+X
+
+= f (Ud x(vi ) +
+
+vj ∈PG (vi )
+d
+
+X
+
+(vi )
+
+Vd hd
+
+(vj )
+
+Wd hd
+
++ bd )
+(5)
+
++ c)
+
+where Ud , Wd , Vd and bd are weight matrices and bias vector for the DAG Gd , PGd (vi ) is the direct predecessor set
+of vertex vi in Gd . This strategy is reminiscent of the treereweighted max-product algorithm (TRW) [29], which represents the problem on the loopy graphs as a convex combination of tree-structured problems.
+We consider the following criterions for the decomposition. Topologically, the combination of DAGs should be
+equivalent to the UCG U, so any two vertexes can be reachable. Besides, the combination of DAGs should allow the
+local information to be routed to anywhere in the image. In
+our experiment, we use the four context propagation directions (southeast, southwest, northwest and northeast) suggested by [8][22] to decompose the UCG. One example of
+the induced DAG of the 8-neighborhood UCG in the southeast direction is shown in Figure 2.
+
+3.4. Full Labeling Network
+
+vk ∈SG (vi )
+(vi )
+
+We decompose the UCG U to a set of DAGs G U =
+{G1 , . . . , Gd , . . .}. Hence, the UCG-structured image is represented as the combination of a set of DAG-structured images. Next, DAG-RNNs are applied independently to each
+DAG-structured image, and the corresponding hidden layer
+hd is generated. The aggregation of the independent hidden
+layers yields the output layer o. These operations can be
+mathematically expressed as follows:
+
+Gd ∈G U
+
+vj ∈PG (vk )−{vi }
+
+X
+
+3.3. Decomposition
+
+o(vi ) = g(
+
+∀vk ∈ SG (vi )
+
+(vi )
+
+Figure 3: The architecture of the full labeling network, which consists of
+three functional layers: (1), convolution layer: it produces discriminative
+feature maps; (2), DAG-RNN: it models the contextual dependency among
+elements in the feature maps; (3), deconvolution layer: it upsamples the
+feature maps to output the desired sizes of label prediction maps.
+
+= dh(vi ) ◦ f 0 (h(vi ) )(x(vi ) )T
+∂L ∂o(·)
+∂o(·) ∂g
+
+where ◦ denotes the Hadamard product, g 0 (·) =
+is the derivative of loss function L with respect to the output function g, and f 0 (·) = ∂h
+∂f . It is the second term of
+(vi )
+dh
+in Equation 4 that enables DAG-RNNs to propagate
+local information, which behaves similarly to the message
+passing [32] in probabilistic graphic models.
+1 To save space, we omit the expression for ∆b and ∆c here as they can
+be inferred trivially from Equation 4.
+
+The skeleton architecture of the full labeling network is
+illustrated in Figure 3. The network is end-to-end trainable,
+and it takes input as raw RGB images with any size. It outputs the label prediction maps with the same size of inputs.
+The convolution layer is used to produce compact yet
+highly discriminative features for local regions. Next, the
+proposed DAG-RNN is used to model the semantic contextual dependencies of local representations. Finally, the
+deconvolution layer [14] is introduced to upsample the feature maps by learning a set of deconvolution filters, and it
+
+16
+14
+
+0.25
+12
+10
+
+Weight
+
+Frequency
+
+0.2
+
+0.15
+
+8
+6
+
+0.1
+4
+
+0.05
+
+0
+
+b sk
+mouildiny
+un g
+tain
+tre
+roae
+d
+se
+fie a
+gra ld
+s
+riv s
+plaer
+nt
+c
+sa ar
+nd
+sid roc
+e k
+winwalk
+do
+de w
+se
+d rt
+bri oor
+pe dge
+rs
+fe on
+ba nce
+cro lco
+s n
+sta swa y
+irc lk
+aw ase
+nin
+str sigg
+ee n
+tlig
+h
+bo t
+a
+po t
+le
+bu
+s
+su
+co n
+w
+b
+moird
+on
+
+2
+
+b sk
+mouildiny
+un g
+tain
+tre
+roae
+d
+se
+fie a
+gra ld
+s
+riv s
+plaer
+n
+c t
+sa ar
+n
+sid rocd
+e k
+winwalk
+do
+de w
+se
+d rt
+bri oor
+pe dge
+rs
+fenon
+b
+c
+cro alco e
+s n
+sta swa y
+irc lk
+aw ase
+nin
+str sig g
+ee n
+tlig
+boht
+poat
+le
+bu
+su s
+n
+co
+w
+b
+moird
+on
+
+0
+
+Figure 4: Graphical visualization of the class frequencies (left) and weights
+(right) on the siftFlow datasets [13]. The classes are sorted in the descending order based on their occurrence frequencies in training images.
+
+a frequent class. k is a constant that controls the importance
+of rare classes (k = 2 in our experiments). The proposed
+weighting function has the following properties: (1), it attends to rare classes by assigning them higher weights; (2),
+the degree of attention for rare classes grows exponentially
+based on their ratio magnitudes w.r.t the threshold η; The
+following criterion is used to determine the value of η: the
+accumulated frequency of all the non-rare classes is 85%.
+We call it 85%-15% rule, and [31] uses a similar rule.
+
+4. Experiments
+enables the full labeling network to produce the desired size
+of label prediction maps.
+To train the network, we adopt the average weighted
+cross entropy loss. It is formally written as:
+L=−
+
+c
+1 XX
+(v ) (v )
+wj log(oj i yj i )
+N v ∈I j=1
+
+(6)
+
+4.1. Baselines
+
+i
+
+where N is the number of image units in image I; w is the
+class weight vector, in which wj stands for the weight for
+class j; y(vi ) is the binary label indicator vector for the image unit located in vi , and o(vi ) stands for the corresponding
+class likelihood vector. The errors propagated from DAGRNNs to the convolution layer for image unit vi are calculated based on the following equations:
+∆x(vi ) =
+
+X
+
+(vi )
+
+UdT dhd
+
+◦ f 0 (hd
+
+(vi )
+
+)
+
+(7)
+
+Gd ∈G U
+
+3.5. Attention to Rare Classes
+In scene images, the class distribution is extremely imbalanced. Namely, very few classes account for large percentage of pixels in images. An example is demonstrated
+in Figure 4. It’s therefore common to put more attention to
+rare classes, in order to boost their recognition precisions.
+In the patch-based CNN training, Farabet et al. [7] and
+Shuai et al. [21] oversample the rare-class pixels to address
+this issue. It’s however inapplicable to adopt this strategy in
+our network training, which is a complex structure learning
+problem. Meanwhile, as the classes are distributed severely
+unequally in scene images, it’s also problematic to weigh
+classes according to their inverse frequencies. As an example, the frequency ratio between the most frequent (sky)
+and the most rare class (moon) on the SiftFlow dataset is
+3.5 × 104 . If the above class weighting criterion is adopted
+like in [15], the frequent classes will be under-attended.
+Hence, we define the weighting function w as follows:
+wj = k dlog10(η/fj )e
+
+We justify our method on three popular and challenging real-world scene image labeling benchmarks: SiftFlow
+[13], CamVid [2] and Barcelona [26]. Two types of scores
+are reported: the percentage of all correctly classified pixels
+(Global), and average per-class accuracy (Class).
+
+(8)
+
+where d·e is the integer ceiling operator, fj is the occurrence frequency of the class j, η denotes the threshold that
+discriminates the rare classes. Specifically, a class is identified as rare if its frequency is smaller than η, otherwise, it is
+
+The convolution neural network (CNN), which jointly
+learn features and classifiers is used as our first baseline. In
+this case, the parameters are optimized to maximize the independent prediction accuracy for local patches. Another
+baseline is the network that shares the same architecture
+with our DAG-RNNs, while removes the recurrent connections. Mathematically, the Wd and bd in Equation 5 are
+fixed to 0 . In this case, the DAG-recurrent neural network
+degenerates to an ensemble of four plain two-layer neural
+networks (CNN-ENN). The performance disparity between
+the baselines and DAG-RNNs clearly illuminates the efficacy of our dependency modeling method.
+
+4.2. Implementation Details
+We use the following two networks to be the convolution
+layers in our experiments:
+• CNN-65: The network consists of five convolutional
+layers, the kernel sizes of which are 8 × 8 × 3 × 64,
+6 × 6 × 64 × 128, 5 × 5 × 128 × 256, 4 × 4 × 256 × 256
+and 1×1×256×64 respectively. Each of the first three
+convolutional layers are followed by a ReLU and nonoverlapping 2 × 2 max pooling layer. The parameters
+of this network is learned from image patches (65×65)
+of the target dataset only (Setting 1).
+• VGG-conv5: The network borrows its architecture
+and parameters from VGG-verydeep-16 net [23]. In
+detail, we discard all the layers after the 5th pooling
+layer to yield the desired convolution layer. The network is pre-trained on ImageNet dataset and fine-tuned
+on the target dataset. [5] (Setting 2).
+In DAG-RNNs, the adopted non-linear functions (refer
+to Equation 2) are ReLU [11] for hidden neurons: f (x) =
+max(0, x) and sof tmax for output layer g. In practice, we
+
+1
+
+2
+
+3
+
+1
+
+2
+
+3
+
+1
+
+2
+
+3
+
+1
+
+2
+
+3
+
+4
+
+5
+
+6
+
+4
+
+5
+
+6
+
+4
+
+5
+
+6
+
+4
+
+5
+
+6
+
+7
+
+8
+
+9
+
+7
+
+8
+
+9
+
+7
+
+8
+
+9
+
+7
+
+8
+
+9
+
+UCG(4)
+
+4
+DAG(4) Gnw
+
+UCG(8)
+
+Methods
+Byeon et al. [4]
+Liu et al.[13]
+Farabet et al. [7]
+Pinheiro et al. [17]
+Tighe et al.[27]
+Sharma et al.[19]
+Shuai et al.[21]
+Yang et al.[31]
+CNN-65
+CNN-65-ENN
+CNN-65-DAG-RNN(4)
+CNN-65-DAG-RNN(8)
+Long et al.[14]
+VGG-conv5-ENN
+VGG-conv5-DAG-RNN(8)
+
+8
+DAG(8) Gnw
+
+Figure 5: Two UCGs (with 4, 8 neighborhood system) and their induced
+DAGs in the northwestern (NW) direction.
+
+apply the function g after the deconvolution layer. The dimensionality of hidden layer h is empirically set to 64 for
+CNN-65 and 128 for VGG-conv5 respectively. 2 In our
+experiments, we consider two UCGs with 4 and 8 neighborhood systems. Their induced DAGs in the northwestern direction are shown in Figure 5. In comparison with
+DAG(4), DAG(8) enables information to be propagated in
+shorter paths, which is critical to prevent the long-range information from vanishing. As exampled in Figure 5, the
+8
+length of propagation path from v9 to v1 in Gnw
+is halved to
+4
+that in Gnw (4 → 2 steps).
+The full network is trained by stochastic gradient descent
+with momentum. The parameters are updated after one image finishes its forward and backward passes. The learning
+rate is initialized to be 10−3 , and decays exponentially with
+the rate of 0.9 after 10 epoch. The reported results are based
+on the model trained in 35 epoches. We tune the parameters
+and diagnoses the network performance based on CNN-65.
+We also include the results of VGG-conv5 to see whether
+our proposed DAG-RNNs are beneficial for the highly discriminative representation from the state-of-the-art VGGverydeep-16 net [23].
+
+4.3. SiftFlow Dataset
+The SiftFlow dataset has 2688 images generally captured
+from 8 typical outdoor scenes. Every image has 256 × 256
+pixels, which belong to one of the 33 semantic classes. We
+adopt the training/testing split protocol (2488/200 images)
+provided by [13] to perform our experiments. Following the
+85%-15% criterion, the class frequency threshold η = 0.05.
+Statistically, out of 33 classes, 27 of them are regarded as
+infrequent class. The graphical visualization of the weights
+for different classes are depicted in Figure 4.
+The quantitative results are listed in Table 1, within
+which the upper part presents the performance of methods under setting 1. Our baseline CNN-65 achieves very
+promising results, which proves the effectiveness of the
+convolution layer. We also notice that results of CNN65 fall behind CNN-65-ENN on the average class accuracy. This phenomenon is also observed on the CamVid and
+2 Based
+
+on our preliminary results, we didn’t observe too much performance improvement by using larger h (e.g. 128 in CNN-65, and 256 in
+VGG-conv5) on the siftFlow dataset. In addition, the networks with larger
+capacity incur much heavier computation burdens.
+
+Global
+70.1%
+74.8%
+78.5%
+77.7%
+79.2%
+79.6%
+80.1%
+79.8%
+76.1%
+76.1%
+80.5%
+81.1%
+85.2%
+84.0%
+85.3%
+
+Class
+22.6%
+N/A
+29.4%
+29.8%
+39.2%
+33.6%
+39.7%
+48.7%
+32.5%
+37.0%
+42.6%
+48.2%
+51.7%
+48.8%
+55.7%
+
+Table 1: Quantitative performance of our method on the siftFlow dataset.
+The numbers (in brackets) following the DAG-RNN denote the neighborhood system of the UCG.
+
+Barcelona benchmarks, as shown by Table 2 and 3 respectively. This result indicates that the proposed class weighting function significantly boosts the recognition accuracy
+for rare classes. By adding DAG-RNN(8), our full network reaches 81.1% (48.2%) on the global (class) accuracy
+3
+, which outperforms the baseline (CNN-65-ENN) by 5%
+(11.2%). Meanwhile, we observe promising accuracy gain
+(global: 0.6% / class: 5.6% ) by switching DAG-RNN (4) to
+DAG-RNN (8), in which we believe that long-range dependencies are better captured as information propagation paths
+in DAG(8) are shorter than those in DAG(4). Such performance benefits can be observed consistently on the CamVid
+(0.5% / 2.0%) and Barcelona (1.1% / 1.6%) datasets, as evidenced in Table 2 and 3 respectively. Moreover, in comparison with other representation learning nets, which are fed
+with much richer contextual input (133×133 patch in [17],
+3-scale 46×46 patches in [7]), our DAG-RNNs outperform
+theirs by a large margin. Importantly, our results match the
+state-of-the-art under this setting.
+Furthermore, we initialize our convolution layers with
+VGG-verydeep-16 [23], which has been proven to be the
+state-of-the-art feature extractor. The quantitative results
+under setting 2 are listed in the lower body of Table 1.
+Our baseline VGG-conv5-ENN surpasses the best performance of methods under setting 1. This result indicates
+the significance of large-scale data in deep neural network
+training. Interestingly, our DAG-RNN(8) is still able to
+further improve the discriminative power of local features
+by modeling their dependencies, thereby leading to a phenomenal (6.9%) average class accuracy boost. Note that
+Fully Convolution Networks (FCNs) [14] uses activations
+3 If
+
+we disassemble the full labeling network to two disjoint parts CNN-65 and DAG-RNN(8), and they are optimized independently, the
+corresponding accuracies are 80.1% and 42.7%. The performance discrepancy indicates the importance of the joint optimization for the full network.
+
+Methods
+Tighe et al.[26]
+Sturgess et al.[24]
+Zhang et al.[33]
+Bulo et al.[3]
+Ladicky et al.[12]
+Tighe et al. [27]
+CNN-65
+CNN-65-ENN
+CNN-65-DAG-RNN(4)
+CNN-65-DAG-RNN(8)
+VGG-conv5-ENN
+VGG-conv5-DAG-RNN (8)
+
+Global
+78.6%
+83.8%
+82.1%
+82.1%
+83.8%
+83.9%
+84.3%
+84.1%
+88.2%
+88.7%
+91.0%
+91.6%
+
+Class
+43.8%
+59.2%
+55.4%
+56.1%
+62.5%
+62.5%
+53.2%
+58.1%
+66.3%
+68.3%
+76.5%
+78.1%
+
+Table 2: Quantitative performance of our method on the CamVid dataset.
+
+(feature maps) from multiple convolution layers, whereas
+our VGG-conv5-ENN only use feature maps from conv5
+layer. Hence, there is a slight performance gap between
+our VGG-conv5-ENN and FCNs. Nonetheless, our VGGconv5-DAG-RNN(8) still performs comparably with FCNs
+on global accuracy, and significantly outperforms it on the
+class accuracy. Importantly, our full labeling network also
+achieves new state-of-the-art performance under this setting. The detailed per-class accuracy is listed in Table 4.
+
+4.4. CamVid Dataset
+The CamVid dataset [2] contains 701 high-resolution images (960 × 720 pixels) from 4 driving videos at daytime
+and dusk (3 daytime and 1 dusk video sequence). Images
+are densely labelled with 32 semantic classes. We follow
+the usual split protocol [24][27] (468/233) to obtain training/testing images. Similar to other works [2][3][24][27],
+we only report results on the most common 11 categories.
+According to the 85%-15% rule, 4 classes are identified as
+rare, and η is 0.1.
+The quantitative results are given in Table 2. Our baseline networks (CNN-65, CNN-65-ENN) achieve very competitive results. By explicitly modeling contextual dependencies among image units, our CNN-65-DAG-RNN(8)
+brings phenomenal performance benefit (4.6% and 10.2%
+for the global and class accuracy respectively). Moreover,
+in comparison with state-of-the-art methods [3][12][24]
+[27], our CNN-65-DAG-RNN(8) outperforms theirs by a
+large margin (4.8% / 5.8%), demonstrating the profitability of adopting high-level features learned from CNN and
+context modeling with our DAG-RNNs. Furthermore, the
+VGG-conv5-ENN alone performs excellently. Even though
+the performance starts saturating, our DAG-RNN(8) is able
+to consistently improve the labeling results.
+
+4.5. Barcelona Dataset
+The barcelona dataset [26] consists of 14871 training and
+279 testing images. The size of the images varies across different instances, and each pixel is labelled as one of the 170
+
+Methods
+Tighe et al.[26]
+Farabet et al. [7]
+Farabet et al. [7]
+CNN-65
+CNN-65-ENN
+CNN-65-DAG-RNN(4)
+CNN-65-DAG-RNN(8)
+VGG-conv5-ENN
+VGG-conv5-DAG-RNN(8)
+
+Global
+66.9%
+46.4%
+67.8%
+69.0%
+69.0%
+71.3%
+72.4%
+73.3%
+74.6%
+
+Class
+7.6%
+12.5%
+9.5%
+10.5%
+11.0%
+12.9%
+14.5%
+21.1%
+24.6%
+
+Table 3: Quantitative performance of our method on the Barcelona dataset.
+
+semantic classes. The training images range from indoor
+to outdoor scenes, whereas the testing images are only captured from the barcelona street scene. These issues pose
+Barcelona as a very challenging dataset. Based on the 85%15% rule, 147 classes are identified as rare classes, and the
+class frequency threshold η is 0.005.
+Table 3 presents the quantitative results. From which,
+we clearly observe that our baseline networks (CNN-65 and
+CNN-65-ENN) achieve very competitive results, which has
+already matched the state-of-the-art results. The introduction of DAG-RNN(8) leads to promising performance improvement, therefore the full labeling network clinches the
+new state-of-the-art under setting 1. More importantly, under setting 2, even though the VGG-conv5-ENN is extraordinarily competitive, the DAG-RNN(8) is still able to enhance its labeling performance significantly.
+
+4.6. Effects of DAG-RNNs to Per-class Accuracy
+In this section, we investigate the effects of our DAGRNNs for each class. The detailed per-class accuracy for the
+SiftFlow dataset is listed in Table 4. Under setting 1, we find
+that the contextual information encoded through our DAGRNN(8) is beneficial for almost all classes. In this case, the
+local representations from CNN-65 are not strong, so their
+discriminative power can be greatly enhanced by modeling
+their dependencies. In line with it, we observe remarkable
+performance benefit (+11.2%) for almost all classes. Under
+setting 2, the VGG-conv5 net is pre-trained on the ImageNet
+dataset [5], and it recognizes most classes excellently. Even
+though the local representations are highly discriminative in
+this situation, our DAG-RNN(8) further tremendously improves their representative power for rare classes. Statistically, we observe a phenomenal 8.6% accuracy gain for rare
+classes. Under both settings, modeling the dependencies
+among local features enables the classification to be contextual aware. Therefore, the local ambiguities are mitigated
+to a large extent. However, we fail to observe commensurate accuracy improvements for extremely-small-size and
+rare ’object’ classes (e.g. bird and bus), we conjecture that
+the weak local information may have been overwhelmed by
+context (e.g. a small bird is swallowed by the broad sky in
+Figure 1).
+
+94.1 84.9 77.6 74.2 80.9 61.1 30.7 71.0 27.7 34.7 21.8 63.5 27.8 47.0 21.0 8.8 35.7 33.7 29.3 6.8 0.37 16.3 1.4 48.1
+95.9 87.3 82.5 77.9 85.8 70.2 43.5 80.1 52.9 65.4 37.2 57.8 40.4 59.1 27.6 31.4 51.8 38.0 35.6 50.9 7.8 31.0 5.14 82.8
+
+0
+0
+
+VGG-conv5-ENN
+96.0 91.1 84.4 82.9 90.4 83.5 48.8 77.5 63.5 57.6 32.6 60.2 34.9 66.0 25.8 20.0 51.9 44.0 38.6 45.9 26.5 33.7 14.9 50.2 1.1
+VGG-conv5-DAG-RNN(8) 96.3 90.8 82.1 85.1 89.2 84.8 55.4 84.2 67.9 75.3 51.5 64.8 45.2 63.5 45.7 37.3 56.8 44.7 36.2 58.7 18.3 40.0 63.3 65.2 18.4
+
+class
+
+27.1 20.2 12.6 12.4 6.93 5.61 3.64 1.64 1.41 1.37 1.33 1.22 1.07 0.89 0.85 0.36 0.26 0.24 0.23 0.18 0.11 0.11 0.06 0.05 0.04 0.03 0.03 0.02 0.01 0.004
+
+CNN-65-ENN
+CNN-65-DAG-RNN(8)
+
+global
+
+bird
+
+sun
+
+streetlight
+
+bus
+
+balcony
+
+pole
+
+boat
+
+crosswalk
+
+sign
+
+awning
+
+staircase
+
+person
+
+fence
+
+door
+
+bridge
+
+rock
+
+sidewalk
+
+window
+
+grass
+
+plant
+
+river
+
+sand
+
+car
+
+field
+
+sea
+
+mountain
+
+road
+
+tree
+
+building
+
+sky
+Frequency
+
+-
+
+-
+
+0.43 34.5 6.0 71.4
+0
+54.9 8.59 85.5
+
+0
+0
+
+76.1 37.0
+81.1 48.2
+
+0
+1.4
+
+0
+0
+
+84.0 48.8
+85.3 55.7
+
+32.7
+45.8
+
+9.1
+5.4
+
+99.9
+97.9
+
+Table 4: Per-class accuracy comparison on the SiftFlow dataset. All the numbers are displayed in the percentage scale. The statistics for class frequency is
+obtained in test images. For reading convenience, the frequent and rare classes are placed in the same block.
+
+90.8% (77.6%)
+
+97.5% (95.3%)
+
+86.9% (56.1%)
+
+94.8% (72.7%)
+
+75.5% (69.7%)
+
+94.9% (91.5%)
+
+55.9% (65.2%)
+
+85.4% (87.7%)
+
+74.8% (50.9%)
+
+87.2% (52.4%)
+
+64.0% (57.3%)
+
+83.2% (72.8%)
+
+87.9% (75.6%)
+
+94.3% (85.9%)
+
+55.1% (50.8%)
+
+87.2% (42.3%)
+
+desert
+
+river
+
+field
+
+building
+
+tree
+
+sky
+
+road
+
+mountain
+
+rock
+
+sidewalk
+
+plant
+
+person unlabled
+
+Figure 6: Qualitative labeling results (best viewed in color). We show input images, local prediction maps (CNN-65-ENN), contextual labeling maps
+(CNN-65-DAG-RNN(8)) and their ground truth respectively. The numbers outside and inside the parentheses are global and class accuracy respectively.
+
+4.7. Discussion of Modeled Dependency
+
+5. Conclusion
+
+We show a number of qualitative labeling results in Figure 6. By looking into them, we can have some interesting
+observations. The DAG-RNNs are capable of (1), enforcing
+local consistency: neighborhood pixels are likely to be assigned to the same labels. In Figure 6, the left-panel examples show that confusing regions are smoothed by using our
+DAG-RNNs. (2), ensuring semantic coherence: the pixels
+that are spatially far away are usually given labels that could
+co-occur in a meaningful scene. For example, the ‘desert’
+and ‘mountain’ classes are usually not seen together with
+‘trees’ in a ‘open country’ scene, so they are corrected to
+‘stone’ in the second example of the right panel. More examples of this kind are shown in the right panel. These results illuminate that short-range and long-range contextual
+dependencies may have been captured by our DAG-RNNs.
+
+In this paper, we propose DAG-RNNs to process DAGsstructured data, where the interactions among local features
+are considered in a graphical structure. Our DAG-RNNs
+are capable of encoding the abstract gist of images into local representations, which tremendously enhance their discriminative power. Furthermore, we propose a novel class
+weighting function to address the imbalanced class distribution issue, and it is experimentally proved to be effective
+towards the recognition enhancement for rare classes. Integrating with the convolution and deconvolution layers, our
+DAG-RNNs achieve state-of-the-art results on three challenging scene labeling benchmarks. We also demonstrate
+that useful long-range contextual dependencies are captured
+by our DAG-RNNs, which is helpful for generating smooth
+and semantically sensible labeling maps in practice.
+
+References
+[1] Y. Bengio, N. Boulanger-Lewandowski, and R. Pascanu.
+Advances in optimizing recurrent networks. In Acoustics,
+Speech and Signal Processing (ICASSP), 2013 IEEE International Conference on, pages 8624–8628. IEEE, 2013.
+[2] G. J. Brostow, J. Shotton, J. Fauqueur, and R. Cipolla. Segmentation and recognition using structure from motion point
+clouds. In ECCV (1), pages 44–57, 2008.
+[3] S. R. Bulo and P. Kontschieder. Neural decision forests for
+semantic image labelling. In Computer Vision and Pattern
+Recognition (CVPR), 2014 IEEE Conference on, pages 81–
+88. IEEE, 2014.
+[4] W. Byeon, T. M. Breuel, F. Raue, and M. Liwicki. Scene
+labeling with lstm recurrent neural networks. In Proceedings of the IEEE Conference on Computer Vision and Pattern
+Recognition, pages 3547–3555, 2015.
+[5] J. Deng, W. Dong, R. Socher, L.-J. Li, K. Li, and L. FeiFei. Imagenet: A large-scale hierarchical image database.
+In Computer Vision and Pattern Recognition, 2009. CVPR
+2009. IEEE Conference on, pages 248–255. IEEE, 2009.
+[6] J. L. Elman. Finding structure in time. Cognitive science,
+14(2):179–211, 1990.
+[7] C. Farabet, C. Couprie, L. Najman, and Y. LeCun. Learning
+hierarchical features for scene labeling. Pattern Analysis and
+Machine Intelligence, IEEE Transactions on, 35(8):1915–
+1929, 2013.
+[8] A. Graves. Offline arabic handwriting recognition with multidimensional recurrent neural networks. In Guide to OCR
+for Arabic Scripts, pages 297–313. Springer, 2012.
+[9] A. Graves, A.-R. Mohamed, and G. Hinton. Speech recognition with deep recurrent neural networks. In Acoustics,
+Speech and Signal Processing (ICASSP), 2013 IEEE International Conference on, pages 6645–6649. IEEE, 2013.
+[10] O. Irsoy and C. Cardie. Opinion mining with deep recurrent neural networks. In Proceedings of the 2014 Conference on Empirical Methods in Natural Language Processing
+(EMNLP), pages 720–728, 2014.
+[11] A. Krizhevsky, I. Sutskever, and G. E. Hinton. Imagenet
+classification with deep convolutional neural networks. In
+Advances in neural information processing systems, pages
+1097–1105, 2012.
+[12] L. Ladickỳ, P. Sturgess, K. Alahari, C. Russell, and P. H.
+Torr. What, where and how many? combining object detectors and crfs. In Computer Vision–ECCV 2010, pages 424–
+437. Springer, 2010.
+[13] C. Liu, J. Yuen, and A. Torralba. Nonparametric scene parsing: Label transfer via dense scene alignment. In Computer
+Vision and Pattern Recognition, 2009. CVPR 2009. IEEE
+Conference on, pages 1972–1979. IEEE, 2009.
+[14] J. Long, E. Shelhamer, and T. Darrell. Fully convolutional
+networks for semantic segmentation. In Computer Vision
+and Pattern Recognition (CVPR), 2015 IEEE Conference on.
+IEEE, 2015.
+[15] M. Mostajabi, P. Yadollahpour, and G. Shakhnarovich. Feedforward semantic segmentation with zoom-out features. In
+Computer Vision and Pattern Recognition, 2015. CVPR
+2015. IEEE Conference on. IEEE, 2015.
+
+[16] R. Pascanu, T. Mikolov, and Y. Bengio. On the difficulty of training recurrent neural networks. arXiv preprint
+arXiv:1211.5063, 2012.
+[17] P. Pinheiro and R. Collobert. Recurrent convolutional neural
+networks for scene labeling. In Proceedings of The 31st International Conference on Machine Learning, pages 82–90,
+2014.
+[18] A. Roy and S. Todorovic. Scene labeling using beam search
+under mutex constraints. In Computer Vision and Pattern Recognition (CVPR), 2014 IEEE Conference on. IEEE,
+2014.
+[19] A. Sharma, O. Tuzel, and M.-Y. Liu. Recursive context propagation network for semantic scene labeling. In Advances in
+Neural Information Processing Systems, pages 2447–2455,
+2014.
+[20] J. Shotton, J. Winn, C. Rother, and A. Criminisi. Textonboost: Joint appearance, shape and context modeling for
+multi-class object recognition and segmentation. In Computer Vision–ECCV 2006, pages 1–15. Springer, 2006.
+[21] B. Shuai, G. Wang, Z. Zuo, B. Wang, and L. Zhao. Integrating parametric and non-parametric models for scene labeling. In Computer Vision and Pattern Recognition, 2015.
+CVPR 2015. IEEE Conference on. IEEE, 2015.
+[22] B. Shuai, Z. Zuo, and W. Gang. Quaddirectional 2d-recurrent
+neural networks for image labeling. Signal Processing Letters, IEEE, 2015.
+[23] K. Simonyan and A. Zisserman. Very deep convolutional
+networks for large-scale image recognition. arXiv preprint
+arXiv:1409.1556, 2014.
+[24] P. Sturgess, K. Alahari, L. Ladicky, and P. Torr. Combining
+appearance and structure from motion features for road scene
+understanding. In Computer Vision–BMVC 2009. 2009.
+[25] K. S. Tai, R. Socher, and C. D. Manning. Improved semantic
+representations from tree-structured long short-term memory
+networks. arXiv preprint arXiv:1503.00075, 2015.
+[26] J. Tighe and S. Lazebnik. Superparsing: scalable nonparametric image parsing with superpixels. In Computer Vision–
+ECCV 2010, pages 352–365. Springer, 2010.
+[27] J. Tighe and S. Lazebnik. Finding things: Image parsing
+with regions and per-exemplar detectors. In Computer Vision
+and Pattern Recognition (CVPR), 2013 IEEE Conference on,
+pages 3001–3008. IEEE, 2013.
+[28] Z. Tu. Auto-context and its application to high-level vision
+tasks. In Computer Vision and Pattern Recognition, 2008.
+CVPR 2008. IEEE Conference on, pages 1–8. IEEE, 2008.
+[29] M. J. Wainwright, T. S. Jaakkola, and A. S. Willsky. A new
+class of upper bounds on the log partition function. Information Theory, IEEE Transactions on, 51(7):2313–2335, 2005.
+[30] P. J. Werbos. Backpropagation through time: what it does
+and how to do it. Proceedings of the IEEE, 78(10):1550–
+1560, 1990.
+[31] J. Yang, B. Price, S. Cohen, and M.-H. Yang. Context driven
+scene parsing with attention to rare classes. In Computer
+Vision and Pattern Recognition (CVPR), 2014 IEEE Conference on, pages 3294–3301. IEEE, 2014.
+[32] J. S. Yedidia, W. T. Freeman, and Y. Weiss. Understanding
+belief propagation and its generalizations. Exploring artificial intelligence in the new millennium, 8:236–239, 2003.
+
+[33] C. Zhang, L. Wang, and R. Yang. Semantic segmentation of
+urban scenes using dense depth maps. In Computer Vision–
+ECCV 2010, pages 708–721. Springer, 2010.
+[34] Y. Zhang and T. Chen. Efficient inference for fullyconnected crfs with stationarity. In Computer Vision and Pattern Recognition (CVPR), 2012 IEEE Conference on, pages
+582–589. IEEE, 2012.
+[35] S. Zheng, S. Jayasumana, B. Romera-Paredes, V. Vineet,
+Z. Su, D. Du, C. Huang, and P. Torr. Conditional random fields as recurrent neural networks. arXiv preprint
+arXiv:1502.03240, 2015.
+[36] X. Zhu, P. Sobhani, and H. Guo. Long short-term memory
+over tree structures. arXiv preprint arXiv:1503.04881, 2015.
+[37] Z. Zuo, B. Shuai, G. Wang, X. Liu, X. Wang, B. Wang, and
+Y. Chen. Convolutional recurrent neural networks: Learning
+spatial dependencies for image representation. In Proceedings of the IEEE Conference on Computer Vision and Pattern
+Recognition Workshops, pages 18–26, 2015.
+
+

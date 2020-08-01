@@ -1,0 +1,16 @@
+
+
+this paper investigates the impact of word-based rnn language
+models (rnn-lms) on the performance of end-to-end automatic
+speech recognition (asr). in our prior work, we have proposed
+a multi-level lm, in which character-based and word-based rnnlms are combined in hybrid ctc/attention-based asr. although
+this multi-level approach achieves significant error reduction in the
+wall street journal (wsj) task, two different lms need to be trained
+and used for decoding, which increase the computational cost and
+memory usage. in this paper, we further propose a novel wordbased rnn-lm, which allows us to decode with only the wordbased lm, where it provides look-ahead word probabilities to predict next characters instead of the character-based lm, leading competitive accuracy with less computation compared to the multi-level
+lm. we demonstrate the efficacy of the word-based rnn-lms using a larger corpus, librispeech, in addition to wsj we used in the
+prior work. furthermore, we show that the proposed model achieves
+5.1 %wer for wsj eval’92 test set when the vocabulary size is
+increased, which is the best wer reported for end-to-end asr systems on this benchmark.
+index terms— end-to-end speech recognition, language modeling, decoding, connectionist temporal classification, attention decoder
+1. 

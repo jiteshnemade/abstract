@@ -1,0 +1,1402 @@
+Predicting Individual Responses to Vasoactive Medications in Children with
+Septic Shock
+
+arXiv:1901.10400v1 [physics.med-ph] 15 Jan 2019
+
+Nicole Fronda, BS1 , Jessica Asencio MD2 , Cameron Carlin, MS1 , David Ledbetter, BS1 ,
+Melissa Aczon, PhD1 , Randall Wetzel, MD1,2 , Barry Markovitz, MD, MPH2
+1
+Laura2 P. and Leland K. Whittier Virtual Pediatric Intensive Care Unit
+Department of Anesthesiology and Critical Care Medicine
+Children’s Hospital Los Angeles, California, United States
+ABSTRACT
+Objective: Predict individual septic children’s personalized physiologic responses to vasoactive titrations by training
+a Recurrent Neural Network (RNN) using EMR data.
+Materials and Methods: This study retrospectively analyzed EMR of patients admitted to a pediatric ICU from 2009
+to 2017. Data included charted time series vitals, labs, drugs, and interventions of children with septic shock treated
+with dopamine, epinephrine, or norepinephrine. A RNN was trained to predict responses in heart rate (HR), systolic
+blood pressure (SBP), diastolic blood pressure (DBP) and mean arterial pressure (MAP) to 8,640 titrations during 652
+septic episodes and evaluated on a holdout set of 3,883 titrations during 254 episodes. A linear regression model using
+titration data as its sole input was also developed and compared to the RNN model. Evaluation methods included the
+correlation coefficient between actual physiologic responses and RNN predictions, mean absolute error (MAE), and
+area under the receiver operating characteristic curve (AUC).
+Results: The actual physiologic responses displayed significant variability and were more accurately predicted by
+the RNN model than by titration alone (r = 0.20 vs r = 0.05, p < 0.01). The RNN showed MAE and AUC
+improvements over the linear model. The RNN’s MAEs associated with dopamine and epinephrine were 1-3% lower
+than the linear regression model MAE for HR, SBP, DBP, and MAP. Across all vitals vasoactives, the RNN achieved
+1-19% AUC improvement over the linear model.
+Discussion: The wide variability of observed responses indicates that many factors other than dose change affect the
+response. Not surprisingly, a linear model whose sole input is dose change does not adequately capture the physiologic
+changes associated with vasoactive titrations, and is no better than chance in predicting individual patient responses.
+The RNN model showed improvement over the linear model in predicting titration response.
+Conclusion: This initial attempt in pediatric critical care to predict individual physiologic responses to vasoactive dose
+changes in children with septic shock demonstrated an RNN model showed some improvement over a linear model.
+While not yet clinically applicable, further development may assist clinical administration of vasoactive medications
+in children with septic shock.
+
+INTRODUCTION
+Septic shock in children is a deadly disease with an estimated mortality rate of 5-10% with aggressive resuscitation1 .
+Prior to institution of guidelines for aggressive resuscitation in septic shock, mortality was as high as 50%2 . Current
+recommendations include the early administration of volume, antibiotics, and vasoactive medications to support and
+improve end organ perfusion3 . Early reversal of septic shock through early resuscitation has been shown to reduce
+mortality by 9-fold compared to patients who did not receive early resuscitation4 .
+Early reversal of septic shock using fluid and vasoactive therapies are recommended by the American College of
+Critical Care Medicine1 . Literature supports the idea of treating children with cold shock with an epinephrine infusion,
+and children with warm shock on an infusion of norepinephrine3 . Dopamine can also be considered as a first line agent
+for hemodynamic stabilization in septic shock. In patients with meningococcal sepsis, lack of vasopressor therapy
+administration showed increased odds of death (23.7) compared to patients who received vasopressor therapy5 . The
+importance of early initiation of vasopressor therapy in patients with fluid-refractory shock cannot be understated.
+Despite these recommendations, there is a paucity of literature concerning the hemodynamic response to vasoactives in
+children with septic shock. Specifically, the effects of these medications on Heart Rate (HR), Systolic Blood Pressure
+(SBP), Diastolic Blood Pressure (DBP), and Mean Arterial Pressure (MAP) can be difficult to predict in individual
+patients, making drug dose titration necessary in a clinical setting. Vasoactives such as dopamine, epinephrine, and
+norepinephrine can have strong and adverse effects, and anticipating a child’s response to them is critical.
+Early, small-scale studies of the cardiovascular effects of vasoactive medications involved healthy adult males who had
+infusions of epinephrine and norepinephrine. Significant findings included increased cardiac output and systolic blood
+pressure and decreased peripheral vascular resistance as responses to epinephrine infusion6 . Patients given an infusion
+of norepinephrine had uniform increases in systolic blood pressure and mean arterial pressure6 . These studies paved
+the way for modern pharmacokinetic studies, which have further elucidated the mechanism of action and function of
+these endogenous vasopressors. Increasing doses of epinephrine during CPR in out-of-hospital cardiac arrests resulted
+in an overall linear dose response curve in which higher doses of epinephrine resulted in higher systolic and diastolic
+aortic blood pressures7 . A study of adult patients with septic shock reported linear increases in heart rate, mean arterial
+blood pressure, and cardiac index (CI) after infusion of epinephrine as a single agent8 . Norepinephrine was found to
+have minimal effects on CI or stroke volume index (SVI) in adult patients with septic shock; although in combination
+with dobutamine, it was found to increase mean arterial pressure, CI, and SVI9 . Martin et. al. compared dopamine
+and norepinephrine for treating hyperdynamic septic shock in adults and found that patients who received epinephrine
+had significant increases in MAP and systemic vascular resistance index (SVRI); and in patients who did not respond
+to high doses of dopamine, addition of norepinephrine produced the previously described changes10 .
+Ceneviva et. al. studied septic children with fluid refractory shock and their response to inotropic/vasoactive therapy1 .
+These patients were divided into three groups: those with low cardiac index (CI), those with low systemic vascular
+resistance index, and those with combined cardiac and vascular dysfunction. They were treated with infusions of
+inotropes, vasopressors, or vasodilators depending on their physiology. In 44 of 50 patients studied, vasopressor or
+inotrope therapy was altered as a result of hemodynamic variables found by pulmonary artery catheter measurements.
+Four of the study patients had a complete change in hemodynamic profile which necessitated a change in vasopressor/inotrope support based on CI and SVRI. This study showed significant heterogeneity in pediatric septic shock
+throughout the illness course and need for constant re-evaluation of the patients hemodynamic state.
+The significant heterogeneity of septic children’s responses to vasoactive medications suggests that an individual
+child’s response depends on many variables other than dose titration alone. Age, number of fluid boluses, concurrent
+medications, steroid use, previous medical history, and underlying illness may all affect the response of a septic patient
+to vasoactive therapy11 . No studies, of which the authors are aware, have attempted to account for these variables on
+an individual level, and this is likely due to the complexity of the problem and limited data.
+The ever increasing availability of electronic medical records (EMR) combined with recent advances in machine
+learning may enable a more comprehensive analysis of patient data and vasoactive response than previously possible.
+This motivated us to hypothesize that a Recurrent neural network (RNN) could extract the relationships between
+an individual child’s EMR and that child’s response to vasoactive titration. RNNs are a family of neural network
+
+architectures that were designed to process sequential data and incorporate information from previous inputs when
+calculating predictions12, 13 . Successful applications of RNNs include language modeling14 , speech recognition15 and
+machine translation16, 17 . More recently, RNNs have been applied to problems in the healthcare domain because of
+their suitability for streaming medical data. These include early detection of critical decompensation in children18 ,
+onset of heart failure19 , dynamic prediction of mortality risk20, 21 , de-identification of patient notes22 , and prediction
+of individual children’s physiologic state associated with successful discharge from a pediatric intensive care unit
+(PICU)23 .
+OBJECTIVE
+The main goal of this study was to train a Recurrent Neural Network (RNN) on EMR data to predict individual septic
+children’s physiologic response (HR, SBP, DBP, and MAP) to vasoactive titration. A secondary goal was to train a
+linear regression model whos sole input is dose change to provide a baseline against which the RNN model can be
+compared.
+MATERIALS AND METHODS
+Data
+This was a retrospective study of Pediatric Intensive Care Unit (PICU) patients at Children’s Hospital Los Angeles
+(CHLA), a tertiary care academic center, between 2009 and 2017. The CHLA Institutional Review Board (IRB)
+reviewed the study protocol and waived the need for IRB approval. The data were extracted from de-identified observational clinical data collected in Electronic Medical Records (EMR, Cerner, Kansas City, Mo.) and included time
+series of vital signs, labs, drugs, and interventions, as well as demographic information such as gender, race, and ethnicity. Only patients meeting septic shock criteria – an elevated or depressed white blood cell count for the patient’s
+age24 , hyperthermia (> 38.5o C) or hypothermia (< 36o C), and antibiotic administration during their hospitalization
+– were included. 1,142 episodes (655 children) meeting septic criteria and were treated with dopamine, epinephrine,
+or norepinephrine infusions comprised the study cohort.
+Response Variables
+HR, SBP, DBP, and MAP were examined prior to and following each dose titration, i.e. change in the level of administered dopamine, epinephrine, or norepinephrine. Changes in these four vital signs defined the response we sought
+to model. These changes were calculated at each titration using the mean measurement one hour after titration (postobservation window) minus the mean measurement two hours before titration (pre-observation window), as shown in
+Figure 1A. A two minute exclusion window at the time of administration was used to account for perturbations in
+actual administration time.
+Linear Regression Model
+Motivated by previous studies6–8 that modeled physiologic responses to dopamine, epinephrine, and norepinephrine
+dose changes as linear, we developed linear regression (LR) models of the form y = mx + b as a baseline, where x is
+the change in vasoactive dose, and y is the change in a vital sign (HR, SBP, DBP, MAP). The training set was used to
+optimize the model parameters m (slope) and b (intercept).
+RNN Model
+For each vital sign-vasoactive combination, a RNN model using Long Short Term Memory (LSTM)25 architecture
+was developed to predict an individual child’s vital sign response to titrations of that vasoactive. At each time point
+where measurements were recorded, a vector containing patient data at that time point was input to the RNN model.
+Elements of this vector included vitals, laboratory results, drugs and interventions at that time, as well as demographic
+information such as gender and race. Preprocessing steps described in previous work20, 21 converted the EMR into a
+temporal sequence of vectors amenable to machine learning. Figure 1B illustrates the flow of input and output through
+the RNN. The model makes a prediction at each time point where an input vector exists. The Appendix provides
+
+Figure 1: (A) Visualization of how physiologic responses were calculated. In this example, a vasoactive was titrated
+at times tj and tk . The average HR in the 2-hour window prior to the 2-minute exclusion window for ti was 110 bpm.
+The average HR in the 1-hour window following the 2-minute exclusion window for ti was 125 bpm. Therefore, the
+computed true response for the titration at ti was +15 bpm (125-110). Similarly, the true response for the titration
+at tk was -10 bpm (110-120). (B) High level illustration of a RNN for predicting physiologic response to vasoactive
+titration.
+details of the RNN model parameters and training hyperparameters (Table 6) and a list of input variables (Table 7).
+Model Training
+The error metric used to optimize both LR and RNN model parameters during training was the average of mean
+absolute error (MAE) of each vital sign aggregated over the training set. Training hyperparameters for the RNN
+model, including the number of hidden units, optimization algorithm, activation function, and learning rate, were
+optimized via minimizing MAE on the validation set. Since true responses existed only at times corresponding to
+points of titration, the errors were aggregated only from the predictions made at these titration points. For example, in
+Figure 1, tj and tk are the only titration time points. Therefore, only the predictions at these two time points would be
+included in the error calculation.
+
+Performance Evaluation
+Three metrics computed on the test set assessed model performance. The correlation between the true physiologic
+response (the measured change in vital sign) and the RNN’s predicted change was calculated. This correlation was
+compared to the correlation between titration dose change and the true physiologic response. The MAEs for each vital
+sign in each RNN and linear model were also computed. Lastly, the true physiologic responses and predictions were
+categorized as either increasing or not increasing. The accuracy of these dichotomous predictions was evaluated using
+the area under the receiver operating characteristic curve (AUC).
+Identifying Application and Window Types
+Children may receive various interventions and medications simultaneously during their ICU stay. Consequently, it
+is difficult to anticipate how an individual child’s physiologic state may or may not respond to a certain sequence or
+combination of treatments, let alone one specific treatment. For each vasoactive of interest, we characterized each
+titration to aid evaluation of different scenarios in which a child may receive these treatments. This was done by
+labeling each titration point and each post-observation window as either independent or correlated.
+An Independent Application (IA) occurs when exactly one vasoactive of interest – dopamine, epinephrine, or norepinephrine – is titrated. A Correlated Application (CA) occurs when at least one of these three drugs is titrated at the
+same time as another vasoactive that may or may not be one of these three. An Independent Observation (IO) occurs
+when the vasoactive of interest is present and no other vasoactives are titrated within the post-observation window. A
+Correlated Observation (CO) occurs when the vasoactive of interest is present and another vasoactive titration occurs
+within the post-observation window. Figure 2 illustrates the different scenarios for application and observation.
+Characterizing the application and observation type of each titration allows for clearer analysis of model performance.
+Titrations characterized as an independent application with an independent observation window are the cleanest data
+for observing the effect of vasoactives. Nevertheless, all application-observation permutations are important to provide
+a more comprehensive representation of vasoactive use in an ICU setting. Table 1 provides the counts of applicationobservation types in the training, validation and test sets for each vasoactive.
+
+Figure 2: Depictions of titration application and observation windows.
+
+Vasoactive
+Dopamine
+
+Epinephrine
+
+Norepinephrine
+
+Dataset
+Training
+Validation
+Test
+Training
+Validation
+Test
+Training
+Validation
+Test
+
+Independent
+Application (IA)
+5,391
+2,069
+2,422
+2,472
+874
+1,176
+674
+253
+259
+
+Correlated
+Application (CA)
+42
+16
+9
+20
+6
+5
+41
+14
+12
+
+Independent
+Observation (IO)
+3,711
+1,428
+1,652
+1,462
+512
+694
+383
+142
+147
+
+Correlated
+Observation (CO)
+1,722
+657
+779
+1,030
+368
+487
+332
+125
+124
+
+IA & IO
+3,677
+1,418
+1,644
+1,450
+509
+690
+357
+138
+139
+
+Table 1: Counts of each application and observation type in the training, validation, and test set for each vasoactive.
+RESULTS
+Response Range
+A wide range of responses to vasoactive titrations was observed (Figure 3, left plots). The interquartile range of
+responses (25% / 50% / 75%) of patients given dopamine was -6/1/4 bpm for HR, -11/2/11 mmHg for SBP, -4/6/8
+mmHg for DBP, and -7/2/8 mmHg for MAP per 1 mcg/kg/min increase of dopamine. For 0.1 mcg/kg/min increase of
+epinephrine, responses were -6/4/9 bpm for HR, -1/12/19 mmHg for SBP, 0/6/13 mmHg for DBP, and 2/8/16 mmHg
+for MAP. For 0.01 mcg/kg/min increase of norepinephrine, responses were -4/0/4 bpm for HR, -3/3/12 mmHg for
+SBP, -4/2/7 mmHg for DBP, and -2/2/6 mmHg for MAP.
+Correlation of Response to Dose Change and RNN Prediction
+The correlation coefficient (r) between the true responses and dose changes ranged from -0.02 to 0.06, while r between the true responses and the RNN’s predicted responses ranged from 0.13 to 0.26 (see Figure 3). The difference
+between these two correlation coefficients was found to be significant (p < 0.01). The correlation coefficients between
+true responses and the titrations characterized as an independent application with independent observation were not
+significantly different from other titrations (Table 2).
+
+Dopamine
+
+Epinephrine
+
+Norepinephrine
+
+Diastolic Blood Pressure
+Heart Rate
+Mean Arterial Pressure
+Systolic Blood Pressure
+Diastolic Blood Pressure
+Heart Rate
+Mean Arterial Pressure
+Systolic Blood Pressure
+Diastolic Blood Pressure
+Heart Rate
+Mean Arterial Pressure
+Systolic Blood Pressure
+
+Over Full Data Set
+Response v. Response v.
+Titration
+RNN Pred.
+0.03
+0.24
+0.02
+0.20
+0.04
+0.26
+0.07
+0.25
+0.02
+0.18
+0.06
+0.13
+0.02
+0.19
+0.03
+0.23
+0.10
+0.21
+-0.02
+0.18
+0.13
+0.19
+0.13
+0.17
+
+IA-IO Set
+Response v. Response v.
+Titration
+RNN Pred.
+0.05
+0.26
+0.01
+0.18
+0.06
+0.29
+0.12
+0.27
+0.00
+0.19
+0.08
+0.10
+0.03
+0.22
+0.04
+0.22
+0.07
+0.28
+-0.05
+0.19
+0.09
+0.24
+0.15
+0.23
+
+Non IA-IO Set
+Response v. Response v.
+Titration
+RNN Pred.
+-0.02
+0.21
+0.01
+0.26
+-0.02
+0.21
+-0.03
+0.22
+0.03
+0.13
+0.03
+0.17
+0.01
+0.11
+0.01
+0.20
+0.08
+0.14
+0.03
+0.16
+0.10
+0.13
+0.06
+0.11
+
+Table 2: The correlation coefficient (r) for the plots in Figure 3. Correlation coefficients were also calculated separately for titrations characterized as independent application with independent observation (IA-IO) and for titrations
+not characterized as IA-IO (Non IA-IO).
+Evaluation of LR and RNN Predictions Using MAE and AUC
+Parameters of the LR models are in the Appendix (Table 5). Table 3 shows the MAEs of the RNN and LR predictions of
+HR, SBP, DBP and MAP responses to dopamine, epinephrine and norepinephrine titrations in the test set. The RNN’s
+
+Figure 3: The left plots (yellow) are the vasoactive dose changes in mcg/kg/min (x-axis) and the measured physiologic
+responses (y-axis). The right plots (blue) are the RNN-predicted responses (x-axis) and the measured responses (yaxis). These plots are shown for each drug (top-bottom: Dopamine, Epinephrine, Norepinephrine). The correlation
+coefficient (r) is included for each subplot.
+
+MAEs associated with dopamine and epinephrine were lower by 1-3% than those of LR across all four vitals. The
+RNN model had higher MAEs in SBP, DBP and MAP responses to norepinephrine than LR. MAEs aggregated over
+the subset of titrations characterized as independent application with independent observations were lower than errors
+aggregated over the whole set. This was true for both RNN and LR models across all vasoactive-vital combinations.
+Table 4 displays test set AUCs when the models were evaluated on the binary task of predicting whether or not
+vitals increased in response to vasoactive titrations. Across all vitals and vasoactives, the RNN achieved 1-19% AUC
+improvement over LR, with the largest improvement coming from HR response to epinephrine. The RNN’s AUCs
+computed over titrations characterized as independent application with independent observation were generally higher
+than AUCs from the whole set. The only exceptions were dopamine-HR and epinephrine-HR combinations.
+MAE
+Dopamine
+Epinephrine
+Norepinephrine
+
+HR (bpm)
+LR
+RNN
+9.34 (9.21) 9.18 (9.09)
+7.87 (7.79) 7.77 (7.74)
+8.57 (7.22) 8.38 (7.05)
+
+SBP (mmHg)
+LR
+RNN
+10.80 (9.99)
+10.51 (9.65)
+11.84 (11.63) 11.68 (11.42)
+10.35 (9.38)
+11.15 (9.59)
+
+DBP (mmHg)
+LR
+RNN
+8.79 (8.41) 8.62 (8.17)
+9.13 (8.75) 9.12 (8.69)
+8.03 (7.78) 8.13 (7.54)
+
+MAP (mmHg)
+LR
+RNN
+9.38 (8.89)
+9.22 (8.65)
+10.10 (9.63) 10.02 (9.43)
+8.47 (8.03)
+8.64 (7.93)
+
+Table 3: Comparison of MAE between the LR and RNN across titration variants. Numbers in parentheses indicate
+results from only the titrations characterized as independent application with an independent observation.
+AUC
+Dopamine
+Epinephrine
+Norepinephrine
+
+HR (bpm)
+LR
+RNN
+0.528 (0.530) 0.559 (0.558)
+0.503 (0.503) 0.597 (0.594)
+0.528 (0.546) 0.563 (0.587)
+
+SBP (mmHg)
+LR
+RNN
+0.500 (0.502) 0.564 (0.575)
+0.500 (0.502) 0.557 (0.563)
+0.500 (0.500) 0.506 (0.554)
+
+DBP (mmHg)
+LR
+RNN
+0.500 (0.500) 0.565 (0.575)
+0.498 (0.500) 0.541 (0.543)
+0.500 (0.500) 0.561 (0.577)
+
+MAP (mmHg)
+LR
+RNN
+0.499 (0.501) 0.572 (0.585)
+0.498 (0.500) 0.532 (0.537)
+0.500 (0.500) 0.540 (0.557)
+
+Table 4: Comparison of AUC between the LR and RNN predictions on the binary task across titration variants. Numbers in parenthesis indicate results from only the titrations characterized as independent application and an independent
+observation.
+DISCUSSION
+This is the first attempt to predict an individual critically ill child’s response to increasing or decreasing doses of
+vasoactive medications. The complex environment of an ICU, in which the effects of administered interventions and
+treatments can vary significantly from what may be observed in a controlled setting, coupled with the complexity of
+disease processes, pose significant challenges to developing a robust predictive model.
+When defining the response (i.e. vital sign change from pre-titration to post-titration), we deemed a one hour postobservation window sufficient for understanding the vasoactive’s effects beyond a child’s immediate response to the
+titration. We also believed the two hour pre-observation window provided more complete information of the child’s
+hemodynamic state before titration to compare with their altered state after titration.
+The responses to dopamine, epinephrine and norepinephrine titrations in CHLA’s PICU showed significant heterogeneity, consistent with observations from a prior study1 and the notion that many factors about patient condition
+affect the response. These results were reflected in the low correlation coefficients between the observed responses
+and dose changes, regardless of the vasoactive-vital sign combination (Figure 3). Not surprisingly, the linear regression model using only titration information performed poorly in MAE (Table 3) and AUC (Table 4), where the latter
+corresponds to the task of determining positive or negative physiologic response.
+The RNN model, which used all available variables, showed some improvements. Across all vasoactive-vital combinations, the observed responses were more highly correlated to the RNN’s predictions than they were to dose changes.
+The RNN’s predictions of all four vital responses to dopamine and epinephrine dose changes showed MAE and AUC
+improvements over the LR model, while the RNN’s predictions of SBP, DBP, and MAP responses to norepinephrine
+titrations were worse than the regression model’s. This is potentially due to the limited norepinephrine data available
+for training. These results indicate that the RNN model had some ability to extract factors, in addition to vasoactive
+dose change, that affect response. Both the LR and RNN models performed better on the subset of titrations characterized as independent application with independent observation than on the whole set. This was true for MAEs
+
+on all vasoactive-vital combinations, and for AUCs on all but two vasoactive-vital combinations. This affirms our
+assumption that this subset of titrations would provide a “cleaner” dataset for understanding the effects of vasoactives,
+despite the true responses for this subset still showing similar heterogeneity to the full data set.
+Future efforts to improve model development include incorporating monitor data and more detailed fluids data. Monitor data captures patient vital sign observations with much higher temporal frequency than the charted data used in
+this study. Higher fidelity data may provide a more complete picture of a patient’s hemodynamic state during any
+observation window, thus enabling more accurate response computations. In turn, these may allow for better model
+development. Detailed data for all fluids administered may also improve RNN performance. Fluids are typically administered first before vasoactives to improve blood pressure in septic children, and thus are an important intervention
+to include in any model.
+CONCLUSION
+Septic children’s responses to vasoactive titrations displayed significant heterogeneity, which indicates that variables
+other than dose titration affect the response. We hypothesized that an RNN would be able to process variables and their
+interactions to more accurately predict an individual child’s response than a linear regression using titration data alone.
+The analysis assessing and comparing the performance of the two models supported this hypothesis. While the RNN’s
+predictions are not yet clinically applicable, the methodologies developed here may provide an initial framework to
+refine machine learning models for this problem. Further development of these methodologies may assist clinical
+administration of vasoactive medications in children with septic shock in the future.
+
+References
+[1] Ceneviva G, Paschall JA, Maffei F, Carcillo JA. Hemodynamic support in fluid-refractory pediatric septic shock.
+Pediatrics. 1998;102(2):e19–e19.
+[2] Kutko MC, Calarco MP, Flaherty MB, Helmrich RF, Ushay HM, Pon S, et al. Mortality rates in pediatric septic
+shock with and without multiple organ system failure. Pediatric Critical Care Medicine. 2003;4(3):333–337.
+[3] Brierley J, Carcillo JA, Choong K, Cornell T, DeCaen A, Deymann A, et al. Clinical practice parameters for
+hemodynamic support of pediatric and neonatal septic shock: 2007 update from the American College of Critical
+Care Medicine. Critical care medicine. 2009;37(2):666.
+[4] Han YY, Carcillo JA, Dragotta MA, Bills DM, Watson RS, Westerman ME, et al. Early reversal of
+pediatric-neonatal septic shock by community physicians is associated with improved outcome. Pediatrics.
+2003;112(4):793–799.
+[5] Ninis N, Phillips C, Bailey L, Pollock JI, Nadel S, Britto J, et al. The role of healthcare delivery in the outcome of
+meningococcal disease in children: case-control study of fatal and non-fatal cases. Bmj. 2005;330(7506):1475.
+[6] Goldenberg M, Pines KL, Baldwin EdF, Greene DG, Roh CE. The hemodynamic response of man to norepinephrine and epinephrine and its relation to the problem of hypertension. The American journal of medicine.
+1948;5(6):792–806.
+[7] Gonzalez ER, Ornato JP, Garnett AR, Levine RL, Young DS, Racht EM. Dose-dependent vasopressor response
+to epinephrine during CPR in human beings. Annals of emergency medicine. 1989;18(9):920–926.
+[8] Moran JL, O’Fathartaigh MS, Peisach AR, Chapman MJ, Leppard P. Epinephrine as an inotropic agent in septic
+shock: a dose-profile analysis. Critical care medicine. 1993;21(1):70–77.
+[9] Martin C, Viviand X, Arnaud S, Vialet R, Rougnon T. Effects of norepinephrine plus dobutamine or
+norepinephrine alone on left ventricular performance of septic shock patients. Critical care medicine.
+1999;27(9):1708–1713.
+[10] Martin C, Papazian L, Perrin G, Saux P, Gouin F. Norepinephrine or dopamine for the treatment of hyperdynamic
+septic shock? Chest. 1993;103(6):1826–1831.
+[11] Overgaard CB, Dzavı́k V. Inotropes and vasopressors: review of physiology and clinical use in cardiovascular
+disease. Circulation. 2008;118(10):1047–1056.
+[12] Graves A. Supervised sequence labelling. In: Supervised sequence labelling with recurrent neural networks.
+Springer; 2012. p. 5–13.
+[13] Goodfellow I, Bengio Y, Courville A, Bengio Y. Deep learning. vol. 1. MIT press Cambridge; 2016.
+[14] Sutskever I, Martens J, Hinton GE. Generating text with recurrent neural networks. In: Proceedings of the 28th
+International Conference on Machine Learning (ICML-11); 2011. p. 1017–1024.
+[15] Graves A, Mohamed Ar, Hinton G. Speech recognition with deep recurrent neural networks. In: Acoustics,
+speech and signal processing (icassp), 2013 ieee international conference on. IEEE; 2013. p. 6645–6649.
+[16] Sutskever I, Vinyals O, Le QV. Sequence to sequence learning with neural networks. In: Advances in neural
+information processing systems; 2014. p. 3104–3112.
+[17] Bahdanau D, Cho K, Bengio Y. Neural machine translation by jointly learning to align and translate. arXiv
+preprint arXiv:14090473. 2014;.
+[18] Shah S, Ledbetter D, Aczon M, Flynn A, Rubin S. 2: Early prediction of patient deterioration using machine
+learning techniques with time series data. Critical Care Medicine. 2016;44(12):87.
+
+[19] Choi E, Schuetz A, Stewart WF, Sun J. Using recurrent neural network models for early detection of heart failure
+onset. Journal of the American Medical Informatics Association. 2017;24(2):361–370.
+[20] Aczon M, Ledbetter D, Ho L, Gunny A, Flynn A, Williams J, et al. Dynamic mortality risk predictions in
+pediatric critical care using recurrent neural networks. arXiv preprint arXiv:170106675. 2017;.
+[21] Ho LV, Ledbetter D, Aczon M, Wetzel R. The Dependence of Machine Learning on Electronic Medical Record
+Quality. In: AMIA Annual Symposium Proceedings. vol. 2017. American Medical Informatics Association;
+2017. p. 883.
+[22] Dernoncourt F, Lee JY, Uzuner O, Szolovits P. De-identification of patient notes with recurrent neural networks.
+Journal of the American Medical Informatics Association. 2017;24(3):596–606.
+[23] Carlin CS, Ho LV, Ledbetter DR, Aczon MD, Wetzel RC. Predicting individual physiologically acceptable states
+at discharge from a pediatric intensive care unit. Journal of the American Medical Informatics Association.
+2018;25(12):1600–1607.
+[24] Goldstein B, Giroir B, Randolph A. International Consensus Conference on Pediatric Sepsis (2005) International
+pediatric sepsis consensus conference: definitions for sepsis and organ dysfunction in pediatrics. Pediatr Crit Care
+Med;6(1):2–8.
+[25] Hochreiter S, Schmidhuber J. Long short-term memory. Neural computation. 1997;9(8):1735–1780.
+
+APPENDIX
+Dopamine (mcg)
+
+Epinephrine (0.01 mcg)
+
+Norepinephrine (0.01 mcg)
+
+Vitals (units)
+Diastolic Blood Pressure (mmHg)
+Heart Rate (bpm)
+Mean Arterial Pressure (mmHg)
+Systolic Blood Pressure (mmHg)
+Diastolic Blood Pressure (mmHg)
+Heart Rate (bpm)
+Mean Arterial Pressure (mmHg)
+Systolic Blood Pressure (mmHg)
+Diastolic Blood Pressure (mmHg)
+Heart Rate (bpm)
+Mean Arterial Pressure (mmHg)
+Systolic Blood Pressure (mmHg)
+
+Intercept (vital units)
+62.010
+116.433
+75.543
+108.157
+62.240
+116.223
+75.792
+108.542
+62.632
+116.753
+76.202
+108.417
+
+Table 5: Coefficients for the linear regression models.
+Parameter
+Number of LSTM layers
+Hidden Units in LSTM Layers
+Batch Size
+Learning Rate
+Loss
+Optimizer
+Dropout
+Recurrent Dropout
+Regularizer
+Output Activation
+
+Value
+3
+256, 256, 128
+32
+0.005
+Mean Absolute Error
+RMSProp
+0.2
+0.2
+L2(0.0001)
+Linear
+
+Table 6: RNN Model and Training Parameters
+
+Slope (vital units per dose units)
+0.002
+0.128
+0.066
+0.242
+0.056
+0.019
+0.051
+0.060
+0.006
+0.069
+0.068
+0.080
+
+ABG Base excess
+ABG FiO2
+ABG HCO3
+ABG O2 sat
+ABG PCO2
+ABG PO2
+ABG TCO2
+ABG pH
+ALT
+AST
+Albumin Level
+Alkaline phosphatase
+Amylase
+Anti-Xa Heparin
+B-type Natriuretic Peptide
+BUN
+Bands %
+Basophils %
+Bicarbonate Serum
+Bilirubin Conjugated
+Bilirubin Total
+Bilirubin Unconjugated
+Blasts %
+C-Reactive Protein
+CBG Base excess
+CBG FiO2
+CBG HCO3
+CBG O2 sat
+CBG PCO2
+CBG PO2
+CBG TCO2
+CBG pH
+CSF Bands %
+CSF Glucose
+CSF Lymphs %
+CSF Protein
+CSF RBC
+CSF Segs %
+CSF WBC
+Calcium Ionized
+Calcium Total
+Chloride
+Complement C3 Serum
+Complement C4 Serum
+Creatinine
+Culture Blood
+Culture CSF
+Culture Fungus Blood
+Culture Respiratory
+Culture Urine
+Culture Wound
+D-dimer
+ESR
+Eosinophils %
+Ferritin Level
+Fibrinogen
+GGT
+Glucose
+Haptoglobin
+Hematocrit
+Hemoglobin
+INR
+Influenza Lab
+Lactate
+Lactate Dehydrogenase Blood
+Lactic Acid Blood
+Lipase
+Lymphocyte %
+MCH
+MCHC
+MCV
+MVBG Base Excess
+MVBG FiO2
+MVBG HCO3
+MVBG O2 Sat
+MVBG PCO2
+MVBG PO2
+MVBG TCO2
+
+MVBG pH
+Macrocytes
+Magnesium Level
+Metamyelocytes %
+Monocytes %
+Myelocytes %
+Neutrophils %
+PT
+PTT
+Phosphorus level
+Platelet Count
+Potassium
+Protein Total
+RBC Blood
+RDW
+Reticulocyte Count
+Schistocytes
+Sodium
+Spherocytes
+T4 Free
+TSH
+Triglycerides
+VBG Base excess
+VBG FiO2
+VBG HCO3
+VBG O2 sat
+VBG PCO2
+VBG PO2
+VBG TCO2
+VBG pH
+White Blood Cell Count
+Acetaminophen/Codeine inter
+Acetaminophen/Hydrocodone inter
+Acetaminophen inter
+Acetazolamide inter
+Acyclovir inter
+Albumin inter
+Albuterol inter
+Allopurinol inter
+Alteplase inter
+Amikacin inter
+Aminophylline cont
+Aminophylline inter
+Amlodipine inter
+Amoxicillin/clavulanic acid inter
+Amoxicillin inter
+Amphotericin B Lipid Complex inter
+Ampicillin/Sulbactam inter
+Ampicillin inter
+Aspirin inter
+Atropine inter
+Azathioprine inter
+Azithromycin inter
+Baclofen inter
+Basiliximab inter
+Budesonide inter
+Bumetanide inter
+Calcium Chloride cont
+Calcium Chloride inter
+Calcium Gluconate inter
+Carbamazepine inter
+Cefazolin inter
+Cefepime inter
+Cefotaxime inter
+Cefoxitin inter
+Ceftazidime inter
+Ceftriaxone inter
+Cephalexin inter
+Chloral Hydrate inter
+Chlorothiazide inter
+Ciprofloxacin HCL inter
+Cisatracurium cont
+Clindamycin inter
+Clonazepam inter
+Clonidine HCl inter
+Cyclophosphamide inter
+Desmopressin inter
+Dexamethasone inter
+
+Dexmedetomidine cont
+Diazepam inter
+Digoxin inter
+Diphenhydramine HCl inter
+Dobutamine cont
+Dopamine cont
+Dornase Alfa inter
+Enalapril inter
+Enoxaparin inter
+Epinephrine cont
+Epinephrine inter
+Epoetin inter
+Erythromycin inter
+Factor VII inter
+Famotidine inter
+Fentanyl cont
+Fentanyl inter
+Ferrous Sulfate inter
+Filgrastim inter
+Fluconazole inter
+Fluticasone inter
+Fosphenytoin inter
+Furosemide cont
+Furosemide inter
+Gabapentin inter
+Ganciclovir Sodium inter
+Gentamicin inter
+Glycopyrrolate inter
+Heparin cont
+Heparin inter
+Hydrocortisone inter
+Hydromorphone cont
+Hydromorphone inter
+Ibuprofen inter
+Immune Globulin inter
+Insulin cont
+Insulin inter
+Ipratropium Bromide inter
+Isoniazid inter
+Isradipine inter
+Ketamine cont
+Ketamine inter
+Ketorolac inter
+Labetalol inter
+Lactobacillus inter
+Lansoprazole inter
+Levalbuterol inter
+Levetiracetam inter
+Levocarnitine inter
+Levofloxacin inter
+Levothyroxine Sodium inter
+Lidocaine inter
+Linezolid inter
+Lisinopril inter
+Lorazepam inter
+Magnesium Sulfate inter
+Meropenem inter
+Methadone inter
+Methylprednisolone inter
+Metoclopramide inter
+Metronidazole inter
+Micafungin inter
+Midazolam HCl cont
+Midazolam HCl inter
+Milrinone cont
+Montelukast Sodium inter
+Morphine cont
+Morphine inter
+Mycophenolate Mofetl inter
+Naloxone HCL cont
+Naloxone HCL inter
+Nifedipine inter
+Nitrofurantoin inter
+Nitroprusside cont
+Norepinephrine cont
+Nystatin inter
+Octreotide Acetate cont
+Olanzapine inter
+
+Ondansetron inter
+Oseltamivir inter
+Oxacillin inter
+Oxcarbazepine inter
+Oxycodone inter
+Pantoprazole inter
+Penicillin G Sodium inter
+Pentobarbital inter
+Phenobarbital inter
+Phenytoin inter
+Piperacillin/Tazobactam inter
+Potassium Chloride inter
+Potassium Phosphate inter
+Prednisolone inter
+Prednisone inter
+Propofol cont
+Propofol inter
+Propranolol HCl inter
+Racemic Epi inter
+Ranitidine inter
+Rifampin inter
+Risperidone inter
+Rocuronium inter
+Sildenafil inter
+Sodium Bicarbonate inter
+Sodium Chloride inter
+Sodium Phosphate inter
+Spironolactone inter
+Sucralfate inter
+Tacrolimus inter
+Terbutaline cont
+Tobramycin inter
+Topiramate inter
+Trimethoprim/Sulfamethoxazole inter
+Ursodiol inter
+Valganciclovir inter
+Valproic Acid inter
+Vancomycin inter
+Vasopressin cont
+Vecuronium inter
+Vitamin K inter
+Voriconazole inter
+Age
+Sex F
+Sex M
+Abdominal Girth
+Activity Level
+Bladder pressure
+Capillary Refill Rate
+Central Venous Pressure
+Cerebral Perfusion Pressure
+Diastolic Blood Pressure
+EtCO2
+Extremity Temperature Level
+Eye Response Level
+FLACC Pain Activity
+FLACC Pain Consolability
+FLACC Pain Cry
+FLACC Pain Face
+FLACC Pain Intensity
+FLACC Pain Legs
+Foley Catheter Volume
+Gastrostomy Tube Volume
+Glascow Coma Score
+Head Circumference
+Heart Rate
+Height
+Hemofiltration Fluid Output
+Intracranial Pressure
+Left Pupil Size After Light
+Left Pupil Size Before Light
+Left Pupillary Response Level
+Level of Consciousness
+Lip Moisture Level
+Mean Arterial Pressure
+Motor Response Level
+Nasal Flaring Level
+Near-Infrared Spectroscopy SO2
+
+Table 7: Input variables to the RNN model.
+
+Nutrition Level
+Oxygenation Index
+PaO2 to FiO2
+Patient Mood Level
+Pulse Oximetry
+Quality of Pain Level
+Respiratory Effort Level
+Respiratory Rate
+Right Pupil Size After Light
+Right Pupil Size Before Light
+Right Pupillary Response Level
+Sedation Scale Level
+Skin Turgor edema
+Skin Turgor turgor
+Systolic Blood Pressure
+Temperature
+Verbal Response Level
+WAT1 Total
+Weight
+Abdominal X Ray
+Arterial Line Site
+CT Abdomen Pelvis
+CT Brain
+CT Chest
+Central Venous Line Site
+Chest Tube Site
+Chest X Ray
+Comfort Response Level
+Continuous EEG Present
+Diversional Activity books
+Diversional Activity music
+Diversional Activity play
+Diversional Activity toys
+Diversional Activity tv
+ECMO Hours
+EPAP
+FiO2
+Gastrostomy Tube Location
+HFOV Amplitude
+HFOV Frequency
+Hemofiltration Therapy Mode
+IPAP
+Inspiratory Time
+MRI Brain
+Mean Airway Pressure
+Mechanical Ventilation Mode
+MultiDisciplinaryTeam Present
+NIV Mode
+NIV Set Rate
+Nitric Oxide
+Nurse Activity Level Completed
+O2 Flow Rate
+Oxygen Mode Level
+Oxygen Therapy
+PEEP
+Peak Inspiratory Pressure
+Peritoneal Dialysis Type
+Pharmacological Comfort Measures Given
+Position Support Given
+Position Tolerance Level
+Pressure Support
+Range of Motion Assistance Type
+Sedation Intervention Level
+Sedation Response Level
+Tidal Volume Delivered
+Tidal Volume Expiratory
+Tidal Volume Inspiratory
+Tidal Volume Set
+Tracheostomy Tube Size
+Ventilator Rate
+Ventriculostomy Site
+Visitor Mood Level
+Visitor Present
+Volume Tidal
+
+Dopamine
+High Dosage(>10 mcg/kg/min)
+Low Dosage(<10 mcg/kg/min)
+High Titration(>5 mcg/kg/min)
+Low Titration(<5 mcg/kg/min)
+Dose Increase
+Dose Decrease
+
+MAE
+AUC
+MAE
+AUC
+MAE
+AUC
+MAE
+AUC
+MAE
+AUC
+MAE
+AUC
+
+HR (bpm)
+LR RNN
+8.702 8.620
+0.560 0.572
+9.318 9.188
+0.523 0.556
+9.913 9.706
+0.486 0.598
+9.194 9.074
+0.530 0.557
+9.537 9.216
+0.512 0.605
+9.025 9.018
+0.500 0.528
+
+SBP (mmHg)
+LR
+RNN
+11.244 11.317
+0.486
+0.574
+9.732
+9.319
+0.502
+0.573
+9.674 10.945
+0.676
+0.588
+9.995
+9.616
+0.497
+0.574
+10.619
+10.41
+0.500
+0.586
+9.617
+9.215
+0.485
+0.545
+
+DBP (mmHg)
+LR RNN
+8.172 8.121
+0.500 0.586
+8.455 8.183
+0.500 0.573
+8.822 8.751
+0.500 0.611
+8.395 8.155
+0.500 0.574
+8.311 8.215
+0.500 0.575
+8.464 8.147
+0.500 0.568
+
+MAP (mmHg)
+LR RNN
+8.588 8.570
+0.500 0.613
+8.955 8.664
+0.501 0.578
+7.582 8.057
+0.576 0.632
+8.933 8.666
+0.500 0.582
+9.286 9.162
+0.500 0.582
+8.665 8.349
+0.500 0.574
+
+Table 8: Comparison of MAE and AUC between the LR and RNN across dopamine titrations characterized as an
+independent application and independent observation, parsed by titration types.
+Epinephrine
+High Dosage(>0.1 mcg/kg/min)
+Low Dosage(<0.1 mcg/kg/min)
+High Titration(>0.1 mcg/kg/min)
+Low Titration(<0.1 mcg/kg/min)
+Dose Increase
+Dose Decrease
+
+MAE
+AUC
+MAE
+AUC
+MAE
+AUC
+MAE
+AUC
+MAE
+AUC
+MAE
+AUC
+
+HR (bpm)
+LR
+RNN
+7.644
+7.462
+0.514
+0.681
+7.826
+7.815
+0.500
+0.571
+11.204 11.854
+0.466
+0.273
+7.663
+7.589
+0.500
+0.596
+8.022
+7.967
+0.505
+0.595
+7.656
+7.611
+0.500
+0.575
+
+SBP (mmHg)
+LR
+RNN
+14.471 14.243
+0.500
+0.561
+10.842 10.630
+0.503
+0.562
+12.722 11.136
+0.571
+0.643
+11.599 11.426
+0.500
+0.561
+11.610 11.449
+0.500
+0.524
+11.645 11.400
+0.503
+0.562
+
+DBP (mmHg)
+LR
+RNN
+11.752 11.613
+0.490
+0.555
+7.908
+7.875
+0.503
+0.531
+7.370
+6.612
+0.488
+0.643
+8.788
+8.753
+0.500
+0.540
+9.132
+9.067
+0.500
+0.523
+8.535
+8.483
+0.500
+0.544
+
+MAP (mmHg)
+LR
+RNN
+12.476 12.206
+0.491
+0.535
+8.832
+8.660
+0.503
+0.531
+8.737
+7.510
+0.512
+0.667
+9.653
+9.492
+0.500
+0.532
+10.580 10.296
+0.500
+0.511
+9.105
+8.961
+0.500
+0.539
+
+Table 9: Comparison of MAE and AUC between the LR and RNN across epinephrine titrations characterized as an
+independent application and independent observation, partitioned by titration types.
+Norepinephrine
+High Dosage (>0.05 mcg/kg/min)
+Low Dosage (<0.05 mcg/kg/min)
+High Titration (>0.05 mcg/kg/min)
+Low Titration (<0.05 mcg/kg/min)
+Dose Increase
+Dose Decrease
+
+MAE
+AUC
+MAE
+AUC
+MAE
+AUC
+MAE
+AUC
+MAE
+AUC
+MAE
+AUC
+
+HR (bpm)
+LR
+RNN
+5.405
+5.170
+0.625
+0.583
+8.146
+8.012
+0.519
+0.581
+12.609 12.084
+0.350
+0.650
+6.919
+6.771
+0.557
+0.584
+6.982
+6.58
+0.500
+0.613
+7.357
+7.325
+0.512
+0.576
+
+SBP (mmHg)
+LR RNN
+8.704 9.138
+0.500 0.509
+9.740 9.820
+0.500 0.578
+6.409 5.111
+0.500 0.550
+9.552 9.838
+0.500 0.555
+8.265 9.083
+0.500 0.592
+10.031 9.876
+0.500 0.527
+
+DBP (mmHg)
+LR RNN
+8.200 7.665
+0.500 0.611
+7.563 7.477
+0.500 0.559
+4.301 4.599
+0.500 0.583
+7.978 7.707
+0.500 0.577
+6.673 6.760
+0.500 0.542
+8.423 7.993
+0.500 0.591
+
+MAP (mmHg)
+LR RNN
+7.803 7.533
+0.500 0.565
+8.152 8.137
+0.500 0.553
+5.438 5.208
+0.500 0.708
+8.179 8.083
+0.500 0.548
+6.654 6.742
+0.500 0.530
+8.83 8.616
+0.500 0.570
+
+Table 10: Comparison of MAE and AUC between the LR and RNN across norepinephrine titrations characterized as
+an independent application and independent observation, partitioned by titration types.
+
+MAE
+Dopamine
+Epinephrine
+Norepinephrine
+
+Survivors
+Non-Survivors
+Survivors
+Non-Survivors
+Survivors
+Non-Survivors
+
+HR (bpm)
+LR RNN
+9.38
+9.26
+9.17
+8.83
+8.05
+7.89
+7.17
+7.26
+9.17
+8.95
+3.54
+3.56
+
+SBP (mmHg)
+LR RNN
+10.54 10.19
+11.91 11.83
+12.53 12.17
+9.00
+9.63
+10.71 11.52
+7.28
+8.04
+
+DBP (mmHg)
+LR RNN
+8.44
+8.20
+10.30 10.39
+9.39
+9.26
+8.06
+8.52
+8.18
+8.31
+6.74
+6.61
+
+MAP (mmHg)
+LR RNN
+9.04
+8.81
+10.81 10.93
+10.31 10.09
+9.20
+9.77
+8.83
+8.83
+6.88
+7.11
+
+Table 11: Comparison of LR and RNN MAEs, computed over only those titrations characterized as independent
+application and an independent observation, partitioned by mortality outcome.
+
+

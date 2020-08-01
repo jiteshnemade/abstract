@@ -1,0 +1,1637 @@
+Toward Mention Detection Robustness with Recurrent Neural Networks
+Thien Huu Nguyen†∗, Avirup Sil§ , Georgiana Dinu§ and Radu Florian§
+†
+Computer Science Department, New York University, New York, USA
+§
+IBM T.J. Watson Research Center, Yorktown Heights, New York, USA
+thien@cs.nyu.edu,{avi,gdinu,raduf}.us.ibm.com
+
+arXiv:1602.07749v1 [cs.CL] 24 Feb 2016
+
+Abstract
+One of the key challenges in natural language processing (NLP) is to yield good
+performance across application domains
+and languages. In this work, we investigate the robustness of the mention detection systems, one of the fundamental tasks
+in information extraction, via recurrent
+neural networks (RNNs). The advantage
+of RNNs over the traditional approaches
+is their capacity to capture long ranges of
+context and implicitly adapt the word embeddings, trained on a large corpus, into a
+task-specific word representation, but still
+preserve the original semantic generalization to be helpful across domains. Our systematic evaluation for RNN architectures
+demonstrates that RNNs not only outperform the best reported systems (up to 9%
+relative error reduction) in the general setting but also achieve the state-of-the-art
+performance in the cross-domain setting
+for English. Regarding other languages,
+RNNs are significantly better than the traditional methods on the similar task of
+named entity recognition for Dutch (up to
+22% relative error reduction).
+
+1 Introduction
+One of the crucial steps toward understanding natural languages is mention detection (MD), whose
+goal is to identify entity mentions, whether named,
+nominal (the president) or pronominal (he, she),
+and classify them into some predefined types of interest in text such as PERSON, ORGANIZATION
+or LOCATION. This is an extension of the named
+entity recognition (NER) task which only aims to
+extract entity names. MD is necessary for many
+higher-level applications such as relation extraction, knowledge population, information retrieval,
+question answering and so on.
+∗
+
+Work carried out during an internship at IBM
+
+Traditionally, both MD and NER are formalized
+as sequential labeling problems, thereby being
+solved by some linear graphical models such as
+Hidden Markov Models (HMMs), Maximum Entropy Markov Models (MEMMs) or Conditional
+Random Fields (CRFs) (Lafferty et al., 2001). Although these graphical models have been adopted
+well to achieve the top performance for MD, there
+are still at least three problems we want to focus in
+this work:
+(i) The first problem is the performance loss
+of the mention detectors when they are trained
+on some domain (the source domain) and applied to other domains (the target domains). The
+problem might originate from various mismatches
+between the source and the target domains (domain shifts) such as the vocabulary difference, the
+distribution mismatches etc (Blitzer et al., 2006;
+Daume, 2007; Plank and Moschitti, 2013).
+(ii) Second, in mention detection, we might
+need to capture a long context, possibly covering
+the whole sentence, to correctly predict the type
+for a word. For instance, consider the following
+sentence with the pronominal “they”:
+Now, the reason that France, Russia and
+Germany are against war is because they have suffered much from the past war.
+In this sentence, the correct type GPE1 for
+“they” can only be inferred from its GPE references: “France”, “Russia” and “Germany” which
+are far way from the pronominal “they” of interest. The challenge is come up with the models
+that can encode and utilize these long-range dependency context effectively.
+(iii) The third challenge is to be able to quickly
+adapt the current techniques for MD so that they
+can perform well on new languages.
+In this paper, we propose to address these
+problems for MD via recurrent neural networks
+(RNNs) which offer a decent recurrent mechanism to embed the sentence context into a dis1
+
+Geographical Political Entity
+
+tributed representation and employ it to decode
+the sentences. Besides, as RNNs replace the symbolic forms of words in the sentences with their
+word embeddings, the distributed representation
+that captures the general syntactic and semantic
+properties of words (Collobert and Weston, 2008;
+Mnih and Hinton, 2008; Turian et al., 2010), they
+can alleviate the lexical sparsity, induce more general feature representation, thus generalizing well
+across domains (Nguyen and Grishman, 2015b).
+This also helps RNNs to quickly and effectively
+adapt to new languages which just require word
+embeddings as the only new knowledge we need
+to obtain. Finally, we can achieve the task-specific
+word embeddings for MD to improve the overall performance by updating the initial pre-trained
+word embeddings during the course of training in
+RNNs.
+The recent emerging interest in deep learning has produced many successful applications of
+RNNs for NLP problems such as machine translation (Cho et al., 2014a; Bahdanau et al., 2015),
+semantic role labeling (Zhou and Xu, 2015) etc.
+However, to the best of our knowledge, there has
+been no previous work employing RNNs for MD
+on the cross-domain and language settings so far.
+To summarize, the main contributions of this paper are as follow:
+1. We perform a systematic investigation on
+various RNN architectures and word embedding
+techniques that are motivated from linguistic observations for MD.
+2. We achieve the state-of-the-art performance
+for MD both in the general setting and in the crossdomain setting with the bidirectional modeling applied to RNNs.
+3. We demonstrate the portability of the RNN
+models for MD to new languages by their significant improvement with large margins over the best
+reported system for named entity recognition in
+Dutch.
+
+2 Related Work
+Both
+named
+entity
+recognition
+(Bikel et al., 1997;
+Borthwick et al., 1997;
+Tjong Kim Sang and De Meulder, 2003;
+Florian et al., 2003;
+Miller et al., 2004;
+Ando and Zhang, 2005;
+Suzuki and Isozaki, 2008;
+Ratinov and Roth, 2009;
+Lin and Wu, 2009;
+Turian et al., 2010;
+Ritter et al., 2011;
+Passos et al., 2014;
+Cherry and Guo, 2015)
+and mention detection (Florian et al., 2004)
+
+have been extensively studied with various evaluation in the last decades: MUC6,
+MUC7, CoNLL’02, CoNLL’03 and ACE. The
+previous work on MD has examined the cascade models (Florian et al., 2006), transferred
+knowledge from rich-resource languages to
+low-resource ones via machine translation
+(Zitouni and Florian, 2008) or improved the
+systems on noisy input (Florian et al., 2010).
+Besides, some recent work also tries to solve MD
+jointly with other tasks such as relation or event
+extraction to benefit from their inter-dependencies
+(Roth and Yih, 2007;
+Kate and Mooney, 2010;
+Li and Ji, 2014a; Li et al., 2014b). However, none
+of these work investigates RNNs for MD on the
+cross-domain and language settings as we do in
+this paper.
+Regarding neural networks, a large volume
+of work has devoted to the application of
+deep learning to NLP in the last few years,
+centering around several network architecture such as convolutional neural networks
+(CNNs) (Yih et al., 2014;
+Shen et al., 2014;
+Kalchbrenner et al., 2014;
+Kim, 2014;
+Zeng et al., 2014;
+dos Santos et al., 2015a;
+dos Santos and Guimarães, 2015b),
+recurrent/recursive
+neural
+networks
+(Socher et al., 2012;
+Cho et al., 2014a;
+Bahdanau et al., 2015;
+Zhou and Xu, 2015;
+Tai et al., 2015), to name a few. For NER,
+Collobert et al. (2011) propose a CNN-based
+framework while Mesnil et al. (2013) and Yao et
+al. (2013; 2014) investigate the RNNs for the slot
+filling problem in spoken language understanding.
+Although our work also examines the RNNs, we
+consider the mention detection problem with an
+emphasis on the robustness of the models in the
+domain shifts and language changes which has
+never been explored in the literature before.
+Finally, for the robustness in the domain
+adaptation setting, the early work has focused on the sequential labeling tasks such
+as part-of-speech tagging or name tagging
+(Blitzer et al., 2006;
+Huang and Yates, 2010;
+Daume, 2007;
+Xiao and Guo, 2013;
+Schnabel and Schütze, 2014).
+Recent work
+has drawn attention to relation extraction
+(Plank and Moschitti, 2013; Nguyen et al., 2015a;
+Gormley et al., 2015). In the field of neural
+networks, to the best of our knowledge, there
+is only one work from Nguyen and Grishman
+(2015b) that evaluates CNNs for event detection
+in the cross-domain setting.
+
+3 Models
+We formalize the mention detection problem as a
+sequential labeling task. Given a sentence X =
+w1 w2 . . . wn , where wi is the i-th word and n is
+the length of the sentence, we want to predict the
+label sequence Y = y1 y2 . . . yn for X, where
+yi is the label for wi . The labels yi follow the
+BIO2 encoding to capture the entity mentions in
+X (Ratinov and Roth, 2009).
+In order to prepare the sentence for RNNs, we
+first transform each word wi into a real-valued
+vector using the concatenation of two vectors ei
+and fi : wi = [ei , fi ]2 , where:
+• ei is the word embedding vector of wi , obtained by training a language model on a
+large corpus (discussed later).
+• fi is a binary vector encompassing different
+features for wi . In this work, we are utilizing four types of features: capitalization,
+gazetteers, triggers (whether wi is present in
+a list of trigger words3 or not) and cache (the
+label that is assigned to wi sometime before
+in the document).
+We then enrich this vector representation by
+including the word vectors in a context window of vc for each word in the sentence to capture the short-term dependencies for prediction
+(Mesnil et al., 2013). This effectively converts wi
+into the context window version of the concatenated vectors: xi = [wi−vc , . . . , wi , . . . , wi+vc ].
+Given the new input representation, we describe
+the RNNs to be investigated in this work below.
+3.1
+
+The Basic Models
+
+In standard recurrent neural networks, at each time
+step (word position in sentence) i, we have three
+main vectors: the input vector xi ∈ RI , the hidden
+vector hi ∈ RH and the output vector oi ∈ RO (I,
+H and O are the dimensions of the input vectors,
+the dimension of the hidden vectors and the number of possible labels for each word respectively).
+The output vector oi is the probabilistic distribution over the possible labels for the word xi and
+obtained from hi via the softmax function ϕ:
+oi = ϕ(W hi ),
+
+ezm
+ϕ(zm ) = P z
+k
+ke
+
+2
+For simplicity, we are using the word wi and its realvalued vector representation interchangeably.
+3
+Trigger words are the words that are often followed by
+entity names in sentences such as “president”, “Mr.” etc.
+
+Regarding the hidden vectors or units hi , there
+are two major methods to obtain them from the
+current input and the last hidden and output vectors, leading to two different RNN variants:
+• In the Elman model (Elman, 1990), called
+ELMAN, the hidden vector from the previous step hi−1 , along with the input in the current step xi , constitute the inputs to compute
+the current hidden state hi :
+hi = Φ(U xi + V hi−1 )
+
+(1)
+
+• In the Jordan model (Jordan, 1986), called
+JORDAN, the output vector from the previous step oi−1 is fed into the current hidden
+layer rather than the hidden vector from the
+previous steps hi−1 . The rationale in this
+topology is to introduce the label from the
+preceding step as a feature for current prediction:
+hi = Φ(U xi + V oi−1 )
+
+(2)
+
+In the formula above, Φ is the sigmoid activation function: Φ(z) = 1+e1 −z and W , U , V are
+the same weight matrices for all time steps, to be
+learned during training. The unfolded dependency
+graphs for the two models are given in Figure 1.
+3.2 Gated Recurrent Units
+The hidden units in the two basic models above
+are essentially the standard feed-forward neural
+networks that take the vectors hi−1 , oi−1 and xi
+as inputs and do a linear transformation followed
+by a nonlinearity to generate the hidden vector hi .
+The ELMAN and JORDAN models are then basically a stack of these hidden units. Unfortunately,
+this staking mechanism causes the so-called
+“vanishing gradient” and “exploding gradient”
+problems (Bengio et al., 1994), making it challenging to train the networks properly in practice
+(Pascanu et al., 2012). These problems are addressed by the long-short term memory units
+(LSTM)
+(Hochreiter and Schmidhuber, 1997;
+Graves et al., 2009) that propose the idea of memory cells with four gates to allow the information
+storage and access over a long period of time.
+In this work, we apply another version of memory units with only two gates (reset and update),
+called Gated Recurrent Units (GRUs) from Cho
+et al. (2014a; 2015). GRU is shown to be
+much simpler than LSTM in terms of computation and implementation but still achieves the
+
+h0
+
+o1
+
+o2
+
+o3
+
+on−1
+
+on
+
+hn
+
+h1
+
+h2
+
+h3
+
+hn−1
+
+hn
+
+xn
+
+x1
+
+x2
+
+x3
+
+xn−1
+
+xn
+
+o1
+
+o2
+
+o3
+
+on−1
+
+on
+
+h1
+
+h2
+
+h3
+
+hn−1
+
+x1
+
+x2
+
+x3
+
+xn−1
+
+o0
+
+JORDAN
+
+ELMAN
+
+Figure 1: The ELMAN and JORDAN models
+comparable performance in machine translation
+(Bahdanau et al., 2015).
+The introduction of GRUs into the models ELMAN and JORDAN amounts to two new models,
+named ELMAN_GRU and JORDAN_GRU respectively, with two new methods to compute the
+hidden vectors hi . The formula for ELMAN_GRU
+is adopted directly from Cho et al. (2014b) and
+given below:
+hi = zi ⊙ ĥi + (1 − zi ) ⊙ hi−1
+ĥi = Φ(Wh xi + Uh (ri ⊙ hi−1 ))
+zi = Φ(Wz xi + Uz hi−1 )
+
+(3)
+
+ri = Φ(Wr xi + Ur hi−1 )
+where Wh , Wz , Wr ∈ RH×I , Uh , Uz , Ur ∈
+and ⊙ is the element-wise multiplication
+operation.
+We cannot directly apply the formula above to
+the JORDAN_GRU model since the dimensions
+of the output vectors oi and the hidden vector hi
+are different in general. For JORDAN_GRU, we
+first need to transform the output vector oi into the
+hidden vector space, leading to the following formula:
+RH×H
+
+3.3 The Extended Networks
+One of the limitations of the four basic models presented above is their incapacity to incorporate the
+future context information that might be crucial to
+the prediction in the current step. For instance,
+consider the first word “Liverpool” in the following sentence:
+Liverpool suffered an upset first home league
+defeat of the season, beaten 1-0 by a Guy Whittingham goal for Sheffield Wednesday.
+In this case, the correct label ORGANIZATION
+can only be detected if we first go over the whole
+sentence and then utilize the context words after
+“Liverpool” to decide its label.
+The limitation of the four models is originated
+from their mechanism to perform a single pass
+over the sentences from left to right and make the
+prediction for a word once they first encounter it.
+In the following, we investigate two different networks to overcome this limitation.
+
+hi = zi ⊙ ôi + (1 − zi ) ⊙ ti−1
+
+3.3.1 The Contextual Networks
+The contextual networks are motivated by the
+RNN Encoder-Decoder models that have become
+very popular in neural machine translation recently (Cho et al., 2014a; Bahdanau et al., 2015).
+In these networks, we first run a RNN Re over
+the whole sentence X = x1 x2 . . . xn to collect the
+hidden vector sequence c1 , c2 , . . . , cn , where ci is
+the hidden vector for the i-th step in the sentence.
+For convenience, this process is denoted by:
+
+ti−1 = T oi−1
+
+Re (x1 x2 . . . xn ) = c1 , c2 , . . . , cn
+
+ôi = Φ(Wo xi + Uo (ri ⊙ ti−1 ))
+
+The final hidden vector cn is then considered
+as a distributed representation of X, encoding the
+global context or topic information for X (the encoding phrase) and thus possibly being helpful for
+the label prediction of each word in X. Consequently, we perform the second RNN Rd over X
+to decode the sentence in which cn is used as an
+additional input in computing the hidden units for
+
+zi = Φ(Wz xi + Uz ti−1 )
+ri = Φ(Wr xi + Ur ti−1 )
+where T ∈ RH×O .
+
+(4)
+
+o0
+
+o1
+
+h1
+α1
+
+l0
+
+o3
+
+o2
+
+h2
+
+h3
+
+hn−1
+αn−1
+
+α3
+
+α2
+
+on
+
+o1
+
+o2
+
+o3
+
+on−1
+
+on
+
+hn
+
+h1
+
+h2
+
+h3
+
+hn−1
+
+hn
+
+α1
+
+α2
+
+α3
+
+αn−1
+
+αn
+
+r1
+
+r2
+
+r3
+
+rn−1
+
+rn
+
+l1
+
+l2
+
+l3
+
+ln−1
+
+ln
+
+x1
+
+x2
+
+x3
+
+xn−1
+
+xn
+
+on−1
+
+αn
+
+r1
+
+r2
+
+r3
+
+rn−1
+
+rn
+
+l1
+
+l2
+
+l3
+
+ln−1
+
+ln
+
+x1
+
+x2
+
+x3
+
+xn−1
+
+xn
+
+rn+1
+l0
+
+rn+1
+
+Figure 2: The bidirectional models. The model on the right is from Mesnil et al. (2013) with the forward
+and backward context size of 1. l0 , rn+1 are the zero vectors.
+every time step (the decoding phrase).
+Note that Re (the encoding model) should be an
+Elman model4 while Rd (the decoding model) can
+be any Elman or Jordan model. As an example,
+the formula for Rd = ELMAN is:
+hi = Φ(U xi + V hi−1 + Scn )
+3.3.2 The Bidirectional Networks
+The bidirectional networks involve three passes
+over the sentence, in which the first two passes
+are designated to encode the sentence while the
+third pass is responsible for decoding. The procedure for the sentence X = x1 x2 . . . xn is below:
+(i) Run the first RNN Ref from left to right
+over x1 x2 . . . xn to obtain the first hidden vector
+or output vector sequence (depending on whether
+Ref is an Elman or Jordan network respectively):
+Ref (x1 x2 . . . xn ) = l1 , l2 , . . . , ln (forward encoding).
+(ii) Run the second RNN Reb from right
+to left over x1 x2 . . . xn to obtain the second hidden vector or output vector sequence:
+Reb (xn xn−1 . . . x1 ) = rn , rn−1 , . . . , r1 (backward encoding).
+(iii) Obtain the concatenated sequence α =
+α1 , α2 , . . . , αn where αi = [li , ri ].
+(iv) Decode the sentence with the third RNN
+Rd (the decoding model) using α as the input
+vector, i.e, replacing xi by αi in the formula (1),
+(2), (3) and (4).
+Conceptually, the encoding RNNs Ref and Reb
+can be different but in this work, for simplicity and
+consistency, we assume that we only have a single
+encoding model, i.e, Ref = Reb = Re . Once
+4
+
+From now on, for convenience, the term “Elman models”
+refers to the ELMAN and ELMAN_GRU models. The same
+implication applies for the Jordan models.
+
+again, Re and Rd can be any model in {ELMAN,
+JORDAN, ELMAN_GRU, JORDAN_GRU}.
+The observation is, at the time step i, the forward hidden vector li represents the encoding for
+the past word context (from position 1 to i) while
+the backward hidden vector ri is the summary
+for the future word context (from position n to
+i). Consequently, the concatenated vector αi =
+[li , ri ] constitutes a distributed representation that
+is specific to the word at position i but still encapsulates the context information over the whole
+sentence at the same time. This effectively provides the networks a much richer representation
+to decode the sentence. The bidirectional network
+for Re = ELMAN and Rd = JORDAN is given on
+the left of Figure 2.
+We notice that Mesnil et al. (2013) also investigate the bidirectional models for the task of slot
+filling in spoken language understanding. However, compared to the work presented here, Mesnil et al. (2013) does not use any special transition
+memory cells (like the GRUs we are employing
+in this paper) to avoid numerical stability issues
+(Pascanu et al., 2012). Besides, they form the inputs α for the decoding phase from a larger context
+of the forward and backward encoding outputs,
+while performing word-wise, independent classification; in contrast, we use only the current output
+vectors in the forward and backward encodings for
+α, but perform recursive computations to decode
+the sentence via the RNN model Rd (demonstrated
+on the right of Figure 2).
+3.4 Training and Inference
+We train the networks locally. In particular, each
+training example consists of a word xi and its corresponding label yi in a sentence X = x1 x2 . . . xn
+(denoted by E = (xi , yi , X)). In the encoding
+phase, we first compute the necessary inputs ac-
+
+INPUT
+
+PROJECTION
+
+OUTPUT
+
+INPUT
+
+PROJECTION
+
+wt−2
+
+wt−2
+
+INPUT
+
+OUTPUT
+
+PROJECTION
+
+OUTPUT
+
+wt−2
+CONCATENATE
+
+wt−1
+
+wt−1
+
+wt−1
+
+SUM
+
+wt
+
+wt
+
+wt
+
+wt+1
+
+wt+1
+
+wt+1
+
+wt+2
+
+wt+2
+
+wt+2
+
+Skip-gram
+
+CBOW
+
+C-CONCAT
+
+Figure 3: Methods to Train Word Embeddings
+cording to the specific model of interest. This
+can be the original input vectors x1 , x2 , . . . , xn in
+the four basic models or the concatenated vectors
+α1 , α2 , . . . , αn in the bidirectional models. For
+the contextual models, we additionally have the
+context vector cn . Eventually, in the decoding
+phase, an sequence of vd input vectors preceding
+the current position i is fed into the decoding network Rd to obtain the output vector sequence. The
+last vector in this output sequence corresponds to
+the probabilistic label distribution for the current
+position i, to be used to compute the objective
+function. For example, in the bidirectional models, the input sequence for the decoding phase is
+αi−vd αi−vd +1 . . . αi while the output sequence is:
+Re (αi−vd αi−vd +1 . . . αi ) = oi−vd oi−vd +1 . . . oi .
+In this work, we employ the stochastic gradient
+descent algorithm5 to update the parameters via
+minimizing the negative log-likelihood objective
+function: nll(E) = − log(oi [yi ]).
+Finally, besides the weight matrices in the networks, the word embeddings are also optimized
+during training to obtain the task-specific word
+embeddings for MD. The gradients are computed
+using the back-propagation through time algorithm (Mozer, 1989) and inference is performed
+by running the networks over the whole sentences
+and taking argmax over the output sequence: yi =
+argmax(oi ).
+
+els to train word embeddings have been proposed
+recently in Mikolov et al. (2013a; 2013b) that
+introduce two log-linear models, i.e the continuous bag-of-words model (CBOW) and the continuous skip-gram model (Skip-gram). The CBOW
+model attempts to predict the current word based
+on the average of the context word vectors while
+the Skip-gram model aims to predict the surrounding words in a sentence given the current word. In
+this work, besides the CBOW and skip-gram models, we examine a concatenation-based variant of
+CBOW (C-CONCAT) to train word embeddings
+and compare the three models to gain insights into
+which kind of model is effective to obtain word
+representations for the MD task. The objective
+of C-CONCAT is to predict the target word using the concatenation of the vectors of the words
+surrounding it, motivated from our strategy to decide the label for a word based on the concatenated context vectors. Intuitively, the C-CONCAT
+model would perform better than CBOW due to
+the close relatedness between the decoding strategies of C-CONCAT and the MD methods. CBOW,
+Skip-gram and C-CONCAT are illustrated in Figure 3.
+
+4 Word Representation
+
+Our main focus in this work is to evaluate the robustness of the MD systems across
+domains and languages.
+In order to investigate the robustness across domains, following the prior work (Plank and Moschitti, 2013;
+Nguyen et al., 2015a), we utilize the ACE 2005
+dataset which contains 6 domains: broadcast news
+(bn), newswire (nw), broadcast conversation (bc),
+
+Following Collobert et al. (2011), we pre-train
+word embeddings from a large corpus and employ them to initialize the word representations
+in the models. One of the state-of-the-art mod5
+We try the AdaDelta algorithm (Zeiler, 2012) and the
+dropout regularization but do not see much difference.
+
+5 Experiments
+5.1 Dataset
+
+telephone conversation (cts), weblogs (wl), usenet
+(un) and 7 entity types: person, organization, GPE,
+location, facility, weapon, vehicle. The union of
+bn and nw is considered as a single domain, called
+news. We take half of bc as the only development
+data and use the remaining data and domains for
+evaluation. Some statistics about the domains are
+given in Table 1. As shown in Plank and Moschitti
+(2013), the vocabulary of the domains is quite different.
+For completeness,
+we also test the
+RNNs
+system
+on
+the
+Named
+Entity Recognition for English using the
+CoNLL 2003 dataset6 (Florian et al., 2003;
+Tjong Kim Sang and De Meulder, 2003)
+and
+compare the performance with the state-ofthe-art neural network system on this dataset
+(Collobert et al., 2011). Regarding the robustness
+across languages, we further evaluate the RNN
+models on the CoNLL 2002 dataset for Dutch
+Named Entity Recognition7 (Carreras et al., 2002;
+Tjong Kim Sang, 2002). Both CoNLL datasets
+come along with the training data, validation data
+and test data, annotated for 4 types of entities:
+person, organization, location and miscellaneous.
+Domain
+news
+bc
+cts
+wl
+un
+Total
+
+#Docs
+332
+60
+39
+119
+49
+599
+
+#Sents
+6487
+3720
+5900
+2447
+2746
+21300
+
+#Mentions
+22460
+9336
+9924
+6538
+6507
+54765
+
+For word representation, we train the word
+embeddings for English from the Gigaword corpus augmented with the newsgroups data from
+BOLT (Broad Operational Language Technologies) (6 billion tokens) while the entire Dutch
+Wikipedia pages (310 million tokens) are extracted to train the Dutch word embeddings. We
+utilize the word2vec toolkit8 (modified to add the
+C-CONCAT model) to learn the word representations. Following Baroni et al. (2014), we use the
+context window of 5, subsampling set to 1e-05 and
+negative sampling with the number of instances set
+to 10. The dimension of the vectors is set to 300
+to make it comparable with the word2vec toolkit.
+5.3 Model Architecture Experiments
+5.3.1 Model Architecture Evaluation
+In this section, we evaluate different RNN models by training the models on the news domain
+and report the performance on the development
+set. As presented in the previous sections, we have
+4 basic models M = {ELMAN, JORDAN, ELMAN_GRU, JORDAN_GRU}, 8 contextual models (two choices for the encoding model Re in
+{ELMAN, ELMAN_GRU} and 4 choices for the
+decoding model Rd ∈ M ), and 16 bidirectional
+models (4 choices for the encoding and decoding
+models Re , Rd in M). The performance for the basic models, the contextual models and the bidirectional models are shown in Table 2, Table 3 and
+Table 4 respectively9 .
+
+Table 1: ACE 2005 Dataset
+
+Model(Rd )
+ELMAN
+JORDAN
+ELMAN_GRU
+JORDAN_GRU
+
+Finally, we use the standard IOB2 tagging
+schema for the ACE 2005 dataset and the Dutch
+CoNLL dataset while the IOBES tagging schema
+is applied for the English CoNLL dataset to ensure
+the compatibility with Collobert et al. (2011).
+5.2
+
+Resources and Parameters
+
+In all the experiments for RNNs below, we employ
+the context window vc = 5, the decoding window
+vd = 9. We find that the optimal number of hidden
+units (or the dimension of the hidden vectors) and
+the learning rate vary according to the dataset. For
+the ACE 2005 dataset, we utilize 200 hidden units
+with learning rate = 0.01 while these numbers are
+100 and 0.06 respectively for the CoNLL datasets.
+Note that the number of hidden units is kept the
+same in both the encoding phase and the decoding
+phase.
+6
+7
+
+http://www.cnts.ua.ac.be/conll2003/ner/
+http://www.cnts.ua.ac.be/conll2002/ner/
+
+F1
+80.70
+80.46
+80.85
+81.06
+
+Table 2: The basic models’ performance
+Re ELMAN
+Rd
+ELMAN
+80.38
+JORDAN
+80.67
+ELMAN_GRU
+80.56
+JORDAN_GRU
+80.77
+
+ELMAN_GRU
+80.16
+80.66
+79.61
+79.77
+
+Table 3: The contextual models’ performance
+There are several important observations from
+the three tables:
+-Elman vs Jordan: In the encoding phase, the
+Elman models consistently outperform the Jordan
+models when the same decoding model is applied
+8
+9
+
+https://code.google.com/p/word2vec/
+
+The experiments in this section use C-CONCAT to pretrain word embeddings.
+
+Re ELMAN
+Rd
+ELMAN
+80.99
+JORDAN
+81.14
+ELMAN_GRU
+80.53
+JORDAN_GRU
+80.98
+Re JORDAN
+Rd
+ELMAN
+79.12
+JORDAN
+79.21
+ELMAN_GRU
+79.80
+JORDAN_GRU
+79.76
+
+ELMAN_GRU
+81.42
+81.68
+81.16
+82.37
+JORDAN_GRU
+79.64
+80.85
+80.41
+81.02
+
+Table 4: The bidirectional models’ performance
+in the bidirectional architecture. In the decoding
+phase, however, it turns out that the Jordan models
+are better most of the time over different model
+architectures (basic, contextual or bidirectional).
+-With vs Without GRUs: The trends are quite
+mixed in the comparison between the cases with
+and without GRUs. In particular, for the encoding
+part, given the same decoding model, GRUs are
+very helpful in the bidirectional architecture while
+this is not the case for the contextual architecture.
+For the decoding part, we can only see the clear
+benefit of GRUs in the basic models and the bidirectional architecture when Re is a Jordan model.
+-Regarding different model architectures, in
+general, the bidirectional models are more effective than the contextual models and the basic models, confirming the effectiveness of bidirectional
+modeling to achieve a richer representation for
+MD.
+The best basic model (F1 = 81.06%), the best
+contextual model (F1 = 80.77%) and the best bidirectional model with (F1 = 82.37%) are called BASIC, CONTEXT and BIDIRECT respectively. In
+the following, we only focus on these best models
+in the experiments.
+5.3.2
+
+Comparison to other Bidirectional
+RNN Work
+Mesnil et al. (2013) also present a RNN system with bidirectional modeling for the slot filling task. As described in Section 3.3.2, the major difference between the bidirectional models in
+this work and Mesnil el al. (2013)’s is the recurrence in our decoding phase. Table 5 compares the performance of the bidirectional model
+from Mesnil et al. (2013), called MESNIL, and
+the BIDIRECT model. In order to verify the effectiveness of recurrence in decoding, the performance of MESNIL incorporated with the JORDAN_GRU model in the decoding phase (MESNIL+JORDAN_GRU) is also reported.
+In general, we see that the bidirectional model
+in this work is much better than the model in Mesnil et al. (2013) for MD. This is significant with
+
+Model
+MESNIL (2013)
+MESNIL + JORDAN_GRU
+BIDIRECT
+
+P
+81.01
+82.17
+82.91
+
+R
+79.67
+79.56
+81.83
+
+F1
+80.33
+80.85
+82.37
+
+Table 5: Comparison to Mesnil et al. (2013).
+p < 0.05 and a large margin (an absolute improvement of 2.04%). More interestingly, MESNIL is further improved when it is augmented with
+the JORDAN_GRU decoding, verifying the importance of recurrence in decoding for MD.
+5.4 Word Embedding Evaluation
+The section investigates the effectiveness of different techniques to learn word embeddings to initialize the RNNs for MD. Table 6 presents the performance of the BASIC, CONTEXT and BIDIRECT
+models on the development set (trained on news)
+when the CBOW, SKIP-GRAM and C-CONCAT
+techniques are utilized to obtain word embeddings
+from the same English corpus. We also report the
+performance of the models when they are initialized with the word2vec word embeddings from
+Mikolov et al. (2013a; 2013b) (trained with the
+Skip-gram model on 100 billion words of Google
+News) (WORD2VEC). All of these word embeddings are updated during the training of the RNNs
+to induce the task-specific word embeddings . Finally, for comparison purpose, the performance
+for the two following scenarios is also included:
+(i) the word vectors are initialized randomly (not
+using any pre-trained word embeddings) (RANDOM), and (ii) the word vectors are loaded from
+the C-CONCAT pre-trained word embeddings but
+fixed during the RNN training (FIXED).
+Word
+Embeddings
+RANDOM
+FIXED
+WORD2VEC
+CBOW
+SKIP-GRAM
+C-CONCAT
+
+BASIC
+79.30
+80.36
+80.92
+78.61
+81.45
+81.06
+
+Model
+CONTEXT
+79.49
+80.60
+81.66
+79.58
+81.59
+80.77
+
+BIDIRECT
+79.76
+81.52
+81.41
+79.74
+81.96
+82.37
+
+Table 6: Word Embedding Comparison
+The first observation is that we need to borrow some pre-trained word embeddings and update them during the training process to improve
+the MD performance (comparing C-CONCAT,
+RANDOM and FIXED). Second, C-CONCAT is
+much better than CBOW, confirming our hypothesis about the similarity between the decodings
+of C-BOW and MD in Section 4. Third, we
+do not see much difference in terms of MD performance when we enlarge the corpus to learn
+
+word embeddings (comparing SKIP-GRAM and
+WORD2VEC that is trained with the skip-gram
+model on a much larger corpus). Finally, we
+achieve the best performance when we apply the
+C-CONCAT technique in the BIDIRECT model.
+From now on, for consistency, we use the CCONCAT word embeddings in all the experiments
+below.
+5.5
+
+Comparison to the State-of-the-art
+
+5.5.1
+
+The ACE 2005 Dataset for Mention
+Detection
+The state-of-the-art systems for mention detection
+on the ACE 2005 dataset have been the joint extraction system for entity mentions and relations
+from Li and Ji (2014a) and the information networks to unify the outputs of three information
+extraction tasks: entity mentions, relations and
+events using structured perceptron from Li et al.
+(2014b). They extensively hand-design a large
+set of features (parsers, gazetteers, word clusters,
+coreference etc) to capture the inter-dependencies
+between different tasks. In this section, besides comparing the RNN systems above with
+these state-of-the-art systems, we also implement
+a Maximum Entropy Markov Model (MEMM)
+system10 , following the description and features
+in Florian et al. (2004; 2006), and include it in
+the comparison for completeness11 . For this comparison, following Li and Ji (2014a), we remove
+the documents from the two informal domains cts
+and un, and then randomly split the remaining 511
+documents into 3 parts: 351 for training, 80 for
+development, and the rest 80 for blind test. The
+performance of the systems on the blind test set is
+presented in Table 7.
+
+ploying in this system. Consequently, from now
+on, we would utilize this MEMM system as the
+baseline in the following experiments. Second,
+all the three RNN systems: BASIC, CONTEXT
+and BIDIRECT substantially outperform the stateof-the-art system with large margins. In fact, we
+achieve the best performance on this dataset with
+the BIDIRECT model, once again testifying to the
+benefit of bidirectional modeling for MD.
+5.5.2 The CoNLL 2003 Dataset for English
+Named Entity Recognition
+This section further assess the RNN systems on
+the similar task of Named Entity Recognition
+for English to compare them with other neural
+network approaches for completeness. On the
+CoNLL 2003 dataset for English NER, the best
+neural network system so far is Collobert et al.
+(2011). This system, called CNN-Sentence, employs convolutional neural networks to encode the
+sentences and then decodes it at the sentence level.
+Table 8 shows the performance of CNN-Sentence
+and our RNN systems on this dataset.
+System
+CNN-Sentence
+BASIC
+CONTEXT
+BIDIRECT
+
+F1
+89.59
+89.26
+88.88
+89.86
+
+Table 8: Performance on English CoNLL 2003.
+As we can see from the table, the RNN systems
+are on par with the CNN-Sentence system from
+Collobert et al. (2011) except the CONTEXT system that is worse in this case. We actually accomplish the best performance with the BIDIRECT
+model, thus further demonstrating its virtue.
+5.6 Cross-Domain Experiments
+
+System
+Joint System (Li and Ji, 2014a)
+Joint System (Li et al., 2014b)
+MEMM
+BASIC
+CONTEXT
+BIDIRECT
+
+P
+85.2
+85.1
+84.4
+83.4
+81.8
+83.7
+
+R
+76.9
+77.3
+80.5
+80.8
+81.6
+81.8
+
+F1
+80.8
+81.0
+82.4
+82.1
+81.7
+82.7
+
+Table 7: Performance for MD on ACE.
+There are two main conclusions from the table.
+First, our MEMM system is already better than
+the state-of-the-art system on this dataset, possibly
+due to the superiority of the features we are em10
+
+We tried the CRF model, but it is worse than MEMM in
+our case.
+11
+We notice that the four features we are using in the RNN
+models (Section 3) are also included in the feature set of the
+implemented MEMM system.
+
+One of the main problems we want to address
+in this work is the robustness across domains of
+the MD systems. This section tests the MEMM
+(the baseline) and the RNN systems on the
+cross-domain settings to gain an insights into
+their operation when the domain changes. In
+particular, for the first experiment, following
+the previous work of domain adaptation on the
+ACE 2005 dataset (Plank and Moschitti, 2013;
+Nguyen and Grishman, 2014;
+Nguyen et al., 2015a), we treat news as the
+source domain and the other domains: bc, cts, wl
+and un as the target domains. We then examine
+the systems on two scenarios: (i) the systems are
+trained and tested on the source domain via 5-fold
+cross validation (in-domain performance), and
+
+System
+MEMM
+BASIC
+CONTEXT
+BIDIRECT
+
+In-Domain
+76.90
+79.01
+78.27
+80.00†
+
+Without Features
+bc
+cts
+wl
+71.73
+78.02
+66.89
+77.06
+85.42
+73.00
+73.55
+84.85
+73.39
+76.27† 85.64† 73.79†
+
+un
+67.77
+72.93
+72.26
+73.88†
+
+In-Domain
+82.55
+81.99
+81.61
+82.52
+
+With Features
+bc
+cts
+78.33
+87.17
+78.75
+86.51
+77.84
+87.79
+79.65† 88.43†
+
+wl
+76.70
+76.60
+76.60
+76.70
+
+un
+76.75
+76.94
+76.41
+77.03
+
+Table 9: System’s Performance on the Cross-domain Setting. Cells marked with †designate the BIDIRECT models that significantly outperform (p < 0.05) the MEMM model on the specified domains.
+
+bc
+cts
+wl
+un
+
+bc
+75.20
+66.91
+74.94
+72.72
+
+MEMM
+cts
+wl
+86.60 70.25
+89.76 68.74
+86.53 77.07
+86.75 72.04
+
+un
+72.38
+69.72
+75.90
+73.47
+
+bc
+75.49
+68.23
+74.73
+73.53
+
+BIDIRECT
+cts
+wl
+87.51 70.75
+91.24 68.82
+86.79 76.35
+88.29 73.16
+
+un
+73.04
+70.27
+75.37
+74.00
+
+bc
+0.29
+1.32†
+-0.21
+0.81†
+
+BIDIRECT-MEMM
+cts
+wl
+un
+0.91† 0.50† 0.66†
+1.48†
+0.08
+0.55†
+0.26
+-0.72 -0.53
+1.45† 1.12† 0.53†
+
+Table 10: Comparison between MEMM and BIDIRECT. Cells marked with †designate the statistical
+significance (p < 0.05). The columns and rows correspond to the source and target domains respectively.
+(ii) the systems are trained on the source domain
+but evaluated on the target domains. Besides, in
+order to understand the effect of the features on
+the systems, we report the systems’ performance
+in both the inclusion and exclusion of the features
+described in Section 3. Table 9 presents the
+results.
+To summarize, we find that the RNN systems significantly outperform the MEMM system
+across all the target domains when the features are
+not applied. The BIDIRECT system still yields
+the best performance among systems being investigated (except in domain bc). This is also the case
+in the inclusion of features and demonstrates the
+robustness of the BIDIRECT model in the domain
+shifts. We further support this result in Table 10
+where we report the performance of the MEMM
+and BIDIRECT systems (with features) on different domain assignments for the source and the target domains. Finally, we also see that the features
+are very useful for both the MEMM and the RNNs.
+5.7
+
+Named Entity Recognition for Dutch
+
+The previous sections have dealt with mention detection for English. In this section, we want to explores the capacity of the systems to quickly and
+effectively adapt to a new language. In particular, we evaluate the systems on the named entity
+recognition task (the simplified version of the MD
+task) for Dutch using the CoNLL 2002 dataset.
+The state-of-the-art performance for this dataset is
+due to Carreras et al. (2002) in the CoNLL 2002
+evaluation and Nothman et al. (2013). Very recently, while we were preparing this paper, Gillick
+el al. (2015) introduce a multilingual language
+processing system and also report the performance
+
+on this dataset. Table 11 compares the systems.
+System
+State-of-the-art in CoNLL
+Nothman et al. (2013)
+Gillick el al. (2015)
+Gillick el al. (2015)*
+MEMM
+BASIC
+BIDIRECT
+
+P
+77.83
+80.25
+82.98
+84.08
+
+R
+76.29
+77.52
+81.53
+82.82
+
+F1
+77.05
+78.60
+78.08
+82.84
+78.86
+82.25
+83.45
+
+Table 11: Performance on Dutch CoNLL 2002.
+Note that the systems in Gillick el al. (2015) are
+also based on RNNs and the row labeled with *
+for Gillick el al. (2015) corresponds to the system
+trained on multiple datasets instead of the single
+CoNLL dataset for Dutch, so not being comparable to ours.
+The most important conclusion from the table
+is that the RNN models in this work significantly
+outperform MEMM as well as the other comparable system by large margins (up to 22% reduction in relative error). This proves that the proposed RNN systems are less subject to the language changes than MEMM and the other systems. Finally, BIDIRECT is also significantly better than BASIC, testifying to its robustness across
+languages.
+
+6 Conclusion
+We systematically investigate various RNNs to
+solve the MD problem which suggests that bidirectional modeling is a very helpful mechanism
+for this task. The comparison between the RNN
+models and the state-of-the-art systems in the literature reveals the strong promise of the RNN models. In particular, the bidirectional model achieves
+the best performance in the general setting (up to
+9% reduction in relative error) and outperforms
+
+a very strong baseline of the feature-based exponential models in the cross-domain setting, thus
+demonstrating its robustness across domains. We
+also show that the RNN models are more portable
+to new languages as they are significantly better
+than the best reported systems for NER in Dutch
+(up to 22% reduction in relative error). In the future, we plan to apply the bidirectional modeling
+technique to other tasks as well as study the combination of different network architectures and resources to further improve the performance of the
+systems.
+
+Acknowledgment
+We would like to thank Ralph Grishman for valuable suggestions.
+
+References
+[Ando and Zhang2005] Rie Ando and Tong Zhang.
+2005. A high-performance semi-supervised learning method for text chunking. In ACL.
+[Bahdanau et al.2015] Dzmitry Bahdanau, Kyunghyun
+Cho, and Yoshua Bengio. 2015. Neural machine
+translation by jointly learning to align and translate.
+In ICLR.
+[Baroni et al.2014] Marco Baroni, Georgiana Dinu, and
+Germán Kruszewski. 2014. Don’t count, predict! a systematic comparison of context-counting
+vs. context-predicting semantic vectors. In ACL.
+
+[Cho et al.2014a] Kyunghyun Cho, Bart van Merrienboer, Caglar Gulcehre, Dzmitry Bahdanau, Fethi
+Bougares, Holger Schwenk, and Yoshua Bengio.
+2014a. Learning phrase representations using rnn
+encoder–decoder for statistical machine translation.
+In EMNLP.
+[Cho2014b] Kyunghyun Cho. 2014b. Quick introduction to natural language processing with neural networks. In Lecture at the Ecole Polytechnique de
+Montreal.
+[Collobert and Weston2008] Ronan Collobert and Jason Weston. 2008. A unified architecture for natural language processing: deep neural networks with
+multitask learning. In ICML.
+[Collobert et al.2011] Ronan Collobert, Jason Weston, LÃl’on Bottou, Michael Karlen, Koray
+Kavukcuoglu, and Pavel P. Kuksa. 2011. Natural language processing (almost) from scratch. In
+CoRR.
+[Daume2007] Hal Daume. 2007. Frustratingly easy
+domain adaptation. In ACL.
+[dos Santos and Guimarães2015b] Cicero dos Santos
+and Victor Guimarães. 2015b. Boosting named entity recognition with neural character embeddings.
+In the Fifth Named Entity Workshop, ACL-IJCNLP.
+[dos Santos et al.2015a] Cicero dos Santos, Bing Xiang, and Bowen Zhou. 2015a. Classifying relations
+by ranking with convolutional neural networks. In
+ACL-IJCNLP.
+[Elman1990] Jeffrey L. Elman. 1990. Finding structure
+in time. In Cognitive Science.
+
+[Bengio et al.1994] Yoshua Bengio, Patrice Simard,
+and Paolo Frasconi. 1994. Learning long-term
+dependencies with gradient descent is difficult. In
+Journal of Machine Learning Research 3.
+
+[Florian et al.2003] Radu Florian, Abe Ittycheriah,
+Hongyan Jing, and Tong Zhang. 2003. Named entity recognition through classifier combination. In
+CoNLL-2003.
+
+[Bikel et al.1997] Daniel M. Bikel, Scott Miller,
+Richard Schwartz, and Ralph Weischedel. 1997.
+Nymble: a high-performance learning name-finder.
+In ANLP.
+
+[Florian et al.2004] R Florian, H Hassan, A Ittycheriah,
+H Jing, N Kambhatla, X Luo, N Nicolov, and
+S Roukos. 2004. A statistical model for multilingual entity detection and tracking. In HLT-NAACL.
+
+[Blitzer et al.2006] John Blitzer, Ryan McDonald, and
+Fernando Pereira. 2006. Domain adaptation with
+structural correspondence learning. In EMNLP.
+
+[Florian et al.2006] Radu Florian, Hongyan Jing,
+Nanda Kambhatla, and Imed Zitouni. 2006. Factorizing complex models: A case study in mention
+detection. In ACL.
+
+[Borthwick et al.1997] Andrew Borthwick, John Sterling, Eugene Agichtein, and Ralph Grishman. 1997.
+Exploiting diverse knowledge sources via maximum
+entropy in named entity recognition. In Sixth Workshop on Very Large Corpora.
+
+[Florian et al.2010] Radu Florian, John Pitrelli, Salim
+Roukos, and Imed Zitouni. 2010. Improving mention detection robustness to noisy input. In EMNLP.
+
+[Carreras et al.2002] Xavier Carreras, Lluís Màrques,
+and Lluís Padró. 2002. Named entity extraction using adaboost. In CoNLL.
+
+[Gillick et al.2015] Dan Gillick, Cliff Brunk, Oriol
+Vinyals, and Amarnag Subramanya. 2015. Multilingual language processing from bytes. In arXiv
+preprint arXiv:1512.00103.
+
+[Cherry and Guo2015] Colin Cherry and Hongyu Guo.
+2015. The unreasonable effectiveness of word representations for twitter named entity recognition. In
+NAACL.
+
+[Gormley et al.2015] Matthew R. Gormley, Mo Yu, and
+Mark Dredze. 2015. Improved relation extraction
+with feature-rich compositional embedding models.
+In EMNLP.
+
+[Graves et al.2009] A. Graves, Marcus EichenbergerLiwicki, S. Fernandez, R. Bertolami, H. Bunke, and
+J. Schmidhuber. 2009. A novel connectionist system for unconstrained handwriting recognition. In
+IEEE Transactions on Pattern Analysis and Machine
+Intelligence.
+[Hochreiter and Schmidhuber1997] Sepp Hochreiter
+and Jurgen Schmidhuber. 1997. Long short-term
+memory. In Neural Computation.
+
+[Miller et al.2004] Scott Miller, Jethran Guinness, and
+Alex Zamanian.
+2004.
+Name tagging with
+word clusters and discriminative training. In HLTNAACL.
+[Mnih and Hinton2008] Andriy Mnih and Geoffrey
+Hinton. 2008. A scalable hierarchical distributed
+language model. In NIPS.
+[Mozer1989] Michael C. Mozer.
+1989.
+A focused backpropagation algorithm for temporal pattern recognition. In Complex Systems.
+
+[Huang and Yates2010] Fei Huang and Alexander
+Yates. 2010. Exploring representation-learning
+approaches to domain adaptation. In The ACL
+Workshop on Domain Adaptation for Natural
+Language Processing (DANLP).
+
+[Nguyen and Grishman2014] Thien Huu Nguyen and
+Ralph Grishman. 2014. Employing word representations and regularization for domain adaptation of
+relation extraction. In ACL.
+
+[Jordan1986] Michael I. Jordan. 1986. Serial order:
+A parallel distributed processing approach. In Tech.
+Rep. No. 8604. San Diego: University of California,
+Institute for Cognitive Science.
+
+[Nguyen and Grishman2015b] Thien Huu Nguyen and
+Ralph Grishman. 2015b. Event detection and domain adaptation with convolutional neural networks.
+In ACL-IJCNLP.
+
+[Kalchbrenner et al.2014] Nal Kalchbrenner, Edward
+Grefenstette, and Phil Blunsom. 2014. A convolutional neural network for modelling sentences. In
+ACL.
+
+[Nguyen et al.2015a] Thien Huu Nguyen, Barbara
+Plank, and Ralph Grishman. 2015a. Semantic representations for domain adaptation: A case study on
+the tree kernel-based method for relation extraction.
+In ACL-IJCNLP.
+
+[Kate and Mooney2010] J. Rohit Kate and Raymond
+Mooney. 2010. Joint entity and relation extraction
+using card-pyramid parsing. In CoNLL.
+[Kim2014] Yoon Kim. 2014. Convolutional neural networks for sentence classification. In EMNLP.
+[Lafferty et al.2001] John Lafferty, Andrew McCallum,
+and Fernando Pereira. 2001. Conditional random
+fields: Probabilistic models for segmenting and labeling sequence data. In ICML.
+[Li and Ji2014a] Qi Li and Heng Ji. 2014a. Incremental joint extraction of entity mentions and relations.
+In ACL.
+[Li et al.2014b] Qi Li, Heng Ji, Yu Hong, and Sujian
+Li. 2014b. Constructing information networks using one single model. In EMNLP.
+[Lin and Wu2009] Dekang Lin and Xiaoyun Wu. 2009.
+Phrase clustering for discriminative learning. In
+ACL-IJCNLP.
+[Mesnil et al.2013] Gregoire Mesnil, Xiaodong He,
+Li Deng, and Yoshua Bengio. 2013. Investigation
+of recurrent neural network architectures and learning methods for spoken language understanding. In
+Interspeech.
+[Mikolov et al.2013a] Tomas Mikolov, Kai Chen, Greg
+Corrado, and Jeffrey Dean. 2013a. Efficient estimation of word representations in vector space. In
+ICLR.
+[Mikolov et al.2013b] Tomas Mikolov, Ilya Sutskever,
+Kai Chen, Greg Corrado, and Jeffrey Dean. 2013b.
+Distributed representations of words and phrases
+and their compositionality. In NIPS.
+
+[Nothman et al.2013] Joel Nothman, Nicky Ringland,
+Will Radford, Tara Murphy, and James R Curran.
+2013. Learning multilingual named entity recognition from wikipedia. In Artificial Intelligence.
+[Pascanu et al.2012] Razvan Pascanu, Tomas Mikolov,
+and Yoshua Bengio. 2012. On the difficulty of
+training recurrent neural networks. In arXiv preprint
+arXiv:1211.5063.
+[Passos et al.2014] Alexandre Passos, Vineet Kumar,
+and Andrew McCallum. 2014. Lexicon infused
+phrase embeddings for named entity resolution. In
+Proceedings of the Eighteenth Conference on Computational Natural Language Learning.
+[Plank and Moschitti2013] Barbara Plank and Alessandro Moschitti. 2013. Embedding semantic similarity in tree kernels for domain adaptation of relation
+extraction. In ACL.
+[Ratinov and Roth2009] Lev Ratinov and Dan Roth.
+2009. Design challenges and misconceptions in
+named entity recognition. In CoNLL.
+[Ritter et al.2011] Alan Ritter, Sam Clark, Mausam,
+and Oren Etzioni. 2011. Named entity recognition
+in tweets: An experimental study. In EMNLP.
+[Roth and Yih2007] D. Roth and W. Yih. 2007. Global
+inference for entity and relation identification via a
+linear programming formulation. In Introduction to
+Statistical Relational Learning.
+[Schnabel and Schütze2014] Tobias Schnabel and Hinrich Schütze. 2014. Flors: Fast and simple domain
+adaptation for part-of-speech tagging. In Transactions of the Association of Computational Linguistics.
+
+[Shen et al.2014] Yelong Shen, Xiaodong He, Jianfeng
+Gao, Li Deng, and Gregoire Mesnil. 2014. Learning
+semantic representations using convolutional neural
+networks for web search. In WWW.
+[Socher et al.2012] Richard Socher, Brody Huval,
+Christopher D. Manning, and Andrew Y. Ng.
+2012. Semantic compositionality through recursive
+matrix-vector spaces. In EMNLP.
+[Suzuki and Isozaki2008] Jun Suzuki and Hideki
+Isozaki. 2008. Semi-supervised sequential labeling
+and segmentation using giga-word scale unlabeled
+data. In ACL-HLT.
+[Tai et al.2015] Kai Sheng Tai, Richard Socher, and
+Christopher D. Manning. 2015. Improved semantic
+representations from tree-structured long short-term
+memory networks. In ACL-IJCNLP.
+[Tjong Kim Sang and De Meulder2003] Erik F. Tjong
+Kim Sang and Fien De Meulder. 2003. Introduction to the conll-2003 shared task: Languageindependent named entity recognition. In CoNLL.
+[Tjong Kim Sang2002] Erik F. Tjong Kim Sang.
+2002. Introduction to the conll-2002 shared task:
+Language-independent named entity recognition. In
+CoNLL.
+[Turian et al.2010] Joseph Turian, Lev-Arie Ratinov,
+and Yoshua Bengio. 2010. Word representations:
+A simple and general method for semi-supervised
+learning. In ACL.
+[Xiao and Guo2013] Min Xiao and Yuhong Guo. 2013.
+Domain adaptation for sequence labeling tasks with
+a probabilistic language adaptation model. In ICML.
+[Yao et al.2013] Kaisheng Yao, Geoffrey Zweig, MeiYuh Hwang, Yangyang Shi, and Dong Yu. 2013.
+Recurrent neural networks for language understanding. In Interspeech. Interspeech.
+[Yao et al.2014] Kaisheng Yao, Baolin Peng, Yu Zhang,
+Dong Yu, Geoffrey Zweig, and Yangyang Shi. 2014.
+Spoken language understanding using long shortterm memory neural networks. In IEEE SLT.
+[Yih et al.2014] Wen-tau Yih, Xiaodong He, and
+Christopher Meek. 2014. Semantic parsing for
+single-relation question answering. In ACL.
+[Zeiler2012] Matthew D. Zeiler. 2012.
+An adaptive learning rate method.
+abs/1212.5701.
+
+Adadelta:
+In CoRR,
+
+[Zeng et al.2014] Daojian Zeng, Kang Liu, Siwei Lai,
+Guangyou Zhou, and Jun Zhao. 2014. Relation
+classification via convolutional deep neural network.
+In COLING.
+[Zhou and Xu2015] Jie Zhou and Wei Xu. 2015. Endto-end learning of semantic role labeling using recurrent neural networks. In ACL-IJCNLP.
+
+[Zitouni and Florian2008] Imed Zitouni and Radu Florian. 2008. Mention detection crossing the language
+barrier. In EMNLP.
+
+

@@ -1,0 +1,26 @@
+
+recurrent neural networks (rnns) have been widely adopted in
+temporal sequence analysis, where realtime performance is often
+in demand. however, rnns suffer from heavy computational workload as the model often comes with large weight matrices. pruning
+(a model compression method) schemes have been proposed for
+rnns to eliminate the redundant (close-to-zero) weight values. on
+one hand, the non-structured pruning methods achieve a high pruning rate but introducing computation irregularity (random sparsity), which is unfriendly to parallel hardware. on the other hand,
+hardware-oriented structured pruning suffers from low pruning
+rate due to restricted constraints on allowable pruning structure.
+this paper presents csb-rnn, an optimized full-stack rnn
+framework with a novel compressed structured block (csb) pruning technique. the csb pruned rnn model comes with both fine
+pruning granularity that facilitates a high pruning rate and regular
+structure that benefits the hardware parallelism. to address the
+challenges in parallelizing the csb pruned model inference with
+fine-grained structural sparsity, we propose a novel hardware architecture with a dedicated compiler. gaining from the architecturecompilation co-design, the hardware not only supports various
+rnn cell types, but is also able to address the challenging workload
+imbalance issue and therefore significantly improves the hardware
+efficiency (utilization). compared to the vanilla design without optimizations, the hardware utilization has been enhanced by over
+2×. with experiments on 10 rnn models from multiple application domains, csb pruning demonstrates 3.5×-25× lossless pruning
+rate, which is 1.6× to 3.9× over existing designs. with several other
+innovations applied, the csb-rnn inference can achieve fasterthan-realtime latency of 0.79µs-6.58µs in an fpga implementation,
+which contributes to 1.12×-12.57× lower latency and 3.53×-58.89×
+improvement on power-efficiency over the state-of-the-art.
+
+
+

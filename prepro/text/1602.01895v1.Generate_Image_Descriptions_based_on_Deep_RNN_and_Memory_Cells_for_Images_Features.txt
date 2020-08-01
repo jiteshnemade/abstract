@@ -1,0 +1,514 @@
+Generate Image Descriptions based on Deep RNN and Memory Cells for
+Images Features
+Shijian Tang
+Stanford University
+sjtang@stanford.edu
+
+arXiv:1602.01895v1 [cs.CV] 5 Feb 2016
+
+Abstract
+Generating natural language descriptions
+for images is a challenging task. The traditional way is to use the convolutional neural network (CNN) to extract image features, followed by recurrent neural network (RNN) to generate sentences. In this
+paper, we present a new model that added
+memory cells to gate the feeding of image
+features to the deep neural network. The
+intuition is enabling our model to memorize how much information from images
+should be fed at each stage of the RNN.
+Experiments on Flickr8K and Flickr30K
+datasets showed that our model outperforms other state-of-the-art models with
+higher BLEU scores.
+
+1
+
+Introduction
+
+Generating natural language descriptions for images has became an attractive research topic in recent years. The task is to generate sentences or
+phrases to summarize and describe the contents
+shown in images. With this technique, the machines are enabled to imitate the behaviour of human beings who are able to capture the semantic meaning encoded in images. Some previous
+work from Gupta and Mannem (2012), Kulkarni et al. (2011) and Desmond Elliott and Frank
+Keller (2013) designed templates for the sentence
+descriptions. The task is to fill in the templates
+based on the images. However, these approaches
+strongly limited the capability of models to generate sentence descriptions to only fixed patterns.
+Other approaches transfer this task into a multimodal embedding problem. These work from
+Farhadi et al. (2011), Jia et al. (2011), Socher et
+al. (2011), Ordonez et al. (2011) overlap with the
+scope of information retrieval. The goal is to map
+the images with sentences appearing in the train-
+
+Song Han
+Stanford University
+songhan@stanford.edu
+
+ing dataset together in a multimodal space. However, these models are only capable of returning
+sentence descriptions that existed in the training
+dataset.
+Most of the state-of-the-art approaches are
+based on neural networks. These work combined
+convolutional neural network (CNN) with recurrent neural network (RNN) to generate image descriptions. Karpathy (2015) develop a multimodal
+RNN for this task. In this neural network, the image features extracted from the VGGNet (a pretrained CNN proposed in Simonyan and Zisserman (2014)) are fed into a RNN. Conditioned on
+the image features and previous words, the RNN
+will generate a sequence of words recurrently to
+describe the images. Similar to Kaparthy’s work,
+Vinyals Vinyals et al. (2014) used the GoogLeNet
+CNN to extract image features and train a LSTM
+(in Hochreiter and Schmidhuber (1997)) as sequence generator. Mao et al. (2014) report a deep
+complex multimodal RNN for sentence generation.
+In our approach, VGGNet is employed to extract image features and a deep multilayer RNN is
+chosen as a sequence generator, on top of which
+we informatively added memory gate that controls
+image feeding. In each time step of RNN 1 , we
+feed word in current time step as well as the image
+features into the hidden layer of RNN. Inspired by
+the ideas in Rolls and Deco (2002) that the visual
+perception depends on short-term memory and has
+the recurrent natural, a memory gate is designed
+to control the input of image features to the hidden layer. The output of memory gate depends
+on the output of hidden layer at the previous time
+step. Before feeding into the hidden layer, the image features are multiplied by the output of gate
+element-wisely. Therefore, the memory gates act
+as memory cells for image features. Our model
+1
+In the RNN language model, the time step is defined as
+the position of word in sentence.
+
+is trained on the Flickr8K and Flickr30K datasets
+from Hodosh et al. (2013). We evaluate the BLEU
+score (proposed in Papineni et al. (2002)) of our
+model on the test datasets of both Flickr8K and
+Flickr30K. The preliminary results show that the
+performance of our model outperforms the stateof-the-art work.
+
+2
+2.1
+
+The Architecture of Model
+Image Features Representation
+
+CNN has been proved as a powerful tool to extract
+image features, and has been widely used in image
+classification (Krizhevsky et al. (2012)), object
+detection (Girshick et al. (2014)) and other tasks.
+In this paper, We select the deep and powerful VGGNet to extract image features. Specifically, each
+raw image is fed into the VGGNet as input. After
+the forward propagation, the last fully-connected
+layer will output a 4096 dimensions vector as the
+image features for each image.
+2.2
+
+W s has the dimension of H by D where H is the
+dimension of hidden layer and D is the dimension
+of word vector. W h has the dimension of H by H.
+W d has the dimension of V by H with V as the
+vocabulary size. bd and bh are the bias terms. Vector y(t) represents the probability of each word in
+the vocabulary to be the next word conditioned on
+the input words from time step 1 to t.
+In our model, to improve the model capacity,
+we increase the depth of RNN by adding multiple hidden layers which is the same as deep transition RNN (DT-RNN) model reported by Pascanu
+et al. (2014). Pascanu et al. (2014) shows that
+the DT-RNN is able to increase the size of family
+of functions it can represent in language modeling.
+Unlike the standard RNN in equation 1 with only
+a single hidden layer at each time step, N hidden
+layers are stacked together at each time step in DTRNN. The forward propagation of this deep RNN
+model is,
+h1 (t) = f (W s x(t) + W h hN (t − 1) + bh )
+
+Sentence Representation
+
+h2 (t) = f (W h h1 (t) + bh )
+
+The sentence can be represented as a sequence of
+single word. The time step t is defined as the index of t th word in the sentence to represent the
+position of each word. Suppose the sentence contains T words, the time step of first word is t = 1,
+the second word is t = 2, and for the last word
+is t = T . For each sentence, we add a special
+START token at the first time step to indicate the
+start of the sentence, as well as the END token at
+the last time step as the end of each sentence.
+The single word is represented as a vector.
+Some pretrained word vector models have been
+developed such as word2vec by Mikolov et al.
+(2013) and Glove by Pennington et al. (2014).
+However, in this model, we trained the word vectors from scratch instead of directly adopted the
+pretrained model, since generally the retrained
+word vector will achieve higher performance for
+specific task.
+The standard RNN model can be expressed as,
+h(t) = f (W s x(t) + W h h(t − 1) + bh )
+
+(1)
+
+y(t) = sof tmax(W d h(t) + bd )
+
+...
+
+(2)
+h
+
+h
+
+hN (t) = f (W hN −1 (t) + b )
+y(t) = sof tmax(W d hN (t) + bd )
+where h1 (t), h2 (t), ..., hN (t) represent the output
+of N hidden layers at t. The word vector x(t)
+as well as the output of last hidden layer at previous time step hN (t − 1) are fed into the first
+hidden layer h1 (t) at t. Then, output of current
+hidden layer feeds into the next hidden layer consecutively. The output y(t) depends on the output
+of last hidden layer at current time step hN (t). In
+our model, the deep RNN in equation 2 is chosen
+as the sequence learner of sentences.
+2.3
+
+Memory Cells for Image Features
+
+We consider how to control feeding the image features into the deep RNN. Instead of feeding the
+image features directly, we add a gate to control
+the magnitude of image feature feeds. The value
+of the gate depends on the state of hidden layers at
+previous time step.
+h1 (t) = f (W s x(t) + W h hN (t − 1)+
+
+where h(t) is the output of the hidden layer at time
+step t, x(t) is the word vector for the word at t,
+h(t − 1) is the output of hidden layer for the previous time step t − 1, f () is the activation function.
+
+g(t) ◦ (W i CN N (I) + bi ) + bh )
+g
+
+g
+
+g(t) = σ(W hN (t − 1) + b )
+
+(3)
+
+where I represents the raw image, and CN N (I)
+is the image features extracted by CNN. W i has
+the dimension of H by 4096 which maps the image features to the same space of hidden layers of RNN. g(t) is the output of gate, and ◦ is
+the element-wise multiplication. W g transfers the
+value of the last hidden layer in the previous time
+step (hN (t − 1) in the equation) to the gate g(t).
+bi and bg are the bias terms. Here we use the σ activation function and the value of g(t) ranges from
+0 to 1.
+Based on equation 3, the image features are fed
+into the first hidden layer at each time step, multiplied by the output of gate. Since the value of gate
+depends on the last hidden layer of previous time
+step, the gate controls how much information from
+image is still needed for the current time step. In
+the case of g(t) = 0, the image features are not fed
+into RNN, while for g(t) = 1, we feed full image
+features at each time step.
+Combining equations 2 and 3 together, this
+model can be represented as:
+g(t) = σ(W g hN (t − 1) + bg )
+h1 (t) = f (W s x(t) + W h hN (t − 1)+
+g(t) ◦ (W i CN N (I) + bi ) + bh )
+h2 (t) = f (W h h1 (t) + bh )
+...
+
+(4)
+h
+
+h
+
+hN (t) = f (W hN −1 (t) + b )
+y(t) = sof tmax(W d hN (t) + bd )
+Figure 1 shows the architecture of this model.
+
+Figure 1: The architecture of this model.
+Recall the work of Karpathy (2015), image features are only fed at the first time step of RNN.
+Due to the vanishing gradient problem, image features will not be learned well with long sentence
+
+and deep network. However, our model feed image features into RNN at each time step. Therefore, our model is still able to learn information
+from the image even for larger time steps. The
+magnitude of image features is conditioned on the
+hidden state of previous time step. In another
+word, the image features are encoded based on the
+status of how well our model has learned.
+Compared with other work of Vinyals et al.
+(2014) based on LSTM and work of Mao et
+al. (2014) based on multimodal embeddings, our
+model has the advantage of lower model complexity and easier to train.
+
+3
+3.1
+
+Experiments
+Dataset
+
+We experimented on the Flickr8K and Flickr30K
+datasets introduced in Hodosh et al. (2013). Each
+image in these datasets is described by 5 independent sentences. Therefore, for each image, we
+can create 5 samples with each one as an imagesentence pair. We have 8000 and 31000 images for
+Flickr8K and Flickr30K respectively. Each dataset
+has been splited into development data with 1000
+images, test data with 1000 images and the rest images as training data. The data preprocessing procedure is the same as the work of Karpathy (2015).
+3.2
+
+Training
+
+During training, cross entropy loss was chosen
+as the loss function. Stochastic gradient descent
+(SGD) with minibatch size of 100 image-sentence
+pairs was used during training. To make the model
+converge faster, RMSprop annealing policy Hinton et al. (2012) was adopted, where the step
+size of each parameter is scaled by the windowaveraged norm of its gradient.
+To overcome the vanishing gradient problem,
+ReLU is chosen as the activation function. Also,
+we adopted the element-wise clip gradient tricks,
+where we clipped the gradient to 5. To regularize
+the model, we add L2 norm of weights to the loss
+function, and as Zaremba et al. (2014) suggested,
+we used dropout ratio of 0.5 to all the layers except
+for the hidden layers.
+As equation 4 indicates, a model with large N
+has deeper hidden layers, which leads to a large
+capacity. Considering the size of the dataset is not
+large and in order to prevent overfitting, we adopt
+a small N = 2 with 2 hidden layers in the experiments in equation 4.
+
+We find 50 epochs are enough to train this
+model for both datasets, and the hidden size was
+tuned to 512 to achieve the best performance.
+3.3
+
+Generate Image Description
+
+The sentence description for each image in test
+dataset is generated by feeding the image features
+into the trained model with a START token. At
+each time step, we can directly choose the word
+corresponds to the one with highest probability
+in vocabulary as the output word, which is also
+the input word of next time step. Following this
+method, we can generate a sentence recurrently
+until we reach the END token.
+To evaluate the performance, we use the BLEU
+score as evaluation metrics which has been widely
+adopted in the papers focus on this topic (Karpathy
+(2015), Vinyals et al. (2014), Mao et al. (2014)).
+The BLEU score will evaluate the similarity of
+the generated sentences with the ground truth sentences. Table 1 and Table 2 show the BLEU score
+for several models.
+Model
+Our Model
+Karpathy (2015)
+Mao et al. (2014)
+Vinyals et al. (2014)
+Vinyals’ net on VGGNet
+
+B-1
+58.3
+57.9
+57.8
+63.0
+58.2
+
+B-2
+39.7
+38.3
+27.5
+41.0
+37.8
+
+B-3
+25.7
+24.5
+23.1
+27.0
+19.0
+
+B-4
+16.6
+16.0
+—
+—
+—
+
+Table 1: The BLEU score on Flickr8K for different models. B-n is the BLEU score up to n-gram.
+
+Model
+Our Model
+Karpathy (2015)
+Mao et al. (2014)
+Vinyals et al. (2014)
+Vinyals’ net on VGGNet
+
+B-1
+59.0
+57.3
+54.8
+66.3
+—
+
+B-2
+39.5
+36.9
+23.9
+42.3
+—
+
+B-3
+26.0
+24.0
+19.5
+27.7
+—
+
+B-4
+17.1
+15.7
+—
+18.3
+—
+
+Table 2: The BLEU score on Flickr30K for different models. B-n is the BLEU score up to n-gram.
+As shown on Table 1 and Table 2, our model
+outperforms the results from Karpathy (2015) and
+Mao et al. (2014). While the performance of
+our model is lower than the original work from
+Vinyals et al. (2014). However, this is because
+in the original work of Vinyals et al. (2014),
+the authors used the GoogleNet (in Szegedy et al.
+(2014)) to extract the image features, while we
+
+used VGGNet. Therefore, it is unfair to directly
+compare the BLEU score of our model with results reported by Vinyals et al. (2014).
+To make a fair comparison with the network in Vinyals et al.
+(2014), we have
+downloaded the reproduced version of Vinyals’
+model from http://cs.stanford.edu/
+people/karpathy/neuraltalk/. In this
+reproduced model trained on Flickr8K, the image
+features feed into Vinyals’ model are extracted by
+VGGNet, which is the same as the case in our
+model. From the last row of Table 1, we can find
+that the performance of our model is better than
+the model in Vinyals et al. (2014) if both models use the VGGNet image features. Note that
+even though the reproduced model of Vinyals et
+al. (2014) based on Flickr30K dataset is unavailable now, our model still outperforms other stateof-the-art works.
+We also tried to feed image features only at first
+time step (i.e., set g(t) = 0 except for the first time
+step) as well as feed full image features at each
+time step (i,e., set g(t) = 1 for all time steps).
+But the results show that the performance all of
+these two schemes are lower than feeding image
+features at each time step with memory cells.
+
+4
+
+Conclusion
+
+In this paper, we developed a new model for generating image descriptions. The image features
+extracted from VGGNet are fed into each time
+step of a multilayer deep RNN, where the image features vector is element-wisely multiplied
+by a memory vector determined by the state of
+the hidden layer at previous time step. Experiments on Flickr8K and Flickr30K datasets show
+that this model achieves higher performance on
+BLEU score. Our model also benefit from its low
+complexity and ease of training.
+As the extension of this work, we will train our
+model on a larger dataset such as MSCOCO, and
+will increase the number of hidden layers at each
+time step to further improve the performance of
+our model. We will also try to adopt other CNNs
+such as GoogleNet to extract image features. Also,
+in this work, we do not fine-tune the CNNs on
+the new datasets, in future, we will try to train the
+model and tune the CNNs together.
+
+References
+[Gupta and Mannem2012] Ankush
+Gupta
+and
+Prashanth Mannem. 2012. From image annotation to image description. In NIPS.
+
+[Hodosh et al. 2013] Micah Hodosh, Peter Young, and
+Julia Hockenmaier. 2013. Framing image description as a ranking task: data, models and evaluation
+metrics. Journal of Artificial Intelligence Research,
+47: 853-899.
+
+[Kulkarni et al. 2011] Girish Kulkarni, Visruth Premraj, Sagnik Dhar, Siming Li, Yejin Choi, Alexander
+Berg, and Tamara Berg. 2011. Baby talk: Understanding and generating simple image descriptions.
+In CVPR.
+
+[Papineni et al. 2002] Kishore Papineni, Salim Roukos,
+Todd Ward, and Wei-Jing Zhu 2002. Bleu: a
+method for automatic evaluation of machine translation. Proceedings of the 40th annual meeting on
+association for computational linguistics.
+
+[Desmond Elliott and Frank Keller2013] Desmond Elliott and Frank Keller. 2013. Image description using visual dependency representations. In EMNLP.
+
+[Krizhevsky et al. 2012] Alex
+Krizhevsky,
+Ilya
+Sutskever, and Geoffrey Hinton. 2012. ImageNet classification with deep convolutional neural
+networks. In NIPS.
+
+[Farhadi et al. 2011] Ali Farhadi, Mohsen Hejrati, Mohammad Amin Sadeghi, Peter Young, Cyrus
+Rashtchian, Julia Hockenmaier, and David Forsyth.
+2010. Every picture tells a story: Generating sentences from images. In ECCV.
+
+[Girshick et al. 2014] Ross Girshick, Jeff Donahue,
+Trevor Darrell, and Jitendra Malik 2014. Rich feature hierarchies for accurate object detection and semantic segmentation. In CVPR.
+
+[Jia et al. 2011] Yangqing Jia, Mathieu Salzmann, and
+Trevor Darrell. 2011. Learning cross-modality similarity for multinomial data. In ICCV.
+
+[Mikolov et al. 2013] Tomas Mikolov, Ilya Sutskever,
+Kai Chen, Greg Corrado, and Jeffrey Dean 2013.
+Distributed representations of words and phrases
+and their compositionality. In NIPS.
+
+[Socher et al. 2011] Richard Socher, Andrej Karpathy,
+Quoc V. Le, Christopher D. Manning, and Andrew
+Y. Ng. 2014. Grounded compositional semantics
+for finding and describing images with sentences. In
+TACL.
+[Ordonez et al. 2011] Vicente Ordonez, Girish Kulkarni, and Tamara L. Berg. 2011. Im2text: Describing
+images using 1 million captioned photographs. In
+NIPS.
+[Karpathy2015] Andrej Karpathy and Li Fei-Fei. 2015.
+Deep visual-semantic alignments for generating image descriptions. In CVPR.
+[Simonyan and Zisserman2014] Karen Simonyan and
+Andrew Zisserman. 2014. Very deep convolutional
+networks for large-scale image recognition. arXiv
+preprint arXiv:1409.1556.
+[Vinyals et al. 2014] Oriol Vinyals, Alexander Toshev,
+Samy Bengio, and Dumitru Erhan. 2014. Show
+and tell: A neural image caption generator. arXiv
+preprint arXiv:1411.4555.
+[Hochreiter and Schmidhuber1997] Sepp Hochreiter
+and Jurgen Schmidhuber. 1997. Long short-term
+memory. Neural computation, 9(8):17351780.
+[Mao et al. 2014] Junhua Mao, Wei Xu, Yi Yang, Jiang
+Wang, and Alan L. Yuille. 2014. Explain images
+with multimodal recurrent neural networks. arXiv
+preprint arXiv:1410.1090.
+[Rolls and Deco2002] Edmund T. Rolls and Gustavo
+Deco. 2002. Computational Neuroscience of Vision. Oxford University Press, USA.
+
+[Pennington et al. 2014] Jeffrey Pennington, Richard
+Socher, Christopher D. Manning 2014. Glove:
+Global vectors for word representation. In EMNLP.
+[Pascanu et al. 2014] Razvan Pascanu, Caglar Gulcehre, Kyunghyun Cho, and Yoshua Bengio 2014.
+How to construct deep recurrent neural networks. In
+ICLR.
+[Hinton et al. 2012] Geoffrey Hinton, Nitish Srivastava,
+and Kevin Swersky. 2012. How to construct deep
+recurrent neural networks. In Lecture 6.5-rmsprop.
+[Zaremba et al. 2014] Wojciech
+Zaremba,
+Ilya
+Sutskever, Oriol Vinyals
+2014.
+Recurrent
+neural network regularization.
+arXiv preprint
+arXiv:1409.2329.
+[Szegedy et al. 2014] Christian Szegedy, Wei Liu,
+Yangqing Jia, Pierre Sermanet, Scott Reed,
+Dragomir Anguelov, Dumitru Erhan, Vincent Vanhoucke, Andrew Rabinovich 2014. Going deeper
+with convolutions. arXiv preprint arXiv:1409.4842.
+
+

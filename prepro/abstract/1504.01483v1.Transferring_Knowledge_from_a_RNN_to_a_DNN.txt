@@ -1,0 +1,16 @@
+
+deep neural network (dnn) acoustic models have yielded
+many state-of-the-art results in automatic speech recognition
+(asr) tasks. more recently, recurrent neural network (rnn)
+models have been shown to outperform dnns counterparts.
+however, state-of-the-art dnn and rnn models tend to be impractical to deploy on embedded systems with limited computational capacity. traditionally, the approach for embedded platforms is to either train a small dnn directly, or to train a small
+dnn that learns the output distribution of a large dnn. in this
+paper, we utilize a state-of-the-art rnn to transfer knowledge
+to small dnn. we use the rnn model to generate soft alignments and minimize the kullback-leibler divergence against
+the small dnn. the small dnn trained on the soft rnn alignments achieved a 3.93 wer on the wall street journal (wsj)
+eval92 task compared to a baseline 4.54 wer or more than 13%
+relative improvement.
+index terms: deep neural networks, recurrent neural networks, automatic speech recognition, model compression,
+embedded platforms
+
+1. 

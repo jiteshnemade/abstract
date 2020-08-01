@@ -1,0 +1,21 @@
+emotion recognition can provide crucial information
+about the user in many applications when building humancomputer interaction (hci) systems. most of current researches
+on visual emotion recognition are focusing on exploring facial
+features. however, context information including surrounding
+environment and human body can also provide extra clues to
+recognize emotion more accurately. inspired by “sequence to
+sequence model” for neural machine translation, which models
+input and output sequences by an encoder and a decoder in
+recurrent neural network (rnn) architecture respectively, a novel
+architecture, “caca-rnn”, is proposed in this work. the proposed network consists of two rnns in a cascaded architecture
+to process both context and facial information to perform video
+emotion classification. results of the model were submitted to
+video emotion recognition sub-challenge in multimodal emotion
+recognition challenge (mec2017). caca-rnn outperforms the
+mec2017 baseline (map of 21.7%): it achieved map of 45.51%
+on the testing set in the video only challenge.
+index terms—emotion recognition, video classification, action
+recognition, spatiotemporal model, human-computer interaction,
+hci
+
+i. 

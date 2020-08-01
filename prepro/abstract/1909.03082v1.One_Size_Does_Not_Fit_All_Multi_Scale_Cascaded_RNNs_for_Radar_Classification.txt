@@ -1,0 +1,18 @@
+
+edge sensing with micro-power pulse-doppler radars is an emergent domain in monitoring and surveillance with several smart city
+applications. existing solutions for the clutter versus multi-source
+radar classification task are limited in terms of either accuracy or
+efficiency, and in some cases, struggle with a trade-off between
+false alarms and recall of sources. we find that this problem can be
+resolved by learning the classifier across multiple time-scales. we
+propose a multi-scale, cascaded recurrent neural network architecture, msc-rnn, comprised of an efficient multi-instance learning
+(mil) recurrent neural network (rnn) for clutter discrimination
+at a lower tier, and a more complex rnn classifier for source classification at the upper tier. by controlling the invocation of the
+upper rnn with the help of the lower tier conditionally, msc-rnn
+achieves an overall accuracy of 0.972. our approach holistically
+improves the accuracy and per-class recalls over ml models suitable for radar inferencing. notably, we outperform cross-domain
+handcrafted feature engineering with time-domain deep feature
+learning, while also being up to ∼3× more efficient than a competitive solution.
+
+
+

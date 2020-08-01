@@ -1,0 +1,18 @@
+
+in this paper, we study novel neural network
+structures to better model long term dependency
+in sequential data. we propose to use more memory units to keep track of more preceding states
+in recurrent neural networks (rnns), which are
+all recurrently fed to the hidden layers as feedback through different weighted paths. by extending the popular recurrent structure in rnns,
+we provide the models with better short-term
+memory mechanism to learn long term dependency in sequences. analogous to digital filters in signal processing, we call these structures as higher order rnns (hornns). similar to rnns, hornns can also be learned using the back-propagation through time method.
+hornns are generally applicable to a variety of
+sequence modelling tasks. in this work, we have
+examined hornns for the language modeling
+task using two popular data sets, namely the penn
+treebank (ptb) and english text8 data sets. experimental results have shown that the proposed
+hornns yield the state-of-the-art performance
+on both data sets, significantly outperforming the
+regular rnns as well as the popular lstms.
+
+1. 

@@ -1,0 +1,1 @@
+previous rnn architectures have largely been superseded by lstm, or “long short-term memory”. since its

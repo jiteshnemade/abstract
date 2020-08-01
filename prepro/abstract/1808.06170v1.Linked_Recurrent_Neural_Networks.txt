@@ -1,0 +1,74 @@
+
+zhiwei wang
+
+yao ma
+
+michigan state university
+wangzh65@msu.edu
+
+michigan state university
+mayao4@msu.edu
+
+dawei yin
+
+jiliang tang
+
+jd.com
+yindawei@acm.org
+
+michigan state university
+tangjili@msu.edu
+
+abstract
+
+1
+
+recurrent neural networks (rnns) have been proven to be effective in modeling sequential data and they have been applied to
+boost a variety of tasks such as document classification, speech
+recognition and machine translation. most of existing rnn models have been designed for sequences assumed to be identically
+and independently distributed (i.i.d). however, in many real-world
+applications, sequences are naturally linked. for example, web documents are connected by hyperlinks; and genes interact with each
+other. on the one hand, linked sequences are inherently not i.i.d.,
+which poses tremendous challenges to existing rnn models. on
+the other hand, linked sequences offer link information in addition
+to the sequential information, which enables unprecedented opportunities to build advanced rnn models. in this paper, we study the
+problem of rnn for linked sequences. in particular, we introduce
+a principled approach to capture link information and propose a
+linked recurrent neural network (linkedrnn), which models sequential and link information coherently. we conduct experiments
+on real-world datasets from multiple domains and the experimental
+results validate the effectiveness of the proposed framework.
+
+recurrent neural networks (rnns) have been proven to be powerful in learning a reusable parameters that produce hidden representations of sequences. they have been successfully applied to
+model sequential data and achieve state-of-the-art performance in
+numerous domains such as speech recognition [12, 29, 39], natural
+language processing [1, 19, 31, 33], healthcare [7, 18, 25], recommendations [14, 48, 50] and information retrieval [35].
+the majority of existing rnn models have been designed for
+traditional sequences, which are assumed to be identically, independently distributed (i.i.d.). however, many real-world applications
+generate linked sequences. for example, web documents, sequences
+of words, are connected via hyperlinks; genes, sequences of dna
+or rna, typically interact with each other. figure 1 illustrates one
+toy example of linked sequences where there are four sequences –
+s 1 , s 2 , s 3 and s 4 . these four sequences are linked via three links –
+s 2 is connected with s 1 and s 3 and s 3 is linked with s 2 and s 4 . on
+the one hand, these linked sequences are inherently related. for
+example, linked web documents are likely to be similar [10] and
+interacted genes tend to share similar functionalities [4]. hence,
+linked sequences are not i.i.d., which presents immense challenges
+to traditional rnns. on the other hand, linked sequences offer additional link information in addition to the sequential information.
+it is evident that link information can be exploited to boost various
+analytical tasks such as social recommendations [42] , sentiment
+analysis [17, 46] and feature selection [43]. thus, the availability
+of link information in linked sequences has the great potential to
+enable us to develop advanced recurrent neural networks.
+now we have established that – (1) traditional rnns are insufficient and dedicated efforts are needed for linked sequences; and
+(2) the availability of link information in linked sequences offer
+unprecedented opportunities to advance traditional rnns. in this
+paper, we study the problem of modeling linked sequences via
+rnns. in particular, we aim to address the following challenges –
+(1) how to capture link information mathematically and (2) how to
+combine sequential and link information via recurrent neural networks. to address these two challenges, we propose a novel linked
+recurrent neural network (linkedrnn) for linked sequences. our
+major contributions are summarized as follows:
+
+
+

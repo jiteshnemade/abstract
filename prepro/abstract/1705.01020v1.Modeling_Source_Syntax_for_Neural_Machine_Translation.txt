@@ -1,0 +1,26 @@
+
+
+arxiv:1705.01020v1 [cs.cl] 2 may 2017
+
+even though a linguistics-free sequence to
+sequence model in neural machine translation (nmt) has certain capability of implicitly learning syntactic information of
+source sentences, this paper shows that
+source syntax can be explicitly incorporated into nmt effectively to provide further improvements. specifically, we linearize parse trees of source sentences to
+obtain structural label sequences. on the
+basis, we propose three different sorts of
+encoders to incorporate source syntax into
+nmt: 1) parallel rnn encoder that learns
+word and label annotation vectors parallelly; 2) hierarchical rnn encoder that
+learns word and label annotation vectors in
+a two-level hierarchy; and 3) mixed rnn
+encoder that stitchingly learns word and
+label annotation vectors over sequences
+where words and labels are mixed. experimentation on chinese-to-english translation demonstrates that all the three proposed syntactic encoders are able to improve translation accuracy. it is interesting
+to note that the simplest rnn encoder, i.e.,
+mixed rnn encoder yields the best performance with an significant improvement of
+1.4 bleu points. moreover, an in-depth
+analysis from several perspectives is provided to reveal how source syntax benefits
+nmt.
+
+1
+

@@ -1,0 +1,17 @@
+ recurrent neural networks (rnns) are a class of
+nonlinear dynamical systems often used to model sequenceto-sequence maps. rnns have been shown to have excellent
+expressive power but lack stability or robustness guarantees
+that would be necessary for safety-critical applications. in this
+paper we formulate convex sets of rnns with guaranteed
+stability and robustness properties. the guarantees are derived
+using differential iqc methods and can ensure contraction
+(global exponential stability of all solutions) and bounds on incremental `2 gain (the lipschitz constant of the learnt sequenceto-sequence mapping). an implicit model structure is employed
+to construct a jointly-convex representation of an rnn and its
+certificate of stability or robustness. we prove that the proposed
+model structure includes all previously-proposed convex sets
+of contracting rnns as special cases, and also includes all
+stable linear dynamical systems. we demonstrate the utility
+of the proposed model class in the context of nonlinear system
+identification.
+
+i. 

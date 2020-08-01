@@ -1,0 +1,41 @@
+
+
+(rnn). the rnn is trained to predict the next element
+of a sequence given the previous elements. conveniently,
+the gradients needed for the computation of the fv are extracted using the available backpropagation infrastructure.
+the new representation is sensitive to ordering and therefore mitigates the disadvantage of using the standard fisher
+vector representation. it is applied to two different and challenging tasks: video action recognition and image annotation by sentences.
+several recent works have proposed to use an rnn for
+sentence representation [44, 1, 31, 17]. the recurrent neural network fisher vector (rnn-fv) method differs from
+these works in that a sequence is represented by using derived gradient from the rnn as features, instead of using a
+hidden or an output layer of the rnn.
+the paper explores two different approaches for training
+the rnn for the image annotation and image search tasks.
+in the classification approach, the rnn is trained to predict the following word in the sentence. the regression approach tries to predict the embedding of the following word
+(i.e. treating it as a regression task). the large vocabulary size makes the regression approach more scalable and
+achieves better results than the classification approach. in
+the video action recognition task, the regression approach
+is the only variant being used, since the notion of a discrete
+word does not exist. the vgg [41] convolutional neural
+network (cnn) is used to extract features from the frames
+of the video and the rnn is trained to predict the embedding of the next frame given the previous ones. similarly,
+c3d [46] features of sequential video sub-volumes are used
+with the same training technique.
+although the image annotation and video action recognition tasks are quite different, a surprising boost in performance in the video action recognition task was achieved
+by using a transfer learning approach from the image annotation task. specifically, the vgg image embedding of a
+frame is projected using a linear transformation which was
+learned on matching images and sentences by the canonical
+correlation analysis (cca) algorithm [10].
+
+recurrent neural networks (rnns) have had considerable success in classifying and predicting sequences. we
+demonstrate that rnns can be effectively used in order
+to encode sequences and provide effective representations.
+the methodology we use is based on fisher vectors, where
+the rnns are the generative probabilistic models and the
+partial derivatives are computed using backpropagation.
+state of the art results are obtained in two central but distant
+tasks, which both rely on sequences: video action recognition and image annotation. we also show a surprising
+transfer learning result from the task of image annotation
+to the task of video action recognition.
+
+1. 

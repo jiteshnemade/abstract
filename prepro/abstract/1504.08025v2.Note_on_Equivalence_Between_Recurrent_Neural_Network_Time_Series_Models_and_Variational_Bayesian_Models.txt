@@ -1,0 +1,7 @@
+
+we observe that the standard log likelihood training objective for a recurrent neural network (rnn) model of
+time series data is equivalent to a variational bayesian training objective, given the proper choice of generative
+and inference models. this perspective may motivate extensions to both rnns and variational bayesian models.
+we propose one such extension, where multiple particles are used for the hidden state of an rnn, allowing a
+natural representation of uncertainty or multimodality.
+

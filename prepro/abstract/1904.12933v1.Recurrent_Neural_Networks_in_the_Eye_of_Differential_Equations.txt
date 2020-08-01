@@ -1,0 +1,20 @@
+
+
+to understand the fundamental trade-offs between training stability, temporal dynamics and architectural complexity of recurrent neural networks (rnns), we directly
+∗
+
+yuezhenniu@gmail.com
+
+analyze rnn architectures using numerical methods of ordinary differential equations (odes).
+we define a general family of rnns–the odernns–by relating the composition rules
+of rnns to integration methods of odes at discrete time steps. we show that the degree of rnn’s functional nonlinearity n and the range of its temporal memory t can
+be mapped to the corresponding stage of runge-kutta recursion and the order of timederivative of the odes. we prove that popular rnn architectures, such as lstm and
+urnn, fit into different orders of n-t-odernns. this exact correspondence between
+rnn and ode helps us to establish the sufficient conditions for rnn training stability
+and facilitates more flexible top-down designs of new rnn architectures using large
+varieties of toolboxes from numerical integration of odes. we provide such an example: quantum-inspired universal computing neural network (qunn), which reduces
+the required number of training parameters from polynomial in both data length and
+temporal memory length to only linear in temporal memory length.
+
+1
+

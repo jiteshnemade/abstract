@@ -1,0 +1,14 @@
+
+most of neural approaches to relation classification have focused on finding short
+patterns that represent the semantic relation using convolutional neural networks
+(cnns) and those approaches have generally achieved better performances than using recurrent neural networks (rnns).
+in a similar intuition to the cnn models,
+we propose a novel rnn-based model that
+strongly focuses on only important parts of
+a sentence using multiple range-restricted
+bidirectional layers and attention for relation classification. experimental results
+on the semeval-2010 relation classification task show that our model is comparable to the state-of-the-art cnn-based and
+rnn-based models that use additional linguistic information.
+
+1
+

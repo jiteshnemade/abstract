@@ -1,0 +1,1167 @@
+Addressee and Response Selection in Multi-Party Conversations
+with Speaker Interaction RNNs
+Honglak Lee
+
+Rui Zhang
+
+arXiv:1709.04005v2 [cs.CL] 28 Nov 2017
+
+Yale University
+r.zhang@yale.edu
+
+Abstract
+In this paper, we study the problem of addressee and response selection in multi-party conversations. Understanding multi-party conversations is challenging because of complex speaker interactions: multiple speakers exchange messages with each other, playing different roles (sender, addressee, observer), and these roles vary across turns. To tackle
+this challenge, we propose the Speaker Interaction Recurrent Neural Network (SI-RNN). Whereas the previous stateof-the-art system updated speaker embeddings only for the
+sender, SI-RNN uses a novel dialog encoder to update speaker
+embeddings in a role-sensitive way. Additionally, unlike the
+previous work that selected the addressee and response separately, SI-RNN selects them jointly by viewing the task as
+a sequence prediction problem. Experimental results show
+that SI-RNN significantly improves the accuracy of addressee
+and response selection, particularly in complex conversations
+with many speakers and responses to distant messages many
+turns in the past.
+
+1
+
+
+Introduction
+
+Real-world conversations often involve more than two
+speakers. In the Ubuntu Internet Relay Chat channel (IRC),
+for example, one user can initiate a discussion about an
+Ubuntu-related technical issue, and many other users can
+work together to solve the problem. Dialogs can have complex speaker interactions: at each turn, users play one of
+three roles (sender, addressee, observer), and those roles
+vary across turns.
+In this paper, we study the problem of addressee and response selection in multi-party conversations: given a responding speaker and a dialog context, the task is to select
+an addressee and a response from a set of candidates for the
+responding speaker. The task requires modeling multi-party
+conversations and can be directly used to build retrievalbased dialog systems (Lu and Li 2013; Hu et al. 2014;
+Ji, Lu, and Li 2014; Wang et al. 2015).
+The previous state-of-the-art DYNAMIC -RNN model
+from Ouchi and Tsuboi (2016) maintains speaker embeddings to track each speaker status, which dynamically
+changes across time steps. It then produces the context embedding from the speaker embeddings and selects the adCopyright © 2018, Association for the Advancement of Artificial
+Intelligence (www.aaai.org). All rights reserved.
+
+dressee and response based on embedding similarity. However, this model updates only the sender embedding, not the
+embeddings of the addressee or observers, with the corresponding utterance, and it selects the addressee and response
+separately. In this way, it only models who says what and
+fails to capture addressee information. Experimental results
+show that the separate selection process often produces inconsistent addressee-response pairs.
+To solve these issues, we introduce the Speaker Interaction Recurrent Neural Network (SI-RNN). SI-RNN redesigns the dialog encoder by updating speaker embeddings in a role-sensitive way. Speaker embeddings are updated in different GRU-based units depending on their roles
+(sender, addressee, observer). Furthermore, we note that the
+addressee and response are mutually dependent and view
+the task as a joint prediction problem. Therefore, SI-RNN
+models the conditional probability (of addressee given the
+response and vice versa) and selects the addressee and response pair by maximizing the joint probability.
+On a public standard benchmark data set, SI-RNN significantly improves the addressee and response selection
+accuracy, particularly in complex conversations with many
+speakers and responses to distant messages many turns in
+the past. Our code and data set are available online.1
+
+2
+
+Related Work
+
+We follow a data-driven approach to dialog systems. Singh
+et al. (1999), Henderson, Lemon, and Georgila (2008), and
+Young et al. (2013) optimize the dialog policy using Reinforcement Learning or the Partially Observable Markov Decision Process framework. In addition, Henderson, Thomson, and Williams (2014) propose to use a predefined ontology as a logical representation for the information exchanged in the conversation. The dialog system can be divided into different modules, such as Natural Language
+Understanding (Yao et al. 2014; Mesnil et al. 2015), Dialog State Tracking (Henderson, Thomson, and Young 2014;
+Williams, Raux, and Henderson 2016), and Natural Language Generation (Wen et al. 2015). Furthermore, Wen et
+al. (2016) and Bordes and Weston (2017) propose end-toend trainable goal-oriented dialog systems.
+1
+
+The released code: https://github.com/ryanzhumich/sirnn
+
+Recently, short text conversation has been popular. The
+system receives a short dialog context and generates a response using statistical machine translation or sequence-tosequence networks (Ritter, Cherry, and Dolan 2011; Vinyals
+and Le 2015; Shang, Lu, and Li 2015; Serban et al. 2016;
+Li et al. 2016; Mei, Bansal, and Walter 2017). In contrast to response generation, the retrieval-based approach
+uses a ranking model to select the highest scoring response from candidates (Lu and Li 2013; Hu et al. 2014;
+Ji, Lu, and Li 2014; Wang et al. 2015). However, these
+models are single-turn responding machines and thus still
+are limited to short contexts with only two speakers. As
+for larger context, Lowe et al. (2015) propose the Next Utterance Classification (NUC) task for multi-turn two-party
+dialogs. Ouchi and Tsuboi (2016) extend NUC to multiparty conversations by integrating the addressee detection
+problem. Since the data is text based, they use only textual information to predict addressees as opposed to relying on acoustic signals or gaze information in multimodal dialog systems (Jovanović, Akker, and Nijholt 2006;
+op den Akker and Traum 2009).
+Furthermore, several other papers are recently presented
+focusing on modeling role-specific information given the dialogue contexts (Meng, Mou, and Jin 2017; Chi et al. 2017;
+Chen et al. 2017). For example, Meng, Mou, and Jin (2017)
+combine content and temporal information to predict the utterance speaker. By contrast, our SIRNN explicitly utilizes
+the speaker interaction to maintain speaker embeddings and
+predicts the addressee and response by joint selection.
+
+3
+3.1
+
+Preliminaries
+
+(t)
+
+(t)
+
+C = [(asender , aaddressee , u(t) )]Tt=1
+(t)
+
+(t)
+
+where asender says u(t) to aaddressee at time step t, and T
+is the total number of time steps before the response and
+addressee selection. The set of speakers appearing in C is
+denoted A(C). As for the output, the addressee is selected
+from A(C), and the response is selected from a set of candidates R. Here, R contains the ground-truth response and
+one or more false responses. We provide some examples in
+Table 4 (Section 6).
+
+DYNAMIC -RNN Model
+
+In this section, we briefly review the state-of-the-art
+DYNAMIC -RNN model (Ouchi and Tsuboi 2016), which
+our proposed model is based on. DYNAMIC -RNN solves the
+task in two phases: 1) the dialog encoder maintains a set of
+speaker embeddings to track each speaker status, which dynamically changes with time step t; 2) then DYNAMIC -RNN
+produces the context embedding from the speaker embeddings and selects the addressee and response based on embedding similarity among context, speaker, and utterance.
+
+Notation
+ares
+C
+R
+a ∈ A(C)
+r∈R
+(t)
+asender
+(t)
+aaddressee
+u(t)
+u(t)
+(t)
+ai
+
+Table 1: Notations for the task and model.
+Dialog Encoder. Figure 1 (Left) illustrates the dialog encoder in DYNAMIC -RNN on an example context. In this example, a2 says u(1) to a1 , then a1 says u(2) to a3 , and finally
+a3 says u(3) to a2 . The context C will be:
+C = [(a2 , a1 , u(1) ), (a1 , a3 , u(2) ), (a3 , a2 , u(3) )]
+
+(1)
+
+with the set of speakers A(C) = {a1 , a2 , a3 }.
+(t)
+For a speaker ai , the bold letter ai ∈ Rds denotes its
+embedding at time step t. Speaker embeddings are initialized as zero vectors and updated recurrently as hidden states
+of GRUs (Cho et al. 2014; Chung et al. 2014). Specifically,
+for each time step t with the sender asdr and the utterance
+u(t) , the sender embedding asdr is updated recurrently from
+the utterance:
+(t)
+
+(t−1)
+
+asdr = GRU(asdr , u(t) ),
+
+Addressee and Response Selection
+
+Ouchi and Tsuboi (2016) propose the addressee and response selection task for multi-party conversation. Given a
+responding speaker ares and a dialog context C, the task is
+to select a response and an addressee. C is a list ordered by
+time step:
+
+3.2
+
+Data
+Responding Speaker
+Input
+Context
+Candidate Responses
+Addressee
+Output
+Response
+Sender ID at time t
+Addressee ID at time t
+Utterance at time t
+Utterance embedding at time t
+Speaker embedding of ai at time t
+
+where u(t) ∈ Rdu is the embedding for utterance u(t) . Other
+speaker embeddings are updated from u(t) = 0. The speaker
+embeddings are updated until time step T .
+Selection Model. To summarize the whole dialog context
+C, the model applies element-wise max pooling over all the
+speaker embeddings to get the context embedding hC :
+hC =
+
+max
+
+ai =a1 ,...,a|A(C)|
+
+(T )
+
+ai
+
+∈ Rds
+
+(2)
+
+The probability of an addressee and a response being the
+ground truth is calculated based on embedding similarity. To
+be specific, for addressee selection, the model compares the
+candidate speaker ap , the dialog context C, and the responding speaker ares :
+P(ap |C) = σ([ares ; hC ]> Wa ap )
+
+(3)
+
+where ares is the final speaker embedding for the responding
+speaker ares , ap is the final speaker embedding for the candidate addressee ap , σ is the logistic sigmoid function, [ ; ]
+is the row-wise concatenation operator, and Wa ∈ R2ds ×ds
+is a learnable parameter. Similarly, for response selection,
+P(rq |C) = σ([ares ; hC ]> Wr rq )
+du
+
+(4)
+
+where rq ∈ R is the embedding for the candidate response
+rq , and Wr ∈ R2ds ×du is a learnable parameter.
+
+Figure 1: Dialog encoders in DYNAMIC -RNN (Left) and SI-RNN (Right) for an example context at the top. Speaker embeddings are initialized as zero vectors and updated recurrently as hidden states along the time step. In SI-RNN, the same speaker
+embedding is updated in different units depending on the role (IGRUS for sender, IGRUA for addressee, GRUO for observer).
+The model is trained end-to-end to minimize a joint crossentropy loss for the addressee selection and the response selection with equal weights. At test time, the addressee and
+the response are separately selected to maximize the probability in Eq 3 and Eq 4.
+
+4
+
+Speaker Interaction RNN
+
+While DYNAMIC -RNN can track the speaker status by capturing who says what in multi-party conversation, there are
+still some issues. First, at each time step, only the sender
+embedding is updated from the utterance. Therefore, other
+speakers are blind to what is being said, and the model
+fails to capture addressee information. Second, while the addressee and response are mutually dependent, DYNAMIC RNN selects them independently. Consider a case where
+the responding speaker is talking to two other speakers
+in separate conversation threads. The choice of addressee
+is likely to be either of the two speakers, but the choice
+is much less ambiguous if the correct response is given,
+and vice versa. DYNAMIC -RNN often produces inconsistent addressee-response pairs due to the separate selection.
+See Table 4 for examples.
+In contrast to DYNAMIC -RNN, the dialog encoder in SIRNN updates embeddings for all the speakers besides the
+sender at each time step. Speaker embeddings are updated
+depending on their roles: the update of the sender is different
+from the addressee, which is different from the observers.
+Furthermore, the update of a speaker embedding is not only
+from the utterance, but also from other speakers. These are
+achieved by designing variations of GRUs for different roles.
+Finally, SI-RNN selects the addressee and response jointly
+by maximizing the joint probability.
+
+4.1
+
+Utterance Encoder
+
+To encode an utterance u = (w1 , w2 , ..., wN ) of N words,
+we use a RNN with Gated Recurrent Units (Cho et al. 2014;
+Chung et al. 2014):
+hj = GRU(hj−1 , xj )
+
+where xj is the word embedding for wj , and hj is the GRU
+hidden state. h0 is initialized as a zero vector, and the utterance embedding is the last hidden state, i.e. u = hN .
+
+4.2
+
+Dialog Encoder
+
+Figure 1 (Right) shows how SI-RNN encodes the example in
+Eq 1. Unlike DYNAMIC -RNN, SI-RNN updates all speaker
+embeddings in a role-sensitive manner. For example, at the
+first time step when a2 says u(1) to a1 , DYNAMIC -RNN
+only updates a2 using u(1) , while other speakers are updated
+using 0. In contrast, SI-RNN updates each speaker status
+with different units: IGRUS updates the sender embedding
+a2 from the utterance embedding u(1) and the addressee embedding a1 ; IGRUA updates the addressee embedding a1
+from u(1) and a2 ; GRUO updates the observer embedding
+a3 from u(1) .
+Algorithm 1 gives a formal definition of the dialog encoder in SI-RNN. The dialog encoder is a function that takes
+as input a dialog context C (lines 1-5) and returns speaker
+embeddings at the final time step (lines 28-30). Speaker
+embeddings are initialized as ds -dimensional zero vectors
+(lines 6-9). Speaker embeddings are updated by iterating
+over each line in the context (lines 10-27).
+
+4.3
+
+Role-Sensitive Update
+
+In this subsection, we explain in detail how
+IGRUS /IGRUA /GRUO update speaker embeddings
+according to their roles at each time step (Algorithm 1 lines
+19-26).
+As shown in Figure 2, IGRUS /IGRUA /GRUO are all
+GRU-based units. IGRUS updates the sender embedding
+(t−1)
+from the previous sender embedding asdr , the previous
+(t−1)
+addressee embedding aadr , and the utterance embedding
+u(t) :
+(t)
+(t−1)
+(t−1)
+asdr ← IGRUS (asdr , aadr , u(t) )
+
+Algorithm 1 Dialog Encoder in SI-RNN
+1: Input
+2: Dialog context C with speakers A(C):
+(t)
+
+(t)
+
+(t)
+
+(t)
+
+3: C = [(asender , aaddressee , u(t) )]T
+t=1
+4: A(C) = {a1 , a2 , . . . , a|A(C)| }
+5: where asender , aaddressee ∈ A(C)
+6: // Initialize speaker embeddings
+7: for ai = a1 , a2 , . . . , a|A(C)| do
+(0)
+
+8:
+a i ← 0 ∈ Rd s
+9: end for
+10: //Update speaker embeddings
+11: for t = 1, 2, . . . , T do
+12:
+// Update sender, addressee, observers
+13:
+14:
+15:
+16:
+17:
+18:
+19:
+20:
+21:
+22:
+23:
+24:
+25:
+26:
+27:
+28:
+29:
+30:
+
+(t)
+
+asdr ← asender
+(t)
+aadr ← aaddressee
+O ← A(C) − {asdr , aadr }
+// Compute utterance embedding
+u(t) ← UtteranceEncoder(u(t) )
+(t−1)
+u(t) ← Concatenate(asdr , u(t) )
+// Update sender embedding
+(t)
+(t−1)
+(t−1)
+asdr ← IGRUS (asdr , aadr , u(t) )
+// Update addressee embedding
+(t)
+(t−1)
+(t−1)
+aadr ← IGRUA (aadr , asdr , u(t) )
+// Update observer embeddings
+for aobr in O do
+(t)
+(t−1)
+aobr ← GRUO (aobr , u(t) )
+end for
+end for
+// Return final speaker embeddings
+Output
+(T )
+return ai for ai = a1 , a2 , . . . , a|A(C)|
+
+Figure 2: Illustration of IGRUS (upper, blue), IGRUA
+(middle, green), and GRUO (lower, yellow). Filled circles
+are speaker embeddings, which are recurrently updated. Unfilled circles are gates. Filled squares are speaker embedding
+proposals.
+
+The update, as illustrated in the upper part of Figure 2, is
+(t)
+controlled by three gates. The rS gate controls the previ(t−1)
+(t)
+ous sender embedding asdr , and pS controls the previous
+(t−1)
+addressee embedding aadr . Those two gated interactions
+(t)
+esdr . Fitogether produce the sender embedding proposal a
+(t)
+(t)
+esdr and
+nally, the update gate zS combines the proposal a
+(t−1)
+the previous sender embedding asdr to update the sender
+(t)
+embedding asdr . The computations in IGRUS (including
+(t)
+(t)
+(t)
+(t)
+esdr , and the
+gates rS , pS , zS , the proposal embedding a
+(t)
+final updated embedding asdr ) are formulated as:
+(t)
+
+(t−1)
+
++ VSr aadr )
+
+(t)
+
+(t−1)
+
++ VSp aadr )
+
+(t)
+
+(t−1)
+
++ VSz aadr )
+
+rS =σ(WSr u(t) + UrS asdr
+pS =σ(WSp u(t) + UpS asdr
+zS =σ(WSz u(t) + UzS asdr
+(t)
+
+(t−1)
+
+(t−1)
+
+(t−1)
+
+(t)
+
+(t−1)
+
+esdr = tanh(WS u(t) + US (rS
+a
+(t)
+
++ VS (pS
+(t)
+
+(t)
+
+asdr = zS
+
+(t−1)
+
+asdr
+
+asdr )
+
+(t−1)
+
+aadr ))
+(t)
+
++ (1 − zS )
+
+(t)
+
+esdr
+a
+
+where {WSr , WSp , WSz , UrS , UpS , UzS , VSr , VSp , VSz , WS ,
+US , VS } are learnable parameters. IGRUA uses the same
+formulation with a different set of parameters, as illustrated
+in the middle of Figure 2. In addition, we update the observer
+embeddings from the utterance. GRUO is implemented
+as the traditional GRU unit in the lower part of Figure 2.
+Note that the parameters in IGRUS /IGRUA /GRUO are not
+shared. This allows SI-RNN to learn role-dependent features
+to control speaker embedding updates. The formulations of
+IGRUA and GRUO are similar.
+
+4.4
+
+Joint Selection
+
+The dialog encoder takes the dialog context C as input and
+(T )
+returns speaker embeddings at the final time step, ai . Recall from Section 3.2 that DYNAMIC -RNN produces the
+context embedding hC using Eq 2 and then selects the addressee and response separately using Eq 3 and Eq 4.
+In contrast, SI-RNN performs addressee and response
+selection jointly: the response is dependent on the addressee and vice versa. Therefore, we view the task as a sequence prediction process: given the context and responding
+speaker, we first predict the addressee, and then predict the
+response given the addressee. (We also use the reversed prediction order as in Eq 7.)
+In addition to Eq 3 and Eq 4, SI-RNN is also trained
+to model the conditional probability as follows. To predict
+the addressee, we calculate the probability of the candidate
+speaker ap to be the ground-truth given the ground-truth response r (available during training time):
+P(ap |C, r) = σ([ares ; hC ; r]> War ap )
+
+(5)
+
+The key difference from Eq 3 is that Eq 5 is conditioned on
+the correct response r with embedding r. Similarly, for response selection, we calculate the probability of a candidate
+response rq given the ground-truth addressee aadr :
+P(rq |C, aadr ) = σ([ares ; hC ; aadr ]> Wra rq )
+
+(6)
+
+At test time, SI-RNN selects the addressee-response
+pair from A(C) × R to maximize the joint probability
+P(rq , ap |C):
+â, r̂ =
+
+arg max
+
+P(rq , ap |C)
+
+ap ,rq ∈A(C)×R
+
+=
+
+arg max
+
+P(rq |C) · P(ap |C, rq )
+
+(7)
+
+ap ,rq ∈A(C)×R
+
++ P(ap |C) · P(rq |C, ap )
+In Eq 7, we decompose the joint probability into two terms:
+the first term selects the response given the context, and then
+selects the addressee given the context and the selected response; the second term selects the addressee and response
+in the reversed order.2
+
+5
+
+Experimental Setup
+
+Data Set. We use the Ubuntu Multiparty Conversation
+Corpus (Ouchi and Tsuboi 2016) and summarize the data
+statistics in Table 3. The whole data set (including the
+Train/Dev/Test split and the false response candidates) is
+publicly available.3 The data set is built from the Ubuntu
+IRC chat room where a number of users discuss Ubunturelated technical issues. The log is organized as one file per
+day corresponding to a document D. Each document consists of (Time, SenderID, Utterance) lines. If users explicitly
+mention addressees at the beginning of the utterance, the addresseeID is extracted. Then a sample, namely a unit of input
+(the dialog context and the current sender) and output (the
+addressee and response prediction) for the task, is created
+to predict the ground-truth addressee and response of this
+line. Note that samples are created only when the addressee
+is explicitly mentioned for clear, unambiguous ground-truth
+labels. False response candidates are randomly chosen from
+all other utterances within the same document. Therefore,
+distractors are likely from the same sub-conversation or even
+from the same sender but at different time steps. This makes
+it harder than Lowe et al. (2015) where distractors are randomly chosen from all documents. If no addressee is explicitly mentioned, the addressee is left blank and the line is
+marked as a part of the context.
+Baselines. Apart from DYNAMIC -RNN, we also include
+several other baselines. R ECENT +TF-IDF always selects
+the most recent speaker (except the responding speaker
+ares ) as the addressee and chooses the response to maximize the tf-idf cosine similarity with the context. We improve it by using a slightly different addressee selection
+2
+
+Detail: We also considered an alternative decomposition of
+the joint probability as log P(rq , ap |C) = 12 [log P(rq |C) +
+log P(ap |C, rq ) + log P(ap |C) + log P(rq |C, ap )], but the performance was similar to Eq 7.
+3
+https://github.com/hiroki13/response-ranking/tree/master/
+data/input
+
+heuristic (D IRECT-R ECENT +TF-IDF): select the most recent speaker that directly talks to ares by an explicit addressee mention. We select from the previous 15 utterances,
+which is the longest context among all the experiments.
+This works much better when there are multiple concurrent sub-conversations, and ares responds to a distant message in the context. We also include another GRU-based
+model S TATIC -RNN from Ouchi and Tsuboi (2016). Unlike
+DYNAMIC -RNN, speaker embeddings in S TATIC -RNN are
+based on the order of speakers and are fixed. Furthermore,
+inspired by Zhou et al. (2016) and Serban et al. (2016),
+we implement S TATIC -H IER -RNN, a hierarchical version
+of S TATIC -RNN. It first builds utterance embeddings from
+words and then uses high-level RNNs to process utterance
+embeddings.
+Implementation Details For a fair comparison, we follow the hyperparameters from Ouchi and Tsuboi (2016),
+which are chosen based on the validation data set. We
+take a maximum of 20 words for each utterance. We use
+300-dimensional GloVe word vectors4 , which are fixed during training. SI-RNN uses 50-dimensional vectors for both
+speaker embeddings and hidden states. Model parameters
+are initialized with a uniform distribution between -0.01 and
+0.01. We set the mini-batch size to 128. The joint crossentropy loss function with 0.001 L2 weight decay is minimized by Adam (Kingma and Ba 2015). The training is
+stopped early if the validation accuracy is not improved for
+5 consecutive epochs. All experiments are performed on a
+single GTX Titan X GPU. The maximum number of epochs
+is 30, and most models converge within 10 epochs.
+
+6
+
+Results and Discussion
+
+For fair and meaningful quantitative comparisons, we follow
+Ouchi and Tsuboi (2016)’s evaluation protocols. SI-RNN
+improves the overall accuracy on the addressee and response
+selection task. Two ablation experiments further analyze the
+contribution of role-sensitive units and joint selection respectively. We then confirm the robustness of SI-RNN with
+the number of speakers and distant responses. Finally, in a
+case study we discuss how SI-RNN handles complex conversations by either engaging in a new sub-conversation or
+responding to a distant message.
+Overall Result. As shown in Table 2, SI-RNN significantly
+improves upon the previous state-of-the-art. In particular,
+addressee selection (ADR) benefits most, with different number of candidate responses (denoted as RES-CAND): around
+12% in RES-CAND = 2 and more than 10% in RES-CAND
+= 10. Response selection (RES) is also improved, suggesting role-sensitive GRUs and joint selection are helpful for
+response selection as well. The improvement is more obvious with more candidate responses (2% in RES-CAND = 2
+and 4% in RES-CAND = 10). These together result in significantly better accuracy on the ADR-RES metric as well.
+Ablation Study. We show an ablation study in the last
+rows of Table 2. First, we share the parameters of
+IGRUS /IGRUA /GRUO . The accuracy decreases significantly, indicating that it is crucial to learn role-sensitive units
+4
+
+http://nlp.stanford.edu/projects/glove/
+
+Chance
+Recent+TF-IDF
+Direct-Recent+TF-IDF
+Static-RNN
+(Ouchi and Tsuboi 2016)
+Static-Hier-RNN
+(Zhou et al. 2016)
+(Serban et al. 2016)
+Dynamic-RNN
+(Ouchi and Tsuboi 2016)
+SI-RNN (Ours)
+SI-RNN w/ shared IGRUs
+SI-RNN w/o joint selection
+
+T
+15
+15
+5
+10
+15
+5
+10
+15
+5
+10
+15
+5
+10
+15
+15
+15
+
+DEV
+ADR-RES
+0.62
+37.11
+45.83
+47.08
+48.52
+49.03
+49.19
+51.37
+52.78
+49.38
+52.76
+54.45
+60.57
+65.34
+67.01
+59.50
+63.13
+
+RES-CAND = 2
+TEST
+ADR-RES ADR
+0.62
+1.24
+37.13
+55.62
+45.76
+67.72
+46.99
+60.39
+48.67
+60.97
+49.27
+61.95
+49.38
+62.20
+51.76
+64.61
+53.04
+65.84
+49.80
+63.19
+53.85
+66.94
+54.88
+68.54
+60.69
+74.08
+65.63
+78.76
+67.30
+80.47
+59.47
+74.20
+63.40
+77.56
+
+RES
+50.00
+67.89
+67.89
+75.07
+77.75
+78.14
+76.70
+78.28
+79.08
+76.07
+78.16
+78.64
+78.14
+80.34
+80.91
+78.08
+80.38
+
+DEV
+ADR-RES
+0.12
+14.91
+18.94
+21.96
+22.78
+23.73
+23.68
+25.46
+26.31
+23.44
+25.44
+26.73
+30.65
+34.18
+35.50
+28.31
+32.24
+
+RES-CAND = 10
+TEST
+ADR-RES ADR
+0.12
+1.24
+15.44
+55.62
+19.50
+67.72
+21.98
+60.26
+23.31
+60.66
+23.49
+60.98
+23.75
+62.24
+25.83
+64.86
+26.62
+65.89
+23.72
+63.28
+25.95
+66.70
+27.19
+68.41
+30.71
+72.59
+34.09
+77.13
+35.76
+78.53
+28.45
+73.35
+32.53
+77.61
+
+RES
+10.00
+29.19
+29.40
+33.27
+35.91
+36.58
+34.51
+36.94
+37.85
+33.62
+36.14
+36.93
+36.45
+39.20
+40.83
+36.00
+39.73
+
+Table 2: Addressee and response selection results on the Ubuntu Multiparty Conversation Corpus. Metrics include accuracy
+of addressee selection (ADR), response selection (RES), and pair selection (ADR-RES). RES-CAND: the number of candidate
+responses. T : the context length.
+
+# Docs
+# Utters
+# Samples
+Adr Mention Freq
+# Speakers / Doc
+# Utters / Doc
+# Words / Utter
+
+Total
+7,355
+2.4M
+26.8
+326.3
+11.1
+
+Train
+6,606
+2.1M
+665.6k
+0.32
+26.3
+317.9
+11.1
+
+Dev
+367
+132.4k
+45.1k
+0.34
+30.7
+360.8
+11.2
+
+Test
+382
+151.3k
+51.9k
+0.34
+32.1
+396.1
+11.3
+
+Table 3: Data Statistics. “Adr Mention Freq” is the frequency of explicit addressee mention.
+
+to update speaker embeddings. Second, to examine our joint
+selection, we fall back to selecting the addressee and response separately, as in DYNAMIC -RNN. We find that joint
+selection improves ADR and RES individually, and it is particularly helpful for pair selection ADR-RES.
+Number of Speakers. Numerous speakers create complex dialogs and increased candidate addressee, thus the
+task becomes more challenging. In Figure 3 (Upper), we
+investigate how ADR accuracy changes with the number
+of speakers in the context of length 15, corresponding
+to the rows with T=15 in Table 2. R ECENT +TF-IDF always chooses the most recent speaker and the accuracy
+drops dramatically as the number of speakers increases.
+D IRECT-R ECENT +TF-IDF shows better performance, and
+DYNAMIC -RNNis marginally better. SI-RNN is much more
+robust and remains above 70% accuracy across all bins. The
+advantage is more obvious for bins with more speakers.
+Addressing Distance. Addressing distance is the time difference from the responding speaker to the ground-truth addressee. As the histogram in Figure 3 (Lower) shows, while
+the majority of responses target the most recent speaker,
+many responses go back five or more time steps. It is im-
+
+Figure 3: Effect of the number of speakers in the context
+(Upper) and the addressee distance (Lower). Left axis: the
+histogram shows the number of test examples. Right axis:
+the curves show ADR accuracy on the test set.
+
+portant to note that for those distant responses, DYNAMIC RNN sees a clear performance decrease, even worse than
+D IRECT-R ECENT +TF-IDF. In contrast, SI-RNN handles
+distant responses much more accurately.
+
+1
+1
+2
+
+Sender
+codepython
+wafflejock
+wafflejock
+
+Addressee
+wafflejock
+codepython
+theoletom
+
+3
+
+codepython
+
+-
+
+4
+2
+4
+2
+2
+5
+5
+5
+3
+
+Guest54977
+theoletom
+Guest54977
+theoletom
+theoletom
+releaf
+releaf
+releaf
+codepython
+
+wafflejock
+-
+
+3
+5
+5
+
+Jordan U
+Umeaboy
+wafflejock
+Model Prediction
+Direct-Recent+TF-IDF
+Dynamic-RNN
+SI-RNN
+
+codepython
+releaf
+Addressee
+theoletom
+codepython
+? releaf
+
+Utterance
+thanks
+yup np
+you can use sudo apt-get install packagename – reinstall, to have apt-get install reinstall some
+package/metapackage and redo the configuration for the program as well
+i installed ubuntu on a separate external drive. now when i boot into mac, the external drive does
+not show up as bootable. the blue light is on. any ideas?
+hello there. wondering to anyone who knows, where an ubuntu backup can be retrieved from.
+it’s not a program. it’s a desktop environment.
+did some searching on my system and googling, but couldn’t find an answer
+be a trace of it left yet there still is.
+i think i might just need a fresh install of ubuntu. if there isn’t a way to revert to default settings
+what’s your opinion on a $500 laptop that will be a dedicated ubuntu machine?
+are any of the pre-loaded ones good deals?
+if not, are there any laptops that are known for being oem-heavy or otherwise ubuntu friendly?
+my usb stick shows up as bootable (efi) when i boot my mac. but not my external hard drive on
+which i just installed ubuntu. how do i make it bootable from mac hardware?
+did you install ubuntu to this external drive from a different machine?
+what country you from?
+Response
+ubuntu install fresh
+no prime is the replacement
+? there are a few ubuntu dedicated laptop providers like umeaboy is asking depends on where
+you are
+
+(a) SI-RNN chooses to engage in a new sub-conversation by suggesting a solution to “releaf” about Ubuntu dedicated laptops.
+Sender
+Addressee
+Utterance
+1
+VeryBewitching
+nicomachus
+anything i should be concerned about before i do it?
+nicomachus
+VeryBewitching
+always back up before partitioning.
+1
+1
+VeryBewitching
+nicomachus
+i would have assumed that, i was wondering more if this is something that tends to be
+touch and go, want to know if i should put coffee on : )
+2
+TechMonger
+it was hybernating. i can ping it now
+TechMonger
+why does my router pick up disconnected devices when i reset my device list? or how
+2
+2
+Ionic
+because the dhcp refresh interval hasn’t passed yet?
+TechMonger
+so dhcp refresh is different than device list refresh?
+2
+D33p
+TechMonger
+what an enlightenment @techmonger : )
+2
+2
+BuzzardBuzz
+dhcp refresh for all clients is needed when you change your subnet ip
+BuzzardBuzz
+if you want them to work together
+2
+Ionic
+BuzzardBuzz
+uhm, no.
+2
+2
+chingao
+TechMonger
+nicomachus asked this way at the beginning: is the machine that you ’re trying to ping
+turned on?
+1
+nicomachus
+Model Prediction
+Addressee
+Response
+Direct-Recent+TF-IDF ? VeryBewitching i have tried with this program y-ppa manager, yet still doesn’t work.
+Dynamic-RNN
+chingao
+install the package “linux-generic”, that will install the kernel and the headers if they are
+not installed
+SI-RNN
+? VeryBewitching ? if it’s the last partition on the disk, it won’t take long. if gparted has to copy data to
+move another partition too, it can take a couple hours.
+(b) SI-RNN remembers the distant sub-conversation 1 and responds to “VeryBewitching” with a detailed answer.
+
+Table 4: Case Study. ? denotes the ground-truth. Sub-conversations are coded with different numbers for the purpose of analysis
+(sub-conversation labels are not available during training or testing).
+Case Study. Examples in Table 4 show how SI-RNN can
+handle complex multi-party conversations by selecting from
+10 candidate responses. In both examples, the responding speakers participate in two or more concurrent subconversations with other speakers.
+Example (a) demonstrates the ability of SI-RNN to engage in a new sub-conversation. The responding speaker
+“wafflejock” is originally involved in two sub-conversations:
+
+the sub-conversation 1 with “codepython”, and the ubuntu
+installation issue with “theoletom”. While it is reasonable to
+address “codepython” and “theoletom”, the responses from
+other baselines are not helpful to solve corresponding issues.
+TF-IDF prefers the response with the “install” key-word,
+yet the response is repetitive and not helpful. DYNAMIC RNN selects an irrelevant response to “codepython”. SIRNN chooses to engage in a new sub-conversation by sug-
+
+gesting a solution to “releaf” about Ubuntu dedicated laptops.
+Example (b) shows the advantage of SI-RNN in responding to a distant message. The responding speaker “nicomachus” is actively engaged with “VeryBewitching” in
+the sub-conversation 1 and is also loosely involved in the
+sub-conversation 2: “chingao” mentions “nicomachus” in
+the most recent utterance. SI-RNN remembers the distant
+sub-conversation 1 and responds to “VeryBewitching” with
+a detailed answer. D IRECT-R ECENT +TF-IDF selects the
+ground-truth addressee because “VeryBewitching” talks to
+“nicomachus”, but the response is not helpful. DYNAMIC RNN is biased to the recent speaker “chingao”, yet the response is not relevant.
+
+7
+
+Conclusion
+
+SI-RNN jointly models who says what to whom by updating speaker embeddings in a role-sensitive way. It provides
+state-of-the-art addressee and response selection, which can
+instantly help retrieval-based dialog systems. In the future,
+we also consider using SI-RNN to extract sub-conversations
+in the unlabeled conversation corpus and provide a largescale disentangled multi-party conversation data set.
+
+8
+
+Acknowledgements
+
+We thank the members of the UMichigan-IBM Sapphire
+Project and all the reviewers for their helpful feedback. This
+material is based in part upon work supported by IBM under
+contract 4915012629. Any opinions, findings, conclusions
+or recommendations expressed above are those of the authors and do not necessarily reflect the views of IBM.
+
+References
+[2017] Bordes, A., and Weston, J. 2017. Learning end-to-end
+goal-oriented dialog. In ICLR.
+[2017] Chen, P.-C.; Chi, T.-C.; Su, S.-Y.; and Chen, Y.-N.
+2017. Dynamic time-aware attention to speaker roles and
+contexts for spoken language understanding. In ASRU.
+[2017] Chi, T.-C.; Chen, P.-C.; Su, S.-Y.; and Chen, Y.-N.
+2017. Speaker role contextual modeling for language understanding and dialogue policy learning. In IJCNLP.
+[2014] Cho, K.; van Merrienboer, B.; Gulcehre, C.; Bahdanau, D.; Bougares, F.; Schwenk, H.; and Bengio, Y. 2014.
+Learning phrase representations using rnn encoder–decoder
+for statistical machine translation. In EMNLP.
+[2014] Chung, J.; Gulcehre, C.; Cho, K.; and Bengio, Y.
+2014. Empirical evaluation of gated recurrent neural networks on sequence modeling. NIPS 2014 Deep Learning
+and Representation Learning Workshop.
+[2008] Henderson, J.; Lemon, O.; and Georgila, K. 2008.
+Hybrid reinforcement/supervised learning of dialogue policies from fixed data sets.
+Computational Linguistics
+34(4):487–511.
+[2014] Henderson, M.; Thomson, B.; and Williams, J. 2014.
+The second dialog state tracking challenge. In SIGDIAL.
+
+[2014] Henderson, M.; Thomson, B.; and Young, S. 2014.
+Word-based dialog state tracking with recurrent neural networks. In SIGDIAL.
+[2014] Hu, B.; Lu, Z.; Li, H.; and Chen, Q. 2014. Convolutional neural network architectures for matching natural
+language sentences. In NIPS.
+[2014] Ji, Z.; Lu, Z.; and Li, H. 2014. An information retrieval approach to short text conversation. arXiv preprint
+arXiv:1408.6988.
+[2006] Jovanović, N.; Akker, R. o. d.; and Nijholt, A. 2006.
+Addressee identification in face-to-face meetings. In EACL.
+[2015] Kingma, D., and Ba, J. 2015. Adam: A method
+for stochastic optimization. International Conference for
+Learning Representations (ICLR).
+[2016] Li, J.; Galley, M.; Brockett, C.; Spithourakis, G.; Gao,
+J.; and Dolan, B. 2016. A persona-based neural conversation
+model. In ACL.
+[2015] Lowe, R.; Pow, N.; Serban, I.; and Pineau, J. 2015.
+The Ubuntu Dialogue Corpus: A large dataset for research
+in unstructured multi-turn dialogue systems. In SIGDIAL.
+[2013] Lu, Z., and Li, H. 2013. A deep architecture for
+matching short texts. In NIPS.
+[2017] Mei, H.; Bansal, M.; and Walter, M. R. 2017. Coherent dialogue with attention-based language models. In
+AAAI.
+[2017] Meng, Z.; Mou, L.; and Jin, Z. 2017. Towards neural speaker modeling in multi-party conversation: The task,
+dataset, and models. arXiv preprint arXiv:1708.03152.
+[2015] Mesnil, G.; Dauphin, Y.; Yao, K.; Bengio, Y.; Deng,
+L.; Hakkani-Tur, D.; He, X.; Heck, L.; Tur, G.; Yu, D.; et al.
+2015. Using recurrent neural networks for slot filling in spoken language understanding. Audio, Speech, and Language
+Processing, IEEE/ACM Transactions on 23(3):530–539.
+[2009] op den Akker, R., and Traum, D. 2009. A comparison of addressee detection methods for multiparty conversations. Workshop on the Semantics and Pragmatics of Dialogue.
+[2016] Ouchi, H., and Tsuboi, Y. 2016. Addressee and response selection for multi-party conversation. In EMNLP.
+[2011] Ritter, A.; Cherry, C.; and Dolan, W. B. 2011. Datadriven response generation in social media. In EMNLP.
+[2016] Serban, I. V.; Sordoni, A.; Bengio, Y.; Courville, A.;
+and Pineau, J. 2016. Building end-to-end dialogue systems using generative hierarchical neural network models.
+In AAAI.
+[2015] Shang, L.; Lu, Z.; and Li, H. 2015. Neural responding
+machine for short-text conversation. In ACL.
+[1999] Singh, S. P.; Kearns, M. J.; Litman, D. J.; and Walker,
+M. A. 1999. Reinforcement learning for spoken dialogue
+systems. In NIPS.
+[2015] Vinyals, O., and Le, Q. 2015. A neural conversational
+model. ICML Deep Learning Workshop.
+[2015] Wang, M.; Lu, Z.; Li, H.; and Liu, Q. 2015. Syntaxbased deep matching of short texts. In IJCAI.
+
+[2015] Wen, T.-H.; Gašić, M.; Mrkšić, N.; Su, P.-H.;
+Vandyke, D.; and Young, S. 2015. Semantically conditioned
+lstm-based natural language generation for spoken dialogue
+systems. In EMNLP.
+[2016] Wen, T.-H.; Vandyke, D.; Mrksic, N.; Gasic, M.;
+Rojas-Barahona, L. M.; Su, P.-H.; Ultes, S.; and Young, S.
+2016. A network-based end-to-end trainable task-oriented
+dialogue system. arXiv preprint arXiv:1604.04562.
+[2016] Williams, J.; Raux, A.; and Henderson, M. 2016. The
+dialog state tracking challenge series: A review. Dialogue &
+Discourse 7(3):4–33.
+[2014] Yao, K.; Peng, B.; Zhang, Y.; Yu, D.; Zweig, G.; and
+Shi, Y. 2014. Spoken language understanding using long
+short-term memory neural networks. In Spoken Language
+Technology Workshop (SLT), 2014 IEEE, 189–194. IEEE.
+[2013] Young, S.; Gasic, M.; Thomson, B.; and Williams,
+J. D. 2013. Pomdp-based statistical spoken dialog systems:
+A review. Proceedings of the IEEE 101(5):1160–1179.
+[2016] Zhou, X.; Dong, D.; Wu, H.; Zhao, S.; Yu, D.; Tian,
+H.; Liu, X.; and Yan, R. 2016. Multi-view response selection
+for human-computer conversation. In EMNLP.
+
+

@@ -1,0 +1,13 @@
+
+recurrent neural networks (rnns) are state-of-the-art in voice awareness/understanding and speech recognition. on-device computation of rnns
+on low-power mobile and wearable devices would be key to applications such
+as zero-latency voice-based human-machine interfaces. here we present c hip munk , a small (<1 mm2 ) hardware accelerator for long-short term memory
+rnns in umc 65 nm technology capable to operate at a measured peak efficiency
+up to 3.08 gop/s/mw at 1.24 mw peak power. to implement big rnn models
+without incurring in huge memory transfer overhead, multiple c hipmunk engines can cooperate to form a single systolic array. in this way, the c hipmunk
+architecture in a 75 tiles configuration can achieve real-time phoneme extraction
+on a demanding rnn topology proposed in [1], consuming less than 13 mw of
+average power.
+
+1
+

@@ -1,0 +1,28 @@
+ in the event of sensor failure, autonomous vehicles
+need to safely execute emergency maneuvers while avoiding
+other vehicles on the road. to accomplish this, the sensorfailed vehicle must predict the future semantic behaviors of
+other drivers, such as lane changes, as well as their future
+trajectories given a recent window of past sensor observations.
+we address the first issue of semantic behavior prediction in
+this paper, which is a precursor to trajectory prediction, by
+introducing a framework that leverages the power of recurrent
+neural networks (rnns) and graphical models. our goal is to
+predict the future categorical driving intent, for lane changes,
+of neighboring vehicles up to three seconds into the future given
+as little as a one-second window of past lidar, gps, inertial,
+and map data.
+we collect real-world data containing over 20 hours of
+highway driving using an autonomous toyota vehicle. we
+propose a composite rnn model by adopting the methodology
+of structural recurrent neural networks (rnns) to learn
+factor functions and take advantage of both the high-level
+structure of graphical models and the sequence modeling power
+of rnns, which we expect to afford more transparent modeling
+and activity than opaque, single rnn models. to demonstrate
+our approach, we validate our model using authentic interstate
+highway driving to predict the future lane change maneuvers
+of other vehicles neighboring our autonomous vehicle. we find
+that our composite structural rnn outperforms baselines by
+as much as 12% in balanced accuracy metrics.
+
+i. 

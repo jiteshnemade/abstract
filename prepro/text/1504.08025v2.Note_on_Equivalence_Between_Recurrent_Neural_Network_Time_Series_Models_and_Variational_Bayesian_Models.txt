@@ -1,0 +1,453 @@
+Note on Equivalence Between Recurrent Neural Network
+Time Series Models and Variational Bayesian Models
+
+arXiv:1504.08025v2 [cs.LG] 18 Jun 2016
+
+Jascha Sohl-Dickstein
+
+JASCHA @ STANFORD . EDU
+
+Diederik P. Kingma
+
+DPKINGMA @ UVA . NL
+
+Abstract
+We observe that the standard log likelihood training objective for a Recurrent Neural Network (RNN) model of
+time series data is equivalent to a variational Bayesian training objective, given the proper choice of generative
+and inference models. This perspective may motivate extensions to both RNNs and variational Bayesian models.
+We propose one such extension, where multiple particles are used for the hidden state of an RNN, allowing a
+natural representation of uncertainty or multimodality.
+
+Introduction
+1. Recurren Neural Networks (RNNs)
+1.1. RNN definition
+A Recurrent Neural Network (RNN) [3] has a visible state xt at each time step, and a corresponding hidden state ht . The
+dynamics can be described in terms of two distributions p ht |ht−1 , xt−1 and p (xt |ht ). Typically the state of the
+ hidden
+units ht is deterministic given xt−1 and ht−1 , the values at the previous timestep, such that ht = f ht−1 , xt−1 . Taking
+slight liberties with notation, we indicate the distribution of the hidden units given their parents as:
+
+
+(1)
+p ht |ht−1 , xt−1 = δ ht − f ht−1 , xt−1 ,
+p (H|X) = δ (H − F (X)) .
+(2)
+Where X = {x1 · · · xT } and H = {h2 · · · hT } are the full trajectories over visible and hidden units. The initial hidden
+vector h1 is included as a model parameter.
+1.2. RNN training
+Training is typically performed by maximizing the log likelihood of this model, computed from a data distribution over
+trajectories q (X). Note that this empirical data distribution q (X) is most often simply a collection of datapoints, i.e. Dirac
+delta peaks.
+
+
+argmax
+Eq(X) [log p (X)]
+(3)
+fˆ ht−1 , xt−1 , p̂ xt |ht =
+f (ht−1 ,xt−1 ),p(xt |ht )
+
+=
+
+argmax
+f (ht−1 ,xt−1 ),p(xt |ht )
+
+=
+
+argmax
+f (ht−1 ,xt−1 ),p(xt |ht )
+
+"
+
+Eq(X) Ep(H|X)
+"
+
+"
+
+X
+
+t
+
+log p x |h
+
+t
+
+Eq(X) Eδ(H−F (X))
+
+"
+X
+t
+
+t
+
+##
+
+
+log p xt |h
+
+##
+
+t
+
+(4)
+.
+
+(5)
+
+2. Variational Bayesian Perspective
+Variational Bayesian methods where both the generative and inference models are trained against each other have recently
+proven very powerful for building probabilistic models of arbitrary distributions [8, 4, 2, 7, 6, 9, 1]. Here we show how an
+RNN can be interpreted using a variational Bayesian framework.
+
+RNN VAE Equivalence
+
+2.1. Inference model
+We take p (X, H) from Section 1.1 to be the ‘generative’ model, and introduce an ‘inference’ model q (H|X). We set the
+inference model to be identical to the corresponding conditional distribution in the generative model,
+
+
+q ht |xt−1 , ht−1 = p ht |xt−1 , ht−1
+(6)
+Y
+
+q (H|X) =
+(7)
+q ht |xt−1 , ht−1
+t
+
+= p (H|X) .
+
+(8)
+
+2.2. Log likelihood bound
+We now derive a variational bound K on the data log-likelihood L = Eq(X) [log p(X)] for these generative and inference
+distributions,
+L = Eq(X) [log p(X)]
+ Z
+
+= Eq(X) log dH p (H, X)
+
+
+
+p (H, X)
+= Eq(X) log Eq(H|X)
+q (H|X)
+
+
+
+p (H, X)
+≥ Eq(X) Eq(H|X) log
+q (H|X)
+"
+"
+##
+
+Q
+t t−1
+, ht−1 p (xt |ht )
+t p h |x
+Q
+= K = Eq(X) Eq(H|X) log
+t t−1 , ht−1 )
+t q (h |x
+"
+"
+##
+
+Q
+t t−1
+t−1
+t t
+p
+h
+|x
+,
+h
+p
+(x
+|h
+)
+= Eq(X) Eq(H|X) log t Q
+t t−1 , ht−1 )
+t p (h |x
+"
+"
+##
+X
+
+t t
+= Eq(X) Eq(H|X)
+log p x |h
+
+(9)
+(10)
+(11)
+(Jensen’s inequality)
+(12)
+
+(13)
+(14)
+
+t
+
+"
+
+= Eq(X) Eδ(H−F (X))
+
+"
+
+X
+t
+
+log p xt |h
+
+##
+
+t
+
+.
+
+(15)
+
+The bound in Equation 15 is identical to the RNN training objective in Equation 5. Therefore, for the choice of inference
+model in Equation 6, the variational Bayesian training objective is identical to the standard log likelihood training objective.
+2.3. Optimality of noise-free hidden dynamics
+Often, noise-free dynamics is optimal w.r.t. K. If the latent dynamics p(ht |ht−1 , xt−1 ) is in the location-scale family with
+location µ(ht−1 , xt−1 ) and scale σ, we can parameterize the latent variables as ht = f (ht−1 , xt−1 ) + σ · ǫt , where f is a
+deterministic function and ǫt ∼ p(ǫ) is independent zero-centered noise per timestep. Equation (14) can be written in this
+so-called non-centered form [5] as:
+"
+"
+##
+X
+
+t t
+Eq(X) Ep(ǫ)
+(16)
+log p x |h
+t
+
+t
+
+The inserted noise ǫ has the effect of removing information about previous states from the hidden state ht , such that xt
+will be harder to predict. This contribution of the noise to ht can trivially be minimized by letting σ → 0, i.e. by choosing
+q(H|X) = δ(H − F (X)) (eq. (15)).
+
+3. Discussion
+From one perspective it is a trivial observation that if q (H|X) = p (H|X), then the variational Bayesian objective becomes
+the true log likelihood objective. From another perspective, it is non-obvious and interesting that due to its causal structure,
+
+RNN VAE Equivalence
+
+a recurrent neural network can be viewed simultaneously as an inference and generative model, and that the inference
+model can be made trivially identical to the posterior of the generative model.
+Note that the equivalence q (H|X) = pQ(H|X) in Equation8 relies on the true posterior distribution p (H|X) having the
+causal, factorial, structure p (H|X) = t p ht |xt−1 , ht−1
+ . This structure stems from the deterministic dynamics of the
+RNN, and would not hold in general if p ht |ht−1 , xt−1 were not a delta function. In this case the variational bound on
+the log likelihood in Equation 14 would continue to hold, but it would no longer be identical to the true log likelihood in
+Equation 4.
+This perspective on RNNs as consisting of matching inference and generative models may suggest natural extensions to
+the RNN framework, or novel model forms for variational Bayesian methods. As one example, it suggests the use of
+multiple inference particles in an RNN, which may allow more complex and multimodal distributions over visible units to
+be captured by simpler and lower dimensional hidden representations.
+3.1. Multiple particles
+
+RNNs are often called upon to represent a multimodal distribution over p xt |x1 · · · xt−1 (for instance, a distribution
+over words in the context of language models). Since the hidden state of an RNN is deterministic, it must capture this
+multimodal distribution using a single high dimensional vector ht .
+In variational inference, a multimodal posterior can be approximated using multiple samples from the inference model.
+This raises the possibility of training an RNN with a multimodal distribution over hidden units. This has the potential to
+reduce the required complexity of the RNN. Rather than forcing a high dimensional unimodal distribution over hidden
+units to represent a multimodal distribution over visible units, instead multiple modes in a lower dimensional hidden
+representation can be made to correspond to the multiple modes over the visible units.
+Specifically, the hidden state can be extended to consist of L samples H = {H1 , H2 , · · · , HL }. As shown in Appendix A
+these multiple samples can be averaged over in the variational Bayesian framework. This leads to the following modification of the training objective from Equation 15,
+!##
+"
+"
+L
+X
+
+1X
+p xt |htl
+.
+(17)
+L ≥ K = Eq(X) Eδ(H−F (X))
+log
+L
+t
+l=1
+
+The multiple samples can be initialized with different (learned) initial vectors h1l , allowing them to explore different modes
+despite being governed by the same deterministic dynamics.
+
+RNN VAE Equivalence
+
+Appendix
+A. Multiple particles in variational Bayesian models
+Here we modify the derivation in Section 2.2 to include multiple particles, leading to Equation 17.
+L
+
+1X
+L
+
+Z
+
+dHl p (Hl , X)
+
+1X
+L
+
+Z
+
+dHl
+
+1X
+=
+L
+
+Z
+
+Y
+p (Hl , X)
+q (Hl |X)
+dHl
+q (Hl |X)
+′
+
+p (X) =
+
+l=1
+L
+
+=
+
+l=1
+L
+
+l=1
+
+(18)
+
+p (Hl , X)
+q (Hl |X)
+q (Hl |X)
+
+(19)
+
+l 6=l
+
+Z
+
+dHl′ q (Hl′ |X)
+
+L Z
+Y
+1X
+p (Hl , X)
+q (Hl |X)
+q (Hl′ |X)
+dH
+L
+q (Hl |X)
+l′ 6=l
+l=1
+Y
+q (H|X) =
+q (Hl |X)
+
+=
+
+(20)
+
+(21)
+(22)
+
+l
+
+L Z
+1X
+p (Hl , X)
+dH q (H|X)
+L
+q (Hl |X)
+l=1
+!
+Z
+L
+1 X p (Hl , X)
+= dH q (H|X)
+L
+q (Hl |X)
+
+p (X) =
+
+(23)
+
+(24)
+
+l=1
+
+L = Eq(X) [log p(X)]
+"
+
+"
+
+L
+X
+
+(25)
+##
+
+1
+p (Hl , X)
+L
+q (Hl |X)
+l=1
+!##
+"
+"
+L
+X
+
+1X
+t t
+,
+p x |hl
+L ≥ Eq(X) Eδ(H−F (X))
+log
+L
+t
+= Eq(X) log Eq(H|X)
+
+(26)
+
+(27)
+
+l=1
+
+where the steps between Equations 26 and 27 parallel those in Section 2.2.
+
+References
+[1] Karol Gregor, Ivo Danihelka, Alex Graves, and Daan Wierstra. DRAW: A Recurrent Neural Network For Image
+Generation. arXiv:1502.04623, February 2015.
+[2] Karol Gregor, Ivo Danihelka, Andriy Mnih, Charles Blundell, and Daan Wierstra. Deep AutoRegressive Networks.
+arXiv preprint arXiv:1310.8499, October 2013.
+[3] S Haykin. Neural networks: a comprehensive foundation. Prentice Hall, 1999.
+[4] Diederik P Kingma and Max Welling. Auto-Encoding Variational Bayes. International Conference on Learning
+Representations, December 2013.
+[5] Diederik P Kingma and Max Welling. Efficient gradient-based inference through transformations between bayes nets
+and neural nets. In The 31st International Conference on Machine Learning (ICML), 2014.
+[6] Sherjil Ozair and Yoshua Bengio. Deep Directed Generative Autoencoders. arXiv:1410.0630, October 2014.
+[7] Danilo Jimenez Rezende, Shakir Mohamed, and Daan Wierstra. Stochastic Backpropagation and Approximate Inference in Deep Generative Models. Proceedings of the 31st International Conference on Machine Learning (ICML-14),
+January 2014.
+
+RNN VAE Equivalence
+
+[8] Cristian Sminchisescu, Atul Kanaujia, and Dimitris Metaxas. Learning joint top-down and bottom-up processes for 3D
+visual inference. In Computer Vision and Pattern Recognition, 2006 IEEE Computer Society Conference on, volume 2,
+pages 1743–1752. IEEE, 2006.
+[9] Jascha Sohl-Dickstein, Eric A. Weiss, Niru Maheswaranathan, and Surya Ganguli. Deep Unsupervised Learning using
+Nonequilibrium Thermodynamics. arXiv:1503.03585, March 2015.
+
+

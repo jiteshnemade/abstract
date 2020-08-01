@@ -1,0 +1,12 @@
+
+associative memory using fast weights is a short-term memory mechanism that
+substantially improves the memory capacity and time scale of recurrent neural
+networks (rnns). as recent studies introduced fast weights only to regular rnns,
+it is unknown whether fast weight memory is beneficial to gated rnns. in this
+work, we report a significant synergy between long short-term memory (lstm)
+networks and fast weight associative memories. we show that this combination,
+in learning associative retrieval tasks, results in much faster training and lower test
+error, a performance boost most prominent at high memory task difficulties.
+
+1
+

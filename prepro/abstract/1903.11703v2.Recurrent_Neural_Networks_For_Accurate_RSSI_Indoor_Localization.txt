@@ -1,0 +1,22 @@
+ this paper proposes recurrent neural networks
+(rnns) for wifi fingerprinting indoor localization. instead of
+locating a mobile user’s position one at a time as in the cases
+of conventional algorithms, our rnn solution aims at trajectory
+positioning and takes into account the correlation among the
+received signal strength indicator (rssi) measurements in a trajectory. to enhance the accuracy among the temporal fluctuations
+of rssi, a weighted average filter is proposed for both input
+rssi data and sequential output locations. the results using
+different types of rnn including vanilla rnn, long short-term
+memory (lstm), gated recurrent unit (gru), bidirectional rnn
+(birnn), bidirectional lstm (bilstm) and bidirectional gru
+(bigru) are presented. on-site experiments demonstrate that
+the proposed structure achieves an average localization error
+of 0.75 m with 80% of the errors under one meter, which
+outperforms knn algorithms and probabilistic algorithms by
+approximately 30% under the same test environment.
+index terms- received signal strength indicator, wifi indoor
+localization, recurrent neuron network, long short-term memory,
+fingerprint-based localization.
+
+i.
+

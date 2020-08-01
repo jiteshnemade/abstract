@@ -1,0 +1,11 @@
+
+recurrent neural networks (rnns) are non-linear dynamic systems. previous
+work believes that rnn may suffer from the phenomenon of chaos, where the
+system is sensitive to initial states and unpredictable in the long run. in this paper,
+however, we perform a systematic empirical analysis, showing that a vanilla or
+long short term memory (lstm) rnn does not exhibit chaotic behavior along
+the training process in real applications such as text generation. our findings suggest that future work in this direction should address the other side of non-linear
+dynamics for rnn.
+
+1
+

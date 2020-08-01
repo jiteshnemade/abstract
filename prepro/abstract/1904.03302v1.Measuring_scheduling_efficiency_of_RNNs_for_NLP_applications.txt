@@ -1,0 +1,17 @@
+recurrent neural networks (rnns) have shown state
+of the art results for speech recognition, natural language processing, image captioning, and video summarizing applications.
+many of these applications run on low-power platforms, so
+their energy efficiency is extremely important. we observed
+that cache-oblivious rnn scheduling during inference typically
+results in 30-50x more data transferred on and off the cpu
+than the application’s working set size. this can potentially
+impact its energy efficiency. this paper presents a new metric
+called data reuse efficiency to gauge the rnn scheduling
+efficiency of a platform and shows the factors that influence the
+dre value. additionally, this paper discusses an optimization
+to improve reuse in rnns and highlights the positive impact of
+this optimization on the total amount of memory read from or
+written to the memory controller (and, hence, the dre value)
+during the execution of an rnn application for a mobile soc.
+index terms—machine learning, neural networks, scheduling
+

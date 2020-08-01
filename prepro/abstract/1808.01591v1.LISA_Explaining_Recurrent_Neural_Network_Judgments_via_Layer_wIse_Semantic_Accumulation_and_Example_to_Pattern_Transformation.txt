@@ -1,0 +1,20 @@
+
+recurrent neural networks (rnns) are temporal networks and cumulative in nature that
+have shown promising results in various natural language processing tasks. despite their
+success, it still remains a challenge to understand their hidden behavior. in this work,
+we analyze and interpret the cumulative nature of rnn via a proposed technique named
+as layer-wise-semantic-accumulation (lisa)
+for explaining decisions and detecting the
+most likely (i.e., saliency) patterns that the network relies on while decision making. we
+demonstrate (1) lisa: “how an rnn accumulates or builds semantics during its sequential
+processing for a given text example and expected response” (2) example2pattern: “how
+the saliency patterns look like for each category in the data according to the network in decision making”. we analyse the sensitiveness
+of rnns about different inputs to check the
+increase or decrease in prediction scores and
+further extract the saliency patterns learned by
+the network. we employ two relation classification datasets: semeval 10 task 8 and tac
+kbp slot filling to explain rnn predictions
+via the lisa and example2pattern.
+
+1
+

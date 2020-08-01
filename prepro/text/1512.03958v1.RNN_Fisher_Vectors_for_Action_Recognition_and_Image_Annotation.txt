@@ -1,0 +1,1793 @@
+RNN Fisher Vectors for Action Recognition and Image Annotation
+Guy Lev1,2, Gil Sadeh1 , Benjamin Klein1 and Lior Wolf1
+
+arXiv:1512.03958v1 [cs.CV] 12 Dec 2015
+
+1
+
+The Blavatnik School of Computer Science, Tel Aviv University, Israel
+2
+IBM Research, Haifa, Israel
+
+Abstract
+
+(RNN). The RNN is trained to predict the next element
+of a sequence given the previous elements. Conveniently,
+the gradients needed for the computation of the FV are extracted using the available backpropagation infrastructure.
+The new representation is sensitive to ordering and therefore mitigates the disadvantage of using the standard Fisher
+Vector representation. It is applied to two different and challenging tasks: video action recognition and image annotation by sentences.
+Several recent works have proposed to use an RNN for
+sentence representation [44, 1, 31, 17]. The Recurrent Neural Network Fisher Vector (RNN-FV) method differs from
+these works in that a sequence is represented by using derived gradient from the RNN as features, instead of using a
+hidden or an output layer of the RNN.
+The paper explores two different approaches for training
+the RNN for the image annotation and image search tasks.
+In the classification approach, the RNN is trained to predict the following word in the sentence. The regression approach tries to predict the embedding of the following word
+(i.e. treating it as a regression task). The large vocabulary size makes the regression approach more scalable and
+achieves better results than the classification approach. In
+the video action recognition task, the regression approach
+is the only variant being used, since the notion of a discrete
+word does not exist. The VGG [41] Convolutional Neural
+Network (CNN) is used to extract features from the frames
+of the video and the RNN is trained to predict the embedding of the next frame given the previous ones. Similarly,
+C3D [46] features of sequential video sub-volumes are used
+with the same training technique.
+Although the image annotation and video action recognition tasks are quite different, a surprising boost in performance in the video action recognition task was achieved
+by using a transfer learning approach from the image annotation task. Specifically, the VGG image embedding of a
+frame is projected using a linear transformation which was
+learned on matching images and sentences by the Canonical
+Correlation Analysis (CCA) algorithm [10].
+
+Recurrent Neural Networks (RNNs) have had considerable success in classifying and predicting sequences. We
+demonstrate that RNNs can be effectively used in order
+to encode sequences and provide effective representations.
+The methodology we use is based on Fisher Vectors, where
+the RNNs are the generative probabilistic models and the
+partial derivatives are computed using backpropagation.
+State of the art results are obtained in two central but distant
+tasks, which both rely on sequences: video action recognition and image annotation. We also show a surprising
+transfer learning result from the task of image annotation
+to the task of video action recognition.
+
+1. Introduction
+Fisher Vectors have been shown to provide a significant
+performance gain on many different applications in the domain of computer vision [39, 33, 2, 35]. In the domain
+of video action recognition, Fisher Vectors and Stacked
+Fisher Vectors [33] have recently outperformed state-of-theart methods on multiple datasets [33, 53]. Fisher Vectors
+(FV) have also recently been applied to word embedding
+(e.g. word2vec [30]) and have been shown to provide state
+of the art results on a variety of NLP tasks [24], as well as
+on image annotation and image search tasks [18].
+In all of these contributions, the FV of a set of local
+descriptors is obtained as a sum of gradients of the loglikelihood of the descriptors in the set with respect to the
+parameters of a probabilistic mixture model that was fitted
+on a training set in an unsupervised manner. In spite of being richer than the mean vector pooling method, Fisher Vectors based on a probabilistic mixture model are invariant to
+order. This makes them less appealing for annotating, for
+example, video, in which the sequence of events determines
+much of the meaning.
+This work presents a novel approach for FV representation of sequences using a Recurrent Neural Network
+1
+
+The proposed RNN-FV method achieves state-of-theart results in action recognition on the HMDB51 [20] and
+UCF101 [43] datasets. In image annotation and image
+search tasks, the RNN-FV method is used for the representation of sentences and achieves state-of-the-art results
+on the Flickr8K dataset [8] and competitive results on other
+benchmarks.
+
+2. Previous Work
+Action Recognition As in other object recognition problems, the standard pipeline in action recognition is comprised of three main steps: feature extraction, pooling and
+classification. Many works [23, 49, 19] have focused on the
+first step of extracting local descriptors. Laptev et al. [22]
+extend the notion of spatial interest points into the spatiotemporal domain and show how the resulting features can
+be used for a compact representation of video data. Wang
+et al. [51, 50] used low-level hand-crafted features such as
+histogram of oriented gradients (HOG), histogram of optical flow (HOF) and motion boundary histogram (MBH).
+Recent works have attempted to replace these handcrafted features by deep-learned features for video action
+recognition due to its wide success in the image domain.
+Early attempts [45, 12, 15] achieved lower results in comparison to hand-crafted features, proving that it is challenging to apply deep-learning techniques on videos due to the
+relatively small number of available datasets and complex
+motion patterns. More recent attempts managed to overcome these challenges and achieve state of the art results
+with deep-learned features. Simonyan et al. [40] designed
+two-stream ConvNets for learning both the appearance of
+the video frame and the motion as reflected by the estimated optical flow. Du Tran et al. [46] designed an effective approach for spatiotemporal feature learning using
+3-dimensional ConvNets.
+In the second step of the pipeline, the pooling, Wang et
+al. [54] compared different pooling techniques for the application of action recognition and showed empirically that
+the Fisher Vector encoding has the best performance. Recently, more complex pooling methods were demonstrated
+by Peng et al. [33] who proposed Stacked Fisher Vectors
+(SFV), a multi-layer nested Fisher Vector encoding and
+Wang et al. [53] who proposed a trajectory-pooled deepconvolutional descriptor (TDD). TDD uses both a motion
+CNN, trained on UCF101, and an appearance CNN, originally trained on ImageNet [3], and fine-tuned on UCF101.
+Image Annotation and Image Search In the past few
+years, the state-of-the-art results in image annotation and
+image search have been provided by deep learning approaches [42, 29, 18, 14, 27, 16, 4, 13, 48, 26]. A typical
+system is composed of three important components: (i) Image Representation, (ii) Sentence Representation, and (iii)
+
+Matching Images and Sentences. The image is usually represented by applying a pre-trained CNN on the image and
+taking the activations from the last hidden layer.
+There are several different approaches for the sentence
+representation; Socher et al. [42] used a dependency tree
+Recursive Neural Network. Yan et al. [29] used a TFIDF histogram over the vocabulary. Klein et al. [18] used
+word2vec [30] as the word embedding and then applied
+Fisher Vector based on a Hybrid Gaussian-Laplacian Mixture Model (HGLMM) in order to pool the word2vec embeddings of the words in a given sentence into a single representation. Ma et al. [26] proposed a matching CNN (mCNN) that composes words to different semantic fragments
+and learns the inter-modal relations between image and the
+composed fragments at different levels.
+Since a sentence can be seen as a sequence of words,
+many works have used a Recurrent Neural Network (RNN)
+in order to represent sentences [14, 48, 27, 16, 17]. To address the need for capturing long term semantics in the sentence, these works mainly use Long Short-Term Memory
+(LSTM) [7] or Gated Recurrent Unit (GRU) [5] cells. Generally, the RNN treats a sentence as an ordered sequence of
+words, and incrementally encodes a semantic vector of the
+sentence, word-by-word. At each time step, a new word
+is encoded into the semantic vector, until the end of the
+sentence is reached. All of the words and their dependencies will then have been embedded into the semantic vector, which can be used as a feature vector representation of
+the entire sentence. Our work also uses an RNN in order
+to represent sentences but takes the derived gradient from
+the RNN as features, instead of using a hidden or an output
+layer of the RNN.
+A number of techniques have been proposed for the task
+of matching images and sentences. Klein et al. [18] used
+CCA [10] and Yan et al. [29] introduced a Deep CCA in
+order to project the images and sentences into a common
+space and then performed a nearest neighbor search between the images and the sentences in the common space.
+Kiros et al. [16], Karpathy et al.[14], Socher et al. [42] and
+Ma et al. [26] used a contrastive loss function trained on
+matching and unmatching pairs of (image,sentence) in order to learn a score function for a given pair. Mao et al. [27]
+and Vinyals et al. [48] learned a probabilistic model for inferring a sentence given an image and, therefore, are able to
+compute the probability that a given sentence will be created by a given image and used it as the score.
+
+3. Baseline pooling methods
+In this section we describe two baseline pooling methods
+that can represent a multiset of vectors as a single vector.
+The notation of a multiset is used to clarify that the order of
+the words in a sentence does not affect the representation,
+and that a vector can appear more than once. Both methods
+
+can be applied to sequences, however, the resulting representation will be insensitive to ordering. To address this,
+we propose in Sec. 4 a novel pooling method: RNN-FV.
+
+3.1. Mean Vector
+This pooling technique takes a multiset of vectors,
+X = {x1 , x2 , . . . , xN } ∈ RD , and computes its mean:
+PN
+v = N1
+i=1 xi . Clearly, the vector v that results from the
+pooling is in RD .
+The disadvantage of this method is the blurring of the
+multiset’s content. Consider, for example, the text encoding
+task, where each word is represented by its word2vec embedding. By adding multiple vectors together, the location
+obtained – in the semantic embedding space – is somewhere
+in the convex hull of the words that belong to the multiset.
+
+3.2. Fisher Vector of a GMM
+Given a multiset of vectors, X = {x1 , x2 , . . . , xN } ∈
+RD , the standard FV [34] is defined as the gradient of the
+log-likelihood of X with respect to the parameters of a
+pre-trained Diagonal-Covariance Gaussian Mixture Model
+(GMM). It is a common practice to limit the FV representation to the partial derivatives with respect to the means, µ,
+and the standard deviations, σ, and ignore the partial derivatives with respect to the mixture weights.
+It is worth noting the linear structure of the GMM FV
+pooling. Since the likelihood of the multiset is the multiplication of the likelihoods of the individual elements, the
+log-likelihood is additive. This convenient property would
+not be preserved in the RNN model, where the probability
+of an element in the sequence depends on all the previous
+elements.
+To all types of FV, we apply the two improvements that
+were introduced by Perronnin et al. [35]. The first improvement is to apply an element-wise power normalization function, f (z) = sign(z)|z|α where 0 ≤ α ≤ 1 is a parameter
+of the normalization. The second improvement is to apply
+an L2 normalization on the FV after applying the power
+normalization function.
+
+4. RNN-Based Fisher Vector
+The pooling methods described above share a common
+disadvantage: insensitivity to the order of the elements in
+the sequence. A way to tackle this, while keeping the power
+of gradient-based representation, would be to replace the
+Gaussian model by a generative sequence model that takes
+into account the order of elements in the sequence. A desirable property of the sequence model would be the ability to
+calculate the gradient (with respect to the model’s parameters) of the likelihood estimate by this model to an input
+sequence.
+In this section, we show that such a model can be obtained by training an RNN to predict the next element in a
+
+sequence, given the previous elements. Having this, we propose, for the first time, the RNN-FV: A Fisher Vector that is
+based on such an RNN sequence model.
+We propose two types of RNN-FVs. One type is based
+on training a regression problem, and the other on training
+a classification problem. In practice, only the first type is
+directly useful for video analysis. For image annotation,
+the first type outperforms the second.
+Given a sequence of vectors S with N vector elements x1 , ..., xN , we convert it to the input sequence X =
+(x0 , x1 , ..., xN −1 ), where x0 = xstart . This special element is used to denote the beginning of the input sequence,
+and we use xstart = 0 throughout this paper. The RNN
+is trained to predict, at each time step i, the next element
+xi+1 of the sequence, given the previous elements x0 , ..., xi .
+Therefore, given the input sequence, the target sequence
+would be: Y = (x1 , x2 , ...xN ).
+The training data and the training process are application
+dependent, as is described in Sec. 5 for action recognition
+and in Sec. 6 for image annotation.
+
+4.1. RNN Trained for Regression
+Given a sequence of input vectors X, the regression
+RNN is trained to predict the next vector in the sequence
+S, i.e., the sequence Y . The output layer of the network is
+a fully-connected layer, the size of which would be D, i.e.,
+the dimension of the input vector space.
+There are several regression loss functions that can be
+used. Here, we consider the following loss function:
+1
+ky − vk2
+(1)
+2
+where y is the target vector and v is the predicted vector.
+After the RNN training is done, and given a new sequence S, the derived sequence X is fed to the RNN. Denote the output of the RNN at time step i (i = 0, ..., N − 1)
+by RN N (x0 , ..., xi ) = vi ∈ RD . The target at time step i
+is xi+1 (the next element in the sequence), and the loss is:
+Loss(y, v) =
+
+1
+kxi+1 − vi k2
+2
+The RNN can be seen as a generative model, and
+likelihood of any vector x being the next element of
+sequence, given x0 , ..., xi , can be defined as:
+
+
+1
+p (x|x0 , ..., xi ) = (2π)−D/2 exp − kx − vi k2
+2
+Loss(xi+1 , vi ) =
+
+(2)
+the
+the
+
+(3)
+
+We are generally interested in the likelihood of the correct prediction, i.e., in the likelihood of the vector xi+1
+given x0 , ..., xi : p (xi+1 |x0 , ..., xi ).
+The RNN-based likelihood of the entire sequence X is:
+p(X) =
+
+N
+−1
+Y
+i=0
+
+p (xi+1 |x0 , ..., xi )
+
+(4)
+
+The negative log likelihood of X is:
+L(X) = − log (p(X)) = −
+
+N
+−1
+X
+
+The RNN can be seen as a generative model which gives
+likelihood to the sequence U :
+
+log (p (xi+1 |x0 , ..., xi ))
+Pr(U ) =
+
+i=0
+
+=
+
+ND
+1
+log(2π) +
+2
+2
+
+N
+−1
+X
+
+N
+−1
+Y
+
+(7)
+
+
+
+log piwi+1
+
+(8)
+
+i=0
+
+i=0
+
+kxi+1 − vi k2
+
+N
+−1
+Y
+
+piwi+1
+
+Pr (wi+1 |w0 , ..., wi ) =
+
+The negative log likelihood of U is:
+
+i=0
+
+(5)
+In order to represent X using the Fisher Vector scheme,
+we have to compute the gradient of L(X) with respect to
+our model’s parameters. With RNN being our model, the
+parameters are the weights W of the network. By (2) and
+(5), we get that L(X) equals the loss that would be obtained when X is fed as input to the RNN, up to an additive
+constant. Therefore, the desired gradient can be computed
+by backpropagation: we feed X to the network and perform forward and backward passes. The obtained gradient
+∇W L(X) would be the (unnormalized) RNN-FV representation of X. Notice that this gradient is not used to update
+the network’s weights as done in training - here we perform
+backpropagation at inference time.
+Other loss functions may be used instead of the one presented in this analysis. Given a sequence, the gradient of the
+RNN loss may serve as the sequence representation, even if
+the loss is not interpretable as a likelihood.
+
+4.2. RNN Trained for Classification
+The classification application is applicable for predicting a sequence of symbols w1 ,w2 ,...,wN that have matching vector representations R(w1 ) = x1 , R(w2 ) =
+x2 , ..., R(wN ) = xN . The RNN predicts the sequence U = (w1 , w2 , . . . , wN ) from the sequence X =
+(x0 , x1 , . . . , xN −1 ).
+Denote by M the size of our symbol alphabet, i.e., the
+number of unique symbols in the input sequences. The output layer of the network is a softmax layer with M units,
+where the j’th element in the output is the probability of the
+j’th symbol to be the next output element. The loss function
+for the training of the RNN is the cross-entropy loss.
+After the RNN is trained, it is ready to be used as a
+feature vector extractor for new sequences. Denote the
+new sequence by U and its vector representation by X as
+above. Consider feeding the sequence X to the RNN. At
+time step i (i = 0, ..., N − 1), the output of the RNN
+PM
+is RN N (x0 , ..., xi ) = (pi1 , ..., piM ), where j=1 pij = 1.
+Here, pij is the probability which the RNN gives to the j’th
+symbol at time step i.
+The cross-entropy loss at time step i is derived from the
+probability given to the correct next symbol:
+
+
+lossi = − log piwi+1 = − log (Pr (wi+1 |w0 , ..., wi ))
+(6)
+
+L(U ) = − log (Pr(U )) = −
+
+N
+−1
+X
+i=0
+
+By (6) and (8), we get that L(U ) equals the loss that
+would be obtained when X is fed as input, and U as output
+to the RNN. Therefore, the desired gradient can be computed by backpropagation, i.e. feeding X to the network
+and performing forward and backward passes. The obtained
+gradient ∇W L(U ) would be the (unnormalized) RNN-FV
+representation of U .
+
+4.3. Normalization of the RNN-FV
+It was suggested by [34] that normalizing the FVs by the
+Fisher Information Matrix is beneficial. We approximated
+the diagonal of the Fisher Information Matrix (FIM), which
+is usually used for FV normalization. Note, however, that
+we did not observe any empirical improvement due to this
+normalization, and our experiments are reported without it.
+Let ω ∈ W be a single weight of the RNN. The term in
+)
+the diagonal of the FIM which corresponds to ∂L(X|W
+is:
+∂ω
+i
+h
+2
+R
+∂L(X|W )
+dX.
+Fω = X p (X|W )
+∂ω
+Since the probabilistic model which determines
+p (X|W ) is the RNN, it is impossible to derive a closedform expression for this term. Therefore, we approximated
+it directly from the gradients of the training sequences,
+h
+i2
+)
+by computing the mean of ∂L(X|W
+for each ω ∈ W .
+∂ω
+The normalized partial derivatives of the FV are then:
+−1/2 ∂L(X|W )
+Fw
+.
+∂ω
+
+5. Action recognition pipeline
+The action recognition pipeline contains the underlying
+appearance features used to encode the video, the sequence
+encoding using the RNN-FV, and an SVM classifier on top.
+
+5.1. Visual features
+The RNN-FV is capable of encoding the sequence properties, and as underlying features, we rely on video encodings that are based on single frames or on fixed length
+blocks of frames.
+VGG Using the pre-trained VGG convolutional network [41], we extract a 4096-dimensional representation of
+each video frame. The VGG pipeline is used, namely, the
+original image is cropped in ten different ways into 224 by
+
+224 pixel images: the four corners, the center, and their xaxis mirror image. The mean intensity is then subtracted in
+each color channel and the resulting images are encoded by
+the network. The average of the 10 feature vectors obtained
+is then used as the single image representation. In order to
+speed up the method, the input video was sub-sampled, and
+one in every 10 frames was encoded. Empirically, we noticed that recognition performance was comparable to that
+of using all video frames. To further reduce run-time, the
+data dimensionality was reduced via PCA to 500D. In addition, L2 normalization was applied to each vector. All
+PCAs in this work were trained for each dataset and each
+training/test split separately, using only the training data.
+CCA Using the same VGG representation of video frames
+as mentioned above and the code of [18]1 , we represented
+each frame by a vector as follows: we considered the common image-sentence vector space obtained by the CCA algorithm, using the best model (GMM+HGLMM) of [18]
+trained on the COCO dataset [25]. We mapped each frame
+to that vector space, getting a 4096-dimensional image representation. As the final frame representation, we used the
+first (i.e. the principal) 500 dimensions out of the 4096. For
+our application, the projected VGG representations were L2
+normalized. The CCA was trained for an unrelated task of
+image to sentence matching, and its success, therefore, suggests a new application of transfer learning: from image
+annotation to action recognition.
+C3D While the representations above encode single frames,
+the C3D method [46] splits the video into sub-volumes that
+are encoded one by one. Following the recommended settings, we applied the Du Tran et al. pre-trained 3D convolutional neural network in order to extract 4096D representation to 16-frame blocks. The blocks are sampled with an 8
+frame stride. Following feature extraction, PCA dimensionality reduction (500D) and L2 normalization were applied.
+
+5.2. Network structure
+Our RNN model consists of three layers: a 200D fullyconnected layer units with Leaky-Relu activation (α = 0.1),
+a 200-units Long Short-Term Memory (LSTM) [7] layer,
+and a 500D linear fully-connected layer. Our network is
+trained for regression with the mean square error (MSE)
+loss function. Weight decay and dropouts were also applied.
+An improvement in recognition performance was noticed
+when the dropout rate was enlarged, up to a rate of 0.95,
+due to its ability to ensure the discriminative characteristics
+of each weight and hence also of each gradient.
+
+5.3. Training and classification
+We train the RNN to predict the next element in our
+video representation sequence, given the previous elements,
+as described in Sec. 4.1. In our experiments, we use only
+1 Available
+
+at www.cs.tau.ac.il/~wolf/code/hglmm
+
+the part of gradient corresponding to the weights of the last
+fully-connected layer. Empirically, we saw no improvement
+when using the partial derivatives with respect to weights of
+other layers. In order to obtain a fixed size representation,
+we average the gradients over all time steps. The gradient representation dimension is 500x201=100500, which is
+the number of weights in the last fully-connected layer. We
+then apply PCA to reduce the representation size to 1000D,
+followed by power and L2 normalization.
+Video classification is performed using a linear SVM
+with a parameter C = 1. Empirically, we noticed that the
+the best recognition performance is obtained very quickly
+and hence early stopping is necessary. In order to choose
+an early stopping point we use a validation set. Some of
+the videos in the dataset are actually segments of the same
+original video, and are included in the dataset as different
+samples. Care was taken to ensure that no such similar
+videos are both in the training and validation sets, in order
+to guarantee that high validation accuracy will ensure good
+generalization and not merely over-fitting.
+After each RNN epoch, we extract the RNN-FV representation as described above, train a linear SVM classifier
+on the training set and evaluate the performance on the validation set. The early stopping point is chosen at the epoch
+with highest recognition accuracy on the validation set. After choosing our model this way, we train an SVM classifier
+on all training samples (training + validation samples) and
+report our performance on the test set.
+
+6. Image-sentence retrieval
+In the image-sentence retrieval tasks, vector representations are extracted separately for the sentences and the images. These representations are then mapped into a common
+vector space, where the two are being matched. [18] have
+presented a similar pipeline for GMM-FV. We replace this
+representation with RNN-FV.
+A sentence, being an ordered sequence of words, can
+be represented as a vector using the RNN-FV scheme.
+Given a sentence with N words w1 , ..., wN , (where wN
+is considered to be the period, namely a wend special token), we treat the sentence as an ordered sequence S =
+(w0 , w1 , ..., wN −1 ), where w0 = wstart . An RNN is
+trained to predict, at each time step i, the next word wi+1
+of the sentence, given the previous words w0 , ..., wi . Therefore, given the input sequence S, the target sequence would
+be: (w1 , w2 , ...wN ).
+The training data may be any large set of sentences.
+These sentences may be extracted from the dataset of a specific benchmark, or, in order to obtain a generic representation, any external corpus, e.g., Wikipedia, may be used.
+The two network alternatives are explored: classification
+and regression. As observed in the action recognition case,
+we did not benefit from extracting partial derivatives with
+
+respect to the weights of the hidden layers, and hence we
+only use those of the output layer as our representation.
+When the RNN is trained for classification, each word in
+the dictionary is considered as a class. The input to the network is the word’s embedding, a 300D vector in our case.
+The hidden layer is LSTM with 512 units, which is followed
+by a softmax output layer. This design creates two challenges. The first is dimensionality: the size of the softmax
+layer is the size of the dictionary, M , which is typically
+large. As a result, ∇W L(X) has a high dimensionality.
+The second issue is with generalization capability: since the
+softmax layer is fixed, a network cannot handle a sentence
+containing a word that does not appear in its training data.
+When training the RNN for regression, the same 300D
+input is used, followed by an LSTM layer of size 100. The
+output layer, in this case, is fully-connected, where the (300
+dimensional) word embedding of next word is predicted.
+We use no activation function at the output layer. Notice
+that the two issues pointed out regarding the classification
+RNN are not present in the regression case. First, the size
+D of the output layer depends only on the dimension of the
+word embedding. Second, the network can naturally handle
+unseen words, since it predicts vectors in the word vector
+space rather than an index of a specific word.
+For matching images and text, each image is represented
+as a 4096-dimensional vector extracted using the 19-layer
+VGG, as described in Sec. 5.1. The regularized CCA algorithm [47], where the regularization parameter is selected
+based on the validation set, is used to match the the VGG
+representation with the sentence RNN-FV representation.
+In the shared CCA space, the cosine similarity is used.
+We explored several configurations for training the RNN.
+RNN training data We employed either the training data of
+each split in the respective benchmark, or the 2010-EnglishWikipedia-1M dataset made available by the Leipzig Corpora Collection [38]. This dataset contains 1 million sentences randomly sampled from English Wikipedia. Word
+embedding A word was represented either by word2vec, or
+by the GMM+HGLMM representation of [18], projected to
+a 300D sentence to VGG-encoded-image CCA space. We
+made sure to match the training split according to the benchmark tested. Sentence sequence direction We explored
+both the conventional left-to-right sequence of words and
+the reverse direction.
+
+7. Experiments
+We evaluated the effectiveness of the various pooling
+methods on two important yet distinct application domains:
+action recognition and image textual annotation and search.
+As mentioned, applying the FIM normalization
+(Sec. 4.3) did not seem to improve results. Another form
+of normalization we have tried, is to normalize each
+dimension of the gradient by subtracting its mean and
+
+dividing by its standard deviation. This also did not lead
+to an improved performance. Two normalizations that
+were found to be useful are the Power Normalization and
+the L2 Normalization, which were introduced in [36] (see
+Section 2). Both are employed, using a constant α = 1/2.
+
+7.1. Action recognition
+Our experiments were conducted on two large action
+recognition benchmarks. The UCF101 [43] dataset consists
+of 13,320 realistic action videos, collected from YouTube,
+and divided into 101 action categories. We use the three
+splits provided with this dataset in order to evaluate our results and report the mean average accuracy over these splits.
+The HMDB51 dataset [20] consists of 6766 action
+videos, collected from various sources, and divided into 51
+action categories. Three splits are provided as an official
+benchmark and are used here. The mean average accuracy
+over these splits is reported.
+Table 1 compares our RNN-FV pooling method to Mean
+and GMM-FV pooling. Three sets of features, as described
+in Sec. 5.1 are used: VGG coupled with PCA, VGG projected by the image to sentence matching CCA, and C3D.
+The parameters were set on the validation split that we
+created for the provided training set. For GMM-FV, the
+only parameter is k, which is the number of components
+in the mixture. The validated values of k were in the set
+{1, 2, 4, 8, 16, 32}. The parameter for RNN-FV was the
+stopping point of the RNN training, as described in Sec. 5.3.
+Classification is conducted in all experiments using a multiclass (one-vs-all) linear SVM with C=1.
+As can be seen in table 1, the RNN-FV pooling outperformed the other pooling methods by a sizable margin. Another interesting observation is that with VGG frame representation, CCA outperformed PCA consistently in all pooling methods. Not shown is the performance obtained when
+using the activations of the RNN as a feature vector. These
+results are considerably worse than all pooling methods.
+Notice that the representation dimension of Mean pooling
+is 500 (like the features we used), the GMM-FV dimension
+is 2 × k × 500, where k is the number of clusters and the
+RNN-FV dimension is 1000.
+Table 2 compares our proposed RNN-FV method, combining multiple features together, with recently published
+methods on both datasets. The combinations were performed using early fusion, i.e, we concatenated the normalized low-dimensional gradients of the models and train
+multi-class linear SVM on the combined representation. We
+also tested the combination of our two best models with idt
+[52] and got state of the art results on both benchmarks.
+Interestingly, when training the RNNs on UCF101 and applying to encode HMDB51 videos, a comparable results of
+66.99 (54.47 without idt) is obtained, which is also above
+current state of the art.
+
+Dataset
+Method
+VGG PCA
+VGG CCA
+C3D
+
+MP
+42.16
+43.05
+51.2
+
+HMDB51
+GMM-FV RNN-FV
+36.8
+45.62
+39.61
+46.14
+45.82
+52.88
+
+Method
+idt [52]
+idt + high-D encodings [32]
+Two-stream CNN (2 nets) [40]
+Multi-skip Feature Stacking [21]
+C3D (1 net) [46]
+C3D (3 nets) [46]
+C3D (3 nets) + idt [46]
+TDD (2 nets) [53]
+TDD (2 nets) + idt [53]
+stacked FV [33]
+stacked FV + idt [33]
+RNN-FV(C3D + VGG-CCA)
+RNN-FV(C3D + VGG-CCA) + idt
+
+HMDB51
+57.2
+61.1
+59.4
+65.4
+–
+–
+–
+63.2
+65.9
+56.21
+66.78
+54.33
+67.71
+
+MP
+75.51
+77.49
+81.05
+
+UCF101
+GMMFV RNN-FV
+76.53
+79.29
+76.84
+79.49
+80.04
+82.33
+
+UCF101
+85.9
+87.9
+88
+89.1
+82.3
+85.2
+90.4
+90.3
+91.5
+–
+–
+88.01
+94.08
+
+Table 2. comparison to the state of the art on UCF101 and
+HMDB51. In order to obtain the best performance, we combine, similar to all other contributions, multiple features. We also
+present a result where idt [52] is combined, similar to all other top
+results (Multi-skip extends idt). This adds motion based information to our method.
+
+7.2. Image-sentence retrieval
+The effectiveness of RNN-FV as sentence representation is evaluated on the bidirectional image and sentence
+retrieval task. We perform our experiments on three benchmarks: Flickr8K [8], Flickr30K [9], and COCO [25]. The
+datasets contain 8, 000, 30, 000, and 123, 000 images respectively. Each image is accompanied with 5 sentences
+describing the image content, collected via crowdsourcing.
+The Flickr8k dataset is provided with training, validation, and test splits. For Flickr30K and COCO, no training
+splits are given, and we use the same splits used by [18].
+There are three tasks in this benchmark: image annotation, in which the goal is to retrieve, given a query image,
+the five ground truth sentences; image search, in which,
+given a query sentence, the goal is to retrieve the ground
+truth image; and sentence similarity, in which the goal is,
+given a sentence, to retrieve the other four sentences describing the same image. Evaluation is performed using
+Recall@K, namely the fraction of times the correct result
+was ranked within the top K items. The median and mean
+rank of the first ground truth result are also reported. For
+the sentence similarity task, only mean rank is reported.
+As mentioned in Sec. 6, we explored RNN-FV based
+
+Table 1. Comparing pooling techniques
+(mean pooling, GMM-FV and RNN-FV)
+on HMDB51 and UCF101. Three types
+of features are used: VGG-PCA, VGGCCA, and C3D. The table reports recognition average accuracy (higher is better).
+
+on several RNNs. The first RNN is a generic one: it was
+trained with the Wikipedia sentences as training data and
+word2vec as word embedding. In addition, for each of the
+three datasets, we trained three RNNs with the dataset’s
+training sentences as training data: one with word2vec as
+word embedding; one with the "CCA word embedding" derived from the semantic vector space of [18], as explained
+in Sec. 6; and one with the CCA word embedding, and with
+feeding the sentences in reverse order. These RNNs were
+all trained for regression. For Flickr8K, we also trained an
+RNN for classification (with Flickr8K training sentences,
+and word2vec embedding). In this network, the softmax
+layer was of size 8,148, corresponding to the number of
+unique words in the Flickr8k dataset. Since the resulting
+number of weights of the output layer is around 4 million,
+we reduced the dimension of the gradient feature vector by
+random sampling of 72,000 coordinates. Training a classification model on the larger datasets is virtually impractical,
+since the number of unique words in these datasets is much
+higher, resulting in a very large softmax layer and a huge
+number of weights.
+In the regression RNNs, we used an LSTM layer of size
+100. We did not observe a benefit in using more LSTM
+units. We used the part of the gradient corresponding to
+all 30,300 weights of the output layer (including one bias
+per word2Vec dimension). In the case of the larger COCO
+dataset, due to the computational burden of the CCA calculation, we used PCA to reduce the gradient dimension from
+30,300 to 20,000. PCA was calculated on a random subset
+of 300,000 sentences (around 50%) of the training set. We
+also tried PCA dimension reduction to a lower dimension of
+4,096, for all three datasets. We observed no change in performance (Flickr8K) or slightly worse results (Flickr30K
+and COCO).
+The number of RNN training epochs was 400, 100, 20,
+and 15, for the Flickr8k, Flickr30k, COCO and Wikipedia
+datasets respectively.
+Tables 3, 4 and 5 show the results of the different RNNFV variants compared to the current state of the art methods.
+We also report results of combinations of models. Combining was done by averaging the image-sentence (or sentencesentence) cosine similarities obtained by each model.
+First, we see that regression-based RNN-FV should be
+preferred over the classification-based one. In addition to
+its lower dimension and natural handling of unseen words,
+the results obtained by regression RNN-FV are better. Sec-
+
+mean
+rank
+NA
+NA
+NA
+NA
+NA
+NA
+NA
+NA
+NA
+28.7
+20.1
+18.4
+
+r@1
+
+r@5
+
+6.0
+12.6
+11.7
+16.5
+18.0
+17.9
+20.0
+14.5
+24.8
+22.6
+28.4
+31.0
+
+Image Annotation
+r@5 r@10 median
+rank
+22.7 34.0
+23.0
+32.9 44.0
+14.0
+34.8 48.6
+11.2
+40.6 54.2
+7.6
+40.9 55.0
+8.0
+40.3 51.9
+9.0
+NA
+61.0
+6.0
+37.2 48.5
+11.0
+53.7 67.1
+5.0
+48.8 61.2
+6.0
+57.7 70.1
+4.0
+59.3 73.7
+4.0
+
+6.6
+9.7
+11.4
+11.8
+12.5
+12.7
+19.0
+11.5
+20.3
+19.1
+20.6
+21.3
+
+21.6
+29.6
+32.0
+32.1
+37.0
+31.2
+NA
+31.0
+47.6
+45.3
+48.6
+50.1
+
+29.3
+27.4
+28.3
+30.9
+29.1
+30.8
+32.9
+32.1
+29.9
+31.6
+
+57.8
+57.9
+57.2
+60.1
+57.3
+59.8
+61.7
+60.7
+60.7
+61.2
+
+21.4
+22.7
+19.9
+19.4
+18.4
+18.2
+16.8
+16.5
+17.9
+17.4
+
+19.8
+20.4
+20.0
+20.7
+20.8
+21.8
+22.0
+22.1
+22.4
+23.2
+
+48.5
+49.1
+47.8
+48.7
+48.5
+49.6
+51.5
+51.4
+52.7
+53.3
+
+r@1
+SDT-RNN [42]
+DFE [14]
+RVP [4]
+DVSA [13]
+SC-NLM [16]
+DCCA [29]
+NIC [48]
+m-RNN [28]
+m-CNN [26]
+MeanVector [18]
+GMM-FV [18]
+MM-ENS [18]
+Our RNN-FV:
+wiki,w2v
+w2v
+w2v,clsf
+cca
+cca,rvrs
+cca + rvrs
+cca + [18]
+cca + rvrs + [18]
+all rnn-fv models
+all rnn-fv models + [18]
+
+70.8
+70.5
+69.8
+73.1
+71.7
+72.9
+74.9
+74.8
+73.4
+74.3
+
+4.0
+4.0
+4.0
+4.0
+4.0
+4.0
+3.0
+3.0
+4.0
+3.0
+
+Image Search
+r@10 median
+rank
+31.7
+25.0
+42.5
+15.0
+46.2
+11.0
+44.7
+12.4
+51.5
+10.0
+44.1
+13.0
+64.0
+5.0
+42.4
+15.0
+61.7
+5.0
+60.4
+7.0
+64.2
+6.0
+64.8
+5.0
+62.9
+63.4
+62.8
+63.8
+62.9
+64.4
+66.5
+66.5
+67.2
+67.8
+
+6.0
+6.0
+6.0
+6.0
+6.0
+6.0
+5.0
+5.0
+5.0
+5.0
+
+mean
+rank
+NA
+NA
+NA
+NA
+NA
+NA
+NA
+NA
+NA
+27.0
+21.8
+21.0
+
+Sentence
+mean
+rank
+NA
+NA
+NA
+NA
+NA
+NA
+NA
+NA
+NA
+12.5
+10.8
+10.5
+
+25.2
+25.5
+27.0
+29.2
+30.2
+27.3
+20.7
+21.4
+20.9
+19.4
+
+10.0
+10.4
+13.2
+11.3
+12.5
+11.2
+9.4
+9.5
+8.7
+8.5
+
+Table 3. Image annotation, image search and sentence similarity results on the Flickr8k dataset. Shown are the recall rates at 1, 5, and 10
+retrieval results (higher is better). Also shown are the median and mean rank of the first ground truth (lower is better). We compare the
+results of previous work to variants of our RNN-FV. The ‘wiki’ notation indicates that the RNN was trained on Wikipedia and not on the
+sentences of the specific dataset. ‘clsf’ uses classification-RNN, while the other models were trained for regression. Models notated by
+‘w2v’ employ word2vec, while the other models (‘cca’) use the CCA embedding of [18]. ‘rvrs’ models were trained on reversed sentences.
+We also report results of combinations: ‘cca’ and ‘reverse’ models; ‘cca’ and the best model (GMM+HGLMM) of [18] (‘MM-ENS’);
+‘cca’, ‘reverse’ and [18]; All RNN-FV models; All RNN-FV models and [18].
+
+ond, we notice the competitive performance of the model
+trained on Wikipedia sentences, which demonstrates the
+generalization power of the RNN-FV, being able to perform well on data different than the one which the RNN
+was trained on. Training using the dataset’s sentences only
+slightly improves result, and not always. Improved results
+are obtained when using the CCA word embedding instead
+of word2vec. It is interesting to see the result of the “reverse” model, which is on a par with the other models. It
+is somewhat complementary to the “left-to-right” model, as
+the combination of the two yields somewhat improved results. Finally, the combination of RNN-FV with the best
+model (GMM+HGLMM) of [18] outperforms the current
+state of the art on Flickr8k, and is competitive on the other
+datasets.
+
+8. Conclusions
+This paper introduces a novel FV representation for sequences that is derived from RNNs. The proposed representation is sensitive to the element ordering in the sequence
+and provides a richer model than the additive “bag” model
+typically used for conventional FVs.
+The RNN-FV representation surpasses the state-of-theart results for video action recognition on two challenging
+datasets. When used for representing sentences, the RNNFV representation achieves state-of-the-art or competitive
+results on image annotation and image search tasks. Since
+the length of the sentences in these tasks is usually short
+and, therefore, the ordering is less crucial, we believe that
+using the RNN-FV representation for tasks that use longer
+text will provide an even larger gap between the conventional FV and the RNN-FV.
+A transfer learning result from the image annotation task
+to the video action recognition task was shown. The con-
+
+mean
+rank
+NA
+NA
+NA
+NA
+NA
+NA
+NA
+NA
+NA
+NA
+NA
+27.3
+19.0
+17.4
+
+r@1
+
+r@5
+
+9.6
+14.2
+12.1
+22.2
+23.0
+16.7
+17.0
+NA
+37.4
+35.4
+33.6
+24.9
+33.0
+35.0
+
+Image Annotation
+r@5 r@10 median
+rank
+29.8 41.1
+16.0
+37.7 51.3
+10.0
+27.8 47.8
+11.0
+48.2 61.4
+4.8
+50.7 62.9
+5.0
+39.3 52.9
+8.0
+NA
+56.0
+7.0
+NA
+NA
+NA
+63.1 74.3
+NA
+63.8 73.7
+3.0
+64.1 74.9
+3.0
+52.5 64.4
+5.0
+60.8 72.0
+3.0
+62.1 73.8
+3.0
+
+8.9
+10.2
+12.7
+15.2
+16.8
+12.6
+17.0
+17.5
+26.0
+22.8
+26.2
+20.5
+23.9
+25.1
+
+29.8
+30.8
+33.1
+37.7
+42.0
+31.0
+NA
+40.3
+56.0
+50.7
+56.3
+46.4
+51.7
+52.8
+
+32.9
+32.0
+33.6
+32.8
+33.6
+35.1
+35.1
+34.7
+35.6
+
+59.6
+59.5
+60.5
+61.9
+62.4
+63.3
+63.5
+62.7
+62.5
+
+18.5
+17.2
+15.7
+17.4
+15.5
+15.3
+15.0
+15.6
+15.0
+
+23.9
+23.4
+24.5
+24.4
+25.0
+26.4
+26.5
+26.2
+27.4
+
+52.0
+51.7
+52.5
+51.2
+53.6
+54.9
+55.2
+55.1
+55.9
+
+r@1
+SDT-RNN [42]
+DFE [14]
+RVP [4]
+DVSA [13]
+SC-NLM [16]
+DCCA [29]
+NIC [48]
+LRCN [6]
+RTP [37](manual annotations)
+m-RNN [28]
+m-CNN [26]
+MeanVector [18]
+GMM-FV [18]
+MM-ENS [18]
+Our RNN-FV:
+wiki,w2v
+w2v
+cca
+cca,rvrs
+cca + rvrs
+cca + [18]
+cca + rvrs + [18]
+all rnn-fv models
+all rnn-fv models + [18]
+
+72.1
+71.4
+73.0
+72.7
+73.4
+74.2
+74.5
+72.6
+74.2
+
+3.0
+3.0
+3.0
+3.0
+3.0
+3.0
+3.0
+3.0
+3.0
+
+Image Search
+r@10 median
+rank
+41.1
+16.0
+44.2
+14.0
+44.9
+12.5
+50.5
+9.2
+56.5
+8.0
+43.0
+15.0
+57.0
+7.0
+50.8
+9.0
+69.3
+NA
+63.1
+5.0
+69.6
+4.0
+59.3
+6.8
+64.9
+5.0
+66.1
+5.0
+65.2
+65.2
+66.3
+64.6
+66.9
+68.6
+68.5
+69.2
+70.0
+
+5.0
+5.0
+5.0
+5.0
+5.0
+4.0
+4.0
+4.0
+4.0
+
+mean
+rank
+NA
+NA
+NA
+NA
+NA
+NA
+NA
+NA
+NA
+NA
+NA
+32.3
+24.8
+23.7
+
+Sentence
+mean
+rank
+NA
+NA
+NA
+NA
+NA
+NA
+NA
+NA
+NA
+NA
+NA
+16.2
+15.0
+14.1
+
+26.0
+24.5
+27.7
+28.9
+26.2
+21.7
+22.0
+21.2
+20.0
+
+15.2
+14.1
+16.9
+16.1
+15.5
+13.4
+13.5
+12.8
+12.2
+
+Table 4. Image annotation, image search and sentence similarity results on the Flickr30k dataset. For details, see Table 3. The RTP
+method [37] enjoys additional information that is not accessible to the other methods: manual annotations of bounding boxes in the
+images, which were collected via crowdsourcing.
+
+ceptual distance between these two tasks makes this result both interesting and surprising. It supports a human
+development-like way of training, in which visual labeling
+is learned through natural language, as opposed to, e.g., associating bounding boxes with nouns. While such training
+was used in computer vision to learn related image to text
+tasks, and while recently zero-shot action recognition was
+shown [11, 55], NLP to video action recognition transfer
+was never shown to be as general as presented here.
+
+Acknowledgments
+
+[3]
+
+[4]
+
+[5]
+
+[6]
+
+This research is supported by the Intel Collaborative Research Institute for Computational Intelligence (ICRI-CI).
+
+References
+[1] D. Bahdanau, K. Cho, and Y. Bengio. Neural machine
+translation by jointly learning to align and translate. arXiv
+preprint arXiv:1409.0473, 2014. 1
+[2] K. Chatfield, V. Lempitsky, A. Vedaldi, and A. Zisserman.
+The devil is in the details: an evaluation of recent feature
+
+[7]
+[8]
+
+[9]
+
+encoding methods. In British Machine Vision Conference,
+2011. 1
+K. Chatfield, K. Simonyan, A. Vedaldi, and A. Zisserman.
+Return of the devil in the details: Delving deep into convolutional nets. arXiv preprint arXiv:1405.3531, 2014. 2
+X. Chen and C. L. Zitnick. Learning a recurrent visual representation for image caption generation. arXiv preprint
+arXiv:1411.5654, 2014. 2, 8, 9
+J. Chung, C. Gulcehre, K. Cho, and Y. Bengio. Empirical
+evaluation of gated recurrent neural networks on sequence
+modeling. arXiv preprint arXiv:1412.3555, 2014. 2
+J. Donahue, L. A. Hendricks, S. Guadarrama, M. Rohrbach,
+S. Venugopalan, K. Saenko, and T. Darrell. Long-term recurrent convolutional networks for visual recognition and description. arXiv preprint arXiv:1411.4389, 2014. 9
+S. Hochreiter and J. Schmidhuber. Long short-term memory.
+Neural computation, 9(8):1735–1780, 1997. 2, 5
+M. Hodosh, P. Young, and J. Hockenmaier. Framing image
+description as a ranking task: Data, models and evaluation
+metrics. J. Artif. Intell. Res.(JAIR), 47:853–899, 2013. 2, 7
+P. Y. A. L. M. Hodosh and J. Hockenmaier. From image
+descriptions to visual denotations: New similarity metrics
+
+mean
+rank
+NA
+NA
+NA
+NA
+14.5
+11.2
+10.4
+
+r@1
+
+r@5
+
+38.4
+41.0
+42.8
+33.8
+33.2
+39.0
+39.4
+
+Image Annotation
+r@5 r@10 median
+rank
+69.9 80.5
+1.0
+73.0 83.5
+2.0
+73.1 84.1
+2.0
+67.7 82.1
+3.0
+61.8 75.1
+3.0
+67.0 80.3
+3.0
+67.9 80.9
+2.0
+
+27.4
+29.0
+32.6
+25.9
+24.2
+24.2
+25.2
+
+60.2
+42.2
+68.6
+60.0
+56.4
+59.3
+59.9
+
+37.7
+39.9
+40.9
+41.3
+40.8
+40.7
+40.2
+40.8
+41.5
+
+70.5
+71.5
+75.0
+71.5
+73.4
+72.3
+72.7
+71.9
+72.0
+
+9.9
+10.5
+8.2
+8.1
+8.2
+9.1
+8.6
+8.9
+9.0
+
+26.6
+26.9
+30.2
+28.9
+30.4
+28.1
+29.0
+29.6
+29.2
+
+61.1
+61.8
+65.0
+64.5
+65.5
+64.1
+64.8
+64.8
+64.7
+
+r@1
+DVSA [13]
+m-RNN [28]
+m-CNN [26]
+STV [17]
+MeanVector [18]
+GMM-FV [18]
+MM-ENS [18]
+Our RNN-FV:
+wiki,w2v
+w2v
+cca
+cca,rvrs
+cca + rvrs
+cca + [18]
+cca + rvrs + [18]
+all rnn-fv models
+all rnn-fv models + [18]
+
+81.0
+81.3
+84.9
+83.7
+84.1
+83.5
+84.2
+83.2
+82.9
+
+2.0
+2.0
+2.0
+2.0
+2.0
+2.0
+2.0
+2.0
+2.0
+
+Image Search
+r@10 median
+rank
+74.8
+3.0
+77.0
+3.0
+82.8
+3.0
+74.6
+4.0
+72.4
+4.0
+76.0
+4.0
+76.7
+4.0
+76.9
+77.4
+80.4
+79.9
+80.9
+79.8
+80.2
+80.5
+80.4
+
+4.0
+4.0
+3.0
+3.0
+3.0
+3.0
+3.0
+3.0
+3.0
+
+mean
+rank
+NA
+NA
+NA
+NA
+14.7
+11.3
+11.0
+
+Sentence
+mean
+rank
+NA
+NA
+NA
+NA
+14.3
+12.4
+12.9
+
+10.9
+11.4
+11.1
+11.3
+10.7
+10.2
+10.1
+9.7
+9.5
+
+11.9
+12.1
+13.2
+12.6
+12.3
+11.5
+11.5
+10.6
+10.2
+
+Table 5. Image annotation, image search and sentence similarity results on the COCO dataset. For details, see Table 3
+
+[10]
+[11]
+
+[12]
+
+[13]
+
+[14]
+
+[15]
+
+[16]
+
+[17]
+
+for semantic inference over event descriptions. Transactions
+of the Association for Computational Linguistics, 2014. 7
+H. Hotelling. Relations between two sets of variates.
+Biometrika, pages 321–377, 1936. 1, 2
+M. Jain, J. C. van Gemert, T. Mensink, and C. G. M. Snoek.
+Objects2action: Classifying and localizing actions without
+any video example. In Proceedings of the IEEE International
+Conference on Computer Vision, Santiago, Chile, December
+2015. 9
+S. Ji, W. Xu, M. Yang, and K. Yu. 3d convolutional neural networks for human action recognition. Pattern Analysis
+and Machine Intelligence, IEEE Transactions on, 35(1):221–
+231, 2013. 2
+A. Karpathy and L. Fei-Fei. Deep visual-semantic alignments for generating image descriptions. Technical report,
+Computer Science Department, Stanford University, 2014.
+2, 8, 9, 10
+A. Karpathy, A. Joulin, and L. Fei-Fei. Deep fragment embeddings for bidirectional image sentence mapping. arXiv
+preprint arXiv:1406.5679, 2014. 2, 8, 9
+A. Karpathy, G. Toderici, S. Shetty, T. Leung, R. Sukthankar,
+and L. Fei-Fei. Large-scale video classification with convolutional neural networks. In Computer Vision and Pattern Recognition (CVPR), 2014 IEEE Conference on, pages
+1725–1732. IEEE, 2014. 2
+R. Kiros, R. Salakhutdinov, and R. S. Zemel. Unifying
+visual-semantic embeddings with multimodal neural language models. arXiv preprint arXiv:1411.2539, 2014. 2,
+8, 9
+R. Kiros, Y. Zhu, R. Salakhutdinov, R. S. Zemel, A. Torralba, R. Urtasun, and S. Fidler. Skip-thought vectors. arXiv
+preprint arXiv:1506.06726, 2015. 1, 2, 10
+
+[18] B. Klein, G. Lev, G. Sadeh, and L. Wolf. Associating neural word embeddings with deep image representations using fisher vectors. In Proceedings of the IEEE Conference
+on Computer Vision and Pattern Recognition, pages 4437–
+4446, 2015. 1, 2, 5, 6, 7, 8, 9, 10
+[19] O. Kliper-Gross, Y. Gurovich, T. Hassner, and L. Wolf. Motion interchange patterns for action recognition in unconstrained videos. In Computer Vision–ECCV 2012, pages
+256–269. Springer, 2012. 2
+[20] H. Kuehne, H. Jhuang, E. Garrote, T. Poggio, and T. Serre.
+HMDB: a large video database for human motion recognition. In Proc. IEEE Int. Conf. Comput. Vision, 2011. 2, 6
+[21] Z. Lan, M. Lin, X. Li, A. G. Hauptmann, and B. Raj. Beyond gaussian pyramid: Multi-skip feature stacking for action recognition. arXiv preprint arXiv:1411.6660, 2014. 7
+[22] I. Laptev. On space-time interest points. Int. J. Comput.
+Vision, 64(2):107–123, 2005. 2
+[23] I. Laptev, M. Marszalek, C. Schmid, and B. Rozenfeld.
+Learning realistic human actions from movies. In Proc. IEEE
+Conf. Comput. Vision Pattern Recognition, pages 1–8, 2008.
+2
+[24] G. Lev, B. Klein, and L. Wolf. In defense of word embedding for generic text representation. In Natural Language
+Processing and Information Systems, pages 35–50. Springer
+International Publishing, 2015. 1
+[25] T.-Y. Lin, M. Maire, S. Belongie, J. Hays, P. Perona, D. Ramanan, P. Dollár, and C. Zitnick. Microsoft coco: Common objects in context. In D. Fleet, T. Pajdla, B. Schiele,
+and T. Tuytelaars, editors, Computer Vision – ECCV 2014,
+volume 8693 of Lecture Notes in Computer Science, pages
+740–755. Springer International Publishing, 2014. 5, 7
+
+[26] L. Ma, Z. Lu, L. Shang, and H. Li. Multimodal convolutional
+neural networks for matching image and sentence. arXiv
+preprint arXiv:1504.06063, 2015. 2, 8, 9, 10
+[27] J. Mao, W. Xu, Y. Yang, J. Wang, and A. Yuille. Deep captioning with multimodal recurrent neural networks (m-rnn).
+arXiv preprint arXiv:1412.6632, 2014. 2
+[28] J. Mao, W. Xu, Y. Yang, J. Wang, and A. L. Yuille. Explain
+images with multimodal recurrent neural networks. arXiv
+preprint arXiv:1410.1090, 2014. 8, 9, 10
+[29] F. Y. K. Mikolajczyk. Deep correlation for matching images
+and text. 2015. 2, 8, 9
+[30] T. Mikolov, I. Sutskever, K. Chen, G. S. Corrado, and
+J. Dean. Distributed representations of words and phrases
+and their compositionality. In Advances in Neural Information Processing Systems, pages 3111–3119, 2013. 1, 2
+[31] H. Palangi, L. Deng, Y. Shen, J. Gao, X. He, J. Chen,
+X. Song, and R. Ward. Deep sentence embedding using the
+long short term memory network: Analysis and application
+to information retrieval. arXiv preprint arXiv:1502.06922,
+2015. 1
+[32] X. Peng, L. Wang, X. Wang, and Y. Qiao. Bag of
+visual words and fusion methods for action recognition:
+Comprehensive study and good practice. arXiv preprint
+arXiv:1405.4506, 2014. 7
+[33] X. Peng, C. Zou, Y. Qiao, and Q. Peng. Action recognition
+with stacked fisher vectors. In Computer Vision–ECCV 2014,
+pages 581–595. Springer, 2014. 1, 2, 7
+[34] F. Perronnin and C. Dance. Fisher kernels on visual vocabularies for image categorization. In Computer Vision and
+Pattern Recognition, 2007. CVPR’07. IEEE Conference on,
+pages 1–8. IEEE, 2007. 3, 4
+[35] F. Perronnin, Y. Liu, J. Sánchez, and H. Poirier. Large-scale
+image retrieval with compressed fisher vectors. In Computer
+Vision and Pattern Recognition (CVPR), 2010 IEEE Conference on, pages 3384–3391. IEEE, 2010. 1, 3
+[36] F. Perronnin, J. Sánchez, and T. Mensink. Improving the
+fisher kernel for large-scale image classification. In Computer Vision–ECCV 2010, pages 143–156. Springer, 2010.
+6
+[37] B. Plummer, L. Wang, C. Cervantes, J. Caicedo, J. Hockenmaier, and S. Lazebnik. Flickr30k entities: Collecting region-to-phrase correspondences for richer image-tosentence models. arXiv preprint arXiv:1505.04870, 2015.
+9
+[38] U. Quasthoff, M. Richter, and C. Biemann. Corpus portal for
+search in monolingual corpora. In Proceedings of the fifth
+international conference on language resources and evaluation, volume 17991802, 2006. 6
+[39] K. Simonyan, O. M. Parkhi, A. Vedaldi, and A. Zisserman.
+Fisher vector faces in the wild. In Proc. BMVC, volume 1,
+page 7, 2013. 1
+[40] K. Simonyan and A. Zisserman. Two-stream convolutional
+networks for action recognition in videos. In Advances
+in Neural Information Processing Systems, pages 568–576,
+2014. 2, 7
+[41] K. Simonyan and A. Zisserman. Very deep convolutional networks for large-scale image recognition. CoRR,
+abs/1409.1556, 2014. 1, 4
+
+[42] R. Socher, Q. Le, C. Manning, and A. Ng. Grounded compositional semantics for finding and describing images with
+sentences. In NIPS Deep Learning Workshop, 2013. 2, 8, 9
+[43] K. Soomro, A. R. Zamir, and M. Shah. UCF101: A dataset
+of 101 human action classes from videos in the wild. CRCVTR-12-01, Nov. 2012. 2, 6
+[44] I. Sutskever, O. Vinyals, and Q. V. Le. Sequence to sequence
+learning with neural networks. In Advances in neural information processing systems, pages 3104–3112, 2014. 1
+[45] G. W. Taylor, R. Fergus, Y. LeCun, and C. Bregler. Convolutional learning of spatio-temporal features. In Computer
+Vision–ECCV 2010, pages 140–153. Springer, 2010. 2
+[46] D. Tran, L. Bourdev, R. Fergus, L. Torresani, and M. Paluri.
+Learning spatiotemporal features with 3d convolutional networks. arXiv preprint arXiv:1412.0767, 2014. 1, 2, 5, 7
+[47] H. Vinod. Canonical ridge and econometrics of joint production. Journal of Econometrics, 4(2):147 – 166, 1976. 6
+[48] O. Vinyals, A. Toshev, S. Bengio, and D. Erhan. Show
+and tell: A neural image caption generator. arXiv preprint
+arXiv:1411.4555, 2014. 2, 8, 9
+[49] H. Wang, A. Klaser, C. Schmid, and C. Liu. Action recognition by dense trajectories. In Proc. IEEE Conf. Comput.
+Vision Pattern Recognition, pages 3169–3176, 2011. 2
+[50] H. Wang, A. Kläser, C. Schmid, and C.-L. Liu. Dense trajectories and motion boundary descriptors for action recognition. Int. J. Comput. Vision, 103(1):60–79, 2013. 2
+[51] H. Wang and C. Schmid. Action Recognition with Improved
+Trajectories. In International Conference on Computer Vision, Oct. 2013. 2
+[52] H. Wang and C. Schmid. Action recognition with improved
+trajectories. In Computer Vision (ICCV), 2013 IEEE International Conference on, pages 3551–3558. IEEE, 2013. 6,
+7
+[53] L. Wang, Y. Qiao, and X. Tang. Action recognition
+with trajectory-pooled deep-convolutional descriptors. arXiv
+preprint arXiv:1505.04868, 2015. 1, 2, 7
+[54] X. Wang, L. Wang, and Y. Qiao. A comparative study of encoding, pooling and normalization methods for action recognition. In Computer Vision–ACCV 2012, pages 572–585.
+Springer, 2013. 2
+[55] X. Xu, T. M. Hospedales, and S. Gong. Semantic embedding space for zero-shot action recognition. CoRR,
+abs/1502.01540, 2015. 9
+
+

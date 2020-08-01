@@ -1,0 +1,1226 @@
+Towards Improving the Performance of the RNN-based Inversion
+Model in Output Tracking Control
+
+arXiv:2001.00058v1 [eess.SY] 31 Dec 2019
+
+Shengwen Xie1 and Juan Ren1,†
+Abstract— With the advantages of high modeling accuracy
+and large bandwidth, recurrent neural network (RNN) based
+inversion model control has been proposed for output tracking.
+However, some issues still need to be addressed when using
+the RNN-based inversion model. First, with limited number
+of parameters in RNN, it cannot model the low-frequency
+dynamics accurately, thus an extra linear model has been
+used, which can become an interference for tracking control
+at high frequencies. Moreover, the control speed and the RNN
+modeling accuracy cannot be improved simultaneously as the
+control sampling speed is restricted by the length of the RNN
+training set. Therefore, this article focuses on addressing these
+limitations of RNN-based inversion model control. Specifically,
+a novel modeling method is proposed to incorporate the linear
+model in a way that it does not affect the existing highfrequency control performance achieved by RNN. Additionally,
+an interpolation method is proposed to double the sampling
+frequency (compared to the RNN training sampling frequency).
+Analysis on the stability issues which may arise when the
+proposed new model is used for predictive control is presented
+along with the instructions on determining the parameters
+for ensuring the closed-loop stability. Finally, the proposed
+approach is demonstrated on a commercial piezo actuator, and
+the experiment results show that the tracking performances can
+be significantly improved.
+
+I. INTRODUCTION
+Piezo actuators (PEAs) have been widely used for nanopositioning related applications such as investigating the mechanic properties of materials based on atomic force microscope (AFM) [1], aeroelastic control of aircraft wings [2],
+and vibration control [3]. Even though there have been many
+models developed to capture the dynamics of PEAs, the
+challenge of controlling piezo actuators still lies in modeling
+the nonlinearities—hysteresis and creep effects over large
+frequency bandwidth and amplitude span [4].
+Recently, neural networks have been proposed to model
+the dynamics of PEAs [5], [6]. However, the feedforward
+neural network is not able to the utilize the sequence
+information of the input [5], [6]. In contrast, the input to
+the recurrent neural network (RNN) is a time series, thus
+it is more suitable for modeling the dynamical system and
+can achieve any level of modeling accuracy given enough
+number of parameters [7]. In our previous work, RNN
+has been proposed for modeling PEA systems [8]. Since
+the obtained RNN is equivalent to a nonlinear state space
+model, a nonlinear predictive controller has been proposed
+to realize output tracking [8]. However, the computation load
+1 S. Xie and 1 J. Ren are with the Department of Mechanical Engineering, Iowa State University, Ames, IA 50011, USA
+swxie@iastate.edu,juanren@iastate.edu
+† Corresponding author.
+
+is very heavy which limits the prediction horizon and further
+improvement of the control precision.
+Alternatively, RNN can be used to model the inversion
+dynamics of the PEA system [9]. Compared to some existing
+models, such as the ferromagnetic material hysteresis [10],
+Prandtl-Ishlinskii hysteresis inversion model [11], RNNbased inversion model (RNNinv) can achieve large modeling
+bandwidth and high accuracy. Moreover, since the inversion
+model is used without an extra controller, it avoids the heavy
+computation burden for real-time applications. Nevertheless,
+it shows that RNNinv cannot fully account for the lowfrequency dynamics and time-varying dynamics of PEAs due
+to the length limit of the RNN training set, thus a linear
+model embedded with an error term (LME) has been proposed to make a predictive controller for trajectory tracking
+at low frequencies [9]. Although LME is expected to account
+for the low-frequency dynamics only, it will interfere with
+the control contribution of the RNNinv at high frequencies
+resulting in an increase of the tracking errors [9]. Also, due to
+the limited length of the training set, the sampling frequency
+of RNN can not be set very high. Therefore, this article is
+motivated to overcome these two issues of RNNinv for PEA
+output tracking.
+The main contribution of this work is the development of
+a novel modeling approach such that the dynamics of the
+system is separated based on the frequency ranges. Specifically, for a linear system model M, its dynamics is sperated
+into two linear models A and B in such a way that the highfrequency dynamics of M is characterized by A while the
+low-frequency dynamics by B. In terms of this work, let M
+denote the dynamics of RNNinv+PEA, it is expected that
+LME accounts for the low-frequency dynamics (A) of the
+RNNinv+PEA system while the high-frequency dynamics
+(B) is close to 1 (i.e., M( jω) = 1 for large ω) given that
+RNNinv can efficiently account for the PEA high frequency
+dynamics. Another contribution is that for the RNN trained
+with the sampling frequency of fs , an interpolation method
+is proposed to make it able to be operated at the sampling
+frequency of 2 fs . The reason for doing this is that for some
+applications such as high-speed AFM imaging, the sampling
+frequency can affect the spatial resolution of the obtained
+images thus high sampling frequency is preferred [12], [13].
+To realize precision trajectory tracking, a predictive controller based on the model M is used. Note that M has
+parameters which differentiate between “high-frequency”
+and “low-frequency”. It turns out that these parameters can
+affect the stability of the predictive controller. In other
+words, apart from the parameters of the predictive controller,
+
+the parameters of M should also be chosen carefully to
+ensure the closed-loop stability. It should be noted that it
+is quite difficult to analyze the closed-loop stability of MPC.
+Although sometimes prediction horizon Nh cannot be tuned
+to stabilize the system [14], generally speaking, large Nh can
+ensure the closed-loop stability especially for linear systems.
+Many theoretical results account for a general system and
+thus quite conservative [15], or focus on setpoint stabilization [16] thus not applicable for general reference tracking
+problem. In this work, we analyze the closed-loop stability of
+the unconstrained predictive control problem. Results about
+the closed-loop stability as well as how they are used to
+determine the relevant parameters are also presented.
+II. P RELIMINARIES
+The RNN-based inversion model (RNNinv) can be represented by the follow state space model,
+xk+1 = tanh(W1 xk + B2 + B1 u(r),k )
+,
+y(r),k = W2 xk + B3
+
+(1)
+
+RN×1 ,
+
+where xk ∈
+u(r),k , and y(r),k are the system states,
+input and output at the sampling instant k, respectively. The
+diagram of the controller for output tracking is shown in
+Fig. 1. As can be seen in Fig. 1, RNNinv is cascaded with
+the PEA system forming the system H [9]. Since RNNinv
+can account for the high-frequency dynamics accurately with
+the low-frequency dynamics partly modeled, H is modeled
+by the following linear model embedded with an error term
+(LME) to account for the time-varying and low-frequency
+dynamics,
+ζk+1 = Ae ζk + Be ûk + Ge êk
+ŷk = Ce ζk
+
+,
+
+(2)
+
+where ûk is the input to the LME, êk = yk − ŷk is the model
+output error with yk as the actual PEA output. The problem
+is that the high-frequency dynamics of LME will interfere
+with that of H resulting in modeling control errors. With the
+new modeling method in the next section, the high-frequency
+dynamics of LME will not affect that of H.
+III. M ODEL THE S YSTEM DYNAMICS
+A. Incorporating the LME
+Suppose we have a system G such that its dynamics in the
+frequency range [ fh , fs /2] coincides with that of system G1
+
+uk
+
+LPF1
+
+RNNinv
+
+yk
+
+PEA
+
+H
+
+State Estimator
+
+φk
+LME
+LPF1
+Plant Model
+Predictive Controller
+
+rk
+
+Fig. 1: Schematic block diagram of using RNNinv for PEA
+output tracking.
+
+and the dynamics in [0, fl ] can be characterized by that of
+system G2 , the goal is to represent G( jω) with G1 ( jω) and
+G2 ( jω). Note that fl ≥ fh . Instead of solving the problem
+directly, we introduce extra dynamics Ge and show that Ge G
+can be represented by G1 , G2 and Ge with the following
+proposition. Here, we use Ge G to denote the dynamics of
+the system combining Ge and G. G, G1 , and G2 can be
+expressed in state-space forms with Eq. (3), Eq. (4), and Eq.
+(5), respectively.
+xg,k+1 = f (xg,k , ug,k )
+yg,k = h(xg,k )
+xg1,k+1 = f1 (xg1,k , ug1,k )
+yg1,k = h1 (xg1,k )
+xg2,k+1 = f2 (xg2,k , ug2,k )
+yg2,k = h2 (xg2,k )
+
+(3)
+
+(4)
+
+(5)
+
+Proposition 1. Assume G satisfies
+f (a + b, c + d) = f¯(a, c) + fˆ(b, d)
+
+(6)
+
+Ge is constructed with a parallel connection of a high-pass
+filter (HPF) (Eq. (7)) and a low-pass filter (LPF) (Eq. (8))
+as shown in Fig. 2(a).
+αk+1 = Āαk + B̄ūk
+z̄k = C̄αk
+βk+1 = Aβk + Buk
+zk = Cβk
+
+(7)
+
+(8)
+
+G1 and G2 are described as above. Then Ge G can be
+represented by
+ 
+
+
+Āαk+1 + B̄ūk
+αk+1
+xg1,k+1   f1 (xg1,k , C̄αk )
+ 
+
+
+ βk+1  =  βk+1 + Buk  .
+(9)
+xg2,k+1
+f2 (xg2,k , Cβk )
+zg,k =h1 (xg1,k ) + h2 (xg2,k )
+Proof. Ge is shown in Fig. 2(a). With the assumption
+Eq. (6), Fig. 2(a) is equivalent to Fig. 2(b). The HPF can be
+tuned to only allow signals in the frequency range [ fh , fs /2]
+to pass and similar for LPF: only signals in the frequency
+range [0, fl ] can pass. Then Fig. 2(b) is equivalent to Fig.
+2(c) which can be expressed using Eq. (9). This completes
+the proof. 
+Remark 1. The cutoff frequencies fcL (LPF) and fcH (HPF)
+should be chosen such as that the signals at all the frequencies can pass through Ge . If the system is linear, Eq. (6)
+would be satisfied automatically. If Eq. (6) does not hold,
+there will be modeling errors for the proposed modeling
+approach.
+Remark 2. In the case that G represents the dynamics of
+PEA+RNNinv, it is clear that G is linear if the nonlinear
+dynamics of the PEA is compensated by the RNNinv. Then
+G2 is expressed in Eq. (2), and G1 ( jω) = 1 i.e., yg1,k = ug1,k .
+
+B. Increase the Sampling Frequency of the RNNinv Control
+
+Ge
+
+(a)
+
+If the sampling frequency of the RNNinv training set is fs ,
+then the time interval between uk and uk+1 is 1/ fs . Consider
+that the sampling frequency in real-time application becomes
+2 fs , the following state space equation can be used based on
+Eq. (1).
+
+HPF
++
+LPF
+
+G
+
+xk+2 = tanh(W1 xk + B2 + B1 u(r),k )
+
+(b)
+
+HPF
+
+y(r),k = W2 xk + B3
+
+G
+
+Basically, Eq. (10) is equivalent to two Eq. (1)s running
+separately with the initial states of x0 and x1 , respectively.
+x0 and x1 can be set to zeros at the beginning. Two sets of
+states, i.e., {x0 , x2 , x4 , · · · } and {x1 , x3 , x5 , · · · }, are obtained
+separately without affecting each other. Note that for each
+time series, the time interval between the corresponding
+inputs uk and uk+2 becomes 1/ fs .
+Next, we argue that the modeling accuracy is not affected with the sampling frequency doubled. Suppose the
+expected output series should be ȳk , if both output series
+{y0 , y2 , y4 , · · · } and {y1 , y3 , y5 , · · · } have the accuracy of ε
+(ε > 0), i.e., max |y2k+1 − ȳ2k+1 | < ε and max |y2k − ȳ2k | < ε,
+
++
+
+(c)
+
+LPF
+
+G
+
+HPF
+
+G1
+
+LPF
+
+G2
+
+(10)
+
++
+
+k
+
+k
+
+it follows that max |yk − ȳk | < ε, which implies that the
+k
+accuracy of the model Eq. (10) remains unchanged after the
+sampling frequency is increased.
+
+Fig. 2: Combine two models.
+
+BPF
+IV. S TABILITY OF THE P REDICTIVE C ONTROLLER
+
+uk
+
++
+LPF
+
+RNNinv
+Ge
+
+H
+
+yk
+
+PEA
+
+State Estimator
+
+φk
+Ge
+RNNinv+PEA
+Plant Model
+Predictive Controller
+
+rk
+
+Fig. 3: Schematic block diagram of the RNNinv control
+with the proposed modeling method.
+Also, Eq. (9) is linear and can be further simplified. To apply
+the new modeling method to the controller, the control loop
+shown in Fig. 1 can be modified to that represented in Fig. 3.
+Note that LPF1 in Fig. 1 has been combined with Ge because
+the cutoff frequency of LPF1 is usually much larger than that
+of fl and fh , Thus we only need to replace HPF with a bandpass filter (BPF) with the passing frequency range of [ fh , fc1 ]
+( fc1 is the cutoff frequency of LPF1 in Fig. 1) as shown in
+Fig. 3.
+Remark 3. Note that the dynamics of the added Ge have
+been included in the model for controller design, therefore,
+the phase lag and other dynamics of Ge will not affect the
+tracking performance since they are accounted for by the
+predictive controller.
+
+In this work, the case of unconstrained MPC is considered
+in the situation where the sampling frequency is very high,
+like trajectory tracking of PEA systems, so adding input
+constraints will significantly increase the computation burden. Although faster platform based on FPGA can accelerate
+the computation process, it is still challenging to realize
+online MPC with high sampling frequency [17]. Moreover,
+the prediction horizon should be large to ensure the closedloop stability. This brings extra challenges in incorporating
+constraints in MPC even with high-speed platforms.
+For the unconstrained MPC based on the linear system,
+by choosing sufficiently large prediction horizon, the closedloop stability can always be achieved. The question is how
+to choose the smallest prediction horizon while maintaining
+the closed-loop stability.
+We consider the MPC based on the following linear
+system,
+xk+1 = Axk + Buk + δk
+(11)
+yk = Cxk
+where δk ∈ Rn×1 represents the model uncertainty. Let N p
+and Nc be the prediction horizon and control horizon, respectively. The predicted control input after Nc sample steps
+are equal, i.e., uk+N = uk+N+1 for N > Nc . Accordingly, we
+modify the reference such that rk+N = rk+N+1 for N > Nc in
+the optimization problem.
+Let U = [uk+1 , uk+2 , · · · , uk+Nc ]T , ∆U = [uk+1 −
+uk , uk+2 − uk+1 , · · · , uk+Nc − uk+Nc −1 ]T , 1n = [1, 1, · · · , 1]T ,
+T ,··· ,δT
+T
+∆k = [δkT , δk+1
+k+N p −1 ] . For the linear system Eq.
+(11), the predicted N p future outputs Y are
+
+Y = Gxk + H1VU + H2 ∆k + Fuk
+= Gxk + H1V (S∆U + 1uk ) + H2 ∆k + Fuk ,
+= Gxk + H1V S∆U + H2 ∆k + (F + H1V 1)uk
+
+(12)
+
+the closed-loop system is stable in the sense that if Rk and
+∆k are bounded, the system output is bounded. Assuming
+K is stable, the reference is constant, i.e., rk = r, and ∆k is
+constant, the steady state error can be computed as
+e∞ = lim [C̄K N ηk + C̄(K N−1 + · · · + I)M̄3 1r
+
+with
+
+
+yk+1
+ yk+2
+
+Y = .
+ ..
+
+
+
+
+
+N→∞
+
+
+
+uk+1
+CA
+ uk+2 
+
+2 
+
+CA
+
+
+
+
+, G = 
+. 
+ . . . , U = 
+ .. 
+
+Np
+yk+Np N ×1 CA
+uk+Nc N ×1
+N p ×1
+c
+p
+
+
+0
+0
+... 0
+ CB
+0
+. . . 0
+
+
+H1 = 
+..
+..
+.
+..
+
+. .. 
+.
+.
+
+
+
+
+CANp −2 B CANp −3 B . . .
+
+C
+0
+...
+ CA1
+C
+...
+
+H2 = 
+..
+..
+..
+
+.
+.
+.
+N
+−1
+N
+−2
+p
+p
+CA
+1 CA
+1 ...
+
+I
+Nc ×N
+c
+
+ 0 ... 0 1
+
+. .
+V =  .. . .
+. .. .. 
+ .
+0 . . . 0 1 (N −N )×N
+p
+
+c
+
+c
+
++ C̄(K N−1 + · · · + I)M̄4 ∆k − r]
+= C̄(I − K)−1 M̄3 1r + C̄(I − K)−1 M̄4 ∆k − r
+
+0
+
+
+0
+1 0 ...
+1 1 . . .
+0
+
+
+..  S =  .. .. . .
+. .
+
+.
+.
+1 1 ...
+C
+
+
+
+CB
+
+ CAB 
+
+
+
+.
+, F = 
+..
+
+
+
+.
+N p ×Nc
+
+CANp −1 B
+
+
+0
+0
+
+.. 
+.
+1
+
+N p ×1
+
+J = (Y −V Rk )T (Y −V Rk ) + ρ∆U T ∆U
+= ∆U T (ST V T H1T H1V S + ρI)∆U + 2∆U T ST V T H1T E + E T E
+(13)
+where Rk = [rk+1 , rk+2 , · · · , rk+Nc ]T , I is the identity matrix,
+ρ > 0, and E = Gxk + H2 ∆k + (F + H1V 1)uk − V Rk . To
+minimize J, ∆U should be
+(14)
+
+∆U
+
+where M = ST V T H1T H1V S + ρI is always positive definite
+and thus invertible. Let E1 = [1, 0, · · · , 0]. The control law is
+then
+uk+1 = uk + E1 ∆U ∗ = uk − E1 M −1 ST V T H1T E
+= M1 xk + M2 uk + M3 Rk + M4 ∆k
+
+(15)
+
+where
+M1 = −E1 M −1 ST V T H1T G,
+M2 = 1 −
+E1 M −1 ST V T H1T (F + H1V 1), M3 = E1 M −1 ST V T H1T V
+and M4 = −E1 M −1 ST V T H1T H2 . Therefore, the original
+system can be augmented as
+
+
+ 
+xk+1
+A
+ηk+1 =
+=
+uk+1
+M1
+
+
+ 
+ 
+B
+0
+0
+η +
+R +
+∆
+M2 k
+M3 k
+M4 k
+
+= Kηk + M̄3 Rk + M̄4 ∆k
+
+
+ek = C 0 ηk − rk = C̄ηk − rk
+
+If ∆k can be neglected, a well designed control law should
+satisfy C̄(I − K)−1 M̄3 1 = 1.
+Next, we transform the error dynamics (Eq. (16)) into
+a SISO system with the reference signal as the sole input
+by assuming ∆k = 0. This enables evaluating the tracking
+performance of the control law (Eq. (15)) based on the frequency response of the SISO system. Define Pk = [rk , RTk ]T =
+[rk , rk+1 , rk+2 , · · · , rk+Nc ]T . We have
+
+
+rk+1
+rk+2
+..
+.
+
+
+
+
+ 
+0Nc ×1
+
+
+Pk+1 = 
+=
+0
+
+
+rk+Nc +1
+
+
+
+
+INc ×Nc
+0
+Pk + Nc ×1 rk+Nc +1
+01×Nc
+1
+.
+
+= K p Pk + B p rk+Nc +1
+
+The cost function for MPC is
+
+∆U ∗ = argmin J = −M −1 ST V T H1T E
+
+(17)
+
+.
+
+(16)
+Obviously, the closed-loop stability is determined by the
+matrix K. If the eigenvalues of K all lie inside the unit circle,
+
+(18)
+With Rk = [0, INc ×Nc ]Pk = Br Pk , we get ηk+1 = Kηk +
+M̄3 Rk = Kηk + M̄3 Br Pk . Using rk = [1, 0, · · · , 0]Pk , combining
+Eq. (16) and Eq. (18) yields
+φk+1 =
+
+
+ 
+ηk+1
+K
+=
+Pk+1
+0
+
+M̄3 Br
+Kp
+
+   
+ηk
+0
++
+r
+Pk
+M3 k+Nc +1
+
+= Acl φk + Bcl rk+Nc +1
+
+. (19)
+
+ek = [C 0]ηk − [0 · · · , 0, 1, · · · , 0]φk = Ccl φk
+For Eq. (19), the input is the reference signal rk+Nc +1 and
+the output is the tracking error ek . Therefore, the tracking
+error dynamics Eq. (19) is a SISO system with the transfer
+function expressed by T (z) = Ccl (zI − Acl )−1 Bcl which describes how the reference signal is related with the tracking
+error.
+Remark 4. Since it is hard to find the relationship between
+the eigenvalues of K and (N p , Nc ) at this point, we will
+determine the smallest prediction horizon to stabilize the
+system by trial and error.
+Remark 5. While the unconstrained MPC is equivalent to
+LQR when the prediction horizon is chosen to be infinite, the
+former has at least two advantages over the latter. First, LQR
+needs reference dynamics to perform output tracking which
+is not always available for arbitrary trajectories. Second,
+unconstrained MPC is more flexible in the sense that it can
+easily incorporate the uncertainty term δk thus quite suitable
+for our case (i.e., LME).
+Remark 6. Although the computation issue of the unconstrained MPC is not significant when the prediction horizon
+is large, we have to keep it as small as possible due to the
+
+20
+
+0
+
+Magnitude (dB)
+
+term δk which is hard to be estimated in the long run. In this
+work, we assume δk is fixed for a short term considering LME
+is supposed to model the PEA low-frequency dynamics. Note
+that there are other methods to stabilize the system, however,
+it may not be able to minimize the tracking error at the same
+time. For example, one can add another term ρ1U T U in the
+cost function with large ρ1 to minimize the control efforts,
+then the steady state error in Eq. (17) is not zero.
+
+-20
+
+-40
+
+-60
+
+V. E XPERIMENTAL R ESULTS AND D ISCUSSION
+
+Note that the RNNinv is trained with the sampling frequency of 10kHz and is used at sampling frequency of 20kHz
+with the method introduced in Sec. III.B. The obtained LME
+model is
+
+
+
+
+
+
+0.3576 −0.3867
+1.6718
+1.0058
+ζk+1 =
+ζk +
+û +
+ê
+0.0537 1.0298
+−0.1404 k
+1.1462 k .
+
+
+ŷk = 0.4257 0.6411 ζk
+(20)
+Based on the modeling results of RNNinv, LME is designed to handle the system dynamics lower than 26Hz.
+Therefore, according to the discussions in Sec. II, we set
+fl = 32Hz and fh = 26Hz. The second cutoff frequency of
+the BPF is set to be 800Hz. In terms of the orders of the
+filters, the higher the better. We start with 3rd order filters.
+All the filters are of the type Butterworth. As discussed in
+Sec. IV, the closed-loop stability is determined by the matrix
+K and the tracking performance can be evaluated from the
+frequency response of Eq. (19). Note that when N p is very
+large, it’s hard to compute the frequency response with the
+transfer function T (z), in which case we resort to numerical
+approaches. For a good controller, Eq. (19) should behave
+like a low-pass filter with the cutoff frequency as large as
+possible.
+It turns out that if N p is close to Nc , the minimum N p which
+can stabilize K is around 1200 and the frequency response
+of the error dynamics is shown in Fig. 4, i.e., the controller
+with (N p , Nc ) = (1200, 1150). It shows that the controlling
+bandwidth is about 0-1kHz. However, when N p − Nc (e.g.,
+(N p , Nc ) = (200, 50)) was increased, K could be stabilized
+with a smaller N p . But the corresponding control bandwidth
+was quite limited as seen from Fig. 4. Recall that Nc should
+be kept small as explained in Remark. 6. Therefore, we had
+to lower the orders of the filters.
+If the filters were second order, it was easy to make the
+closed-loop system stable with small N p and Nc , and the
+control bandwidth could reach as high as 1kHz as shown in
+Fig. 4. Therefore, we chose second order filters. The price
+we paid for this compromise is the downgrading of tracking
+performance as shown later. The bode plot of the LPF and
+BPF are shown in Fig. 5. Since the LPF and BPF were
+
+3nd LPFs,N p =200, N c =50
+2nd LPFs,N p =40, Nc =30
+
+-100
+
+100
+
+101
+
+102
+
+103
+
+104
+
+Frequency (Hz)
+
+Fig. 4: Frequency responses of the tracking error dynamics
+(Eq. (19)) with different (N p , Nc )s.
+Magnitude(dB)
+
+A. Choosing Modeling and Controller Parameters
+
+3nd LPFs,N p =1200, N c =1150
+
+-80
+
+0
+-10
+-20
+-30
+-40
+
+10 0
+
+10 1
+
+10 2
+
+10 3
+
+400
+
+Phase(deg)
+
+In this section, first, based on the LME, the parameters of
+the filters and (N p , Nc ) are chosen to stabilize the closed-loop
+system. Then, we will compare the tracking performance of
+the proposed method with that of an iterative learning control
+(ILC) approach—MIIFC [18].
+
+BPF
+LPF
+
+200
+0
+-200
+10 0
+
+10 1
+
+10 2
+
+10 3
+
+Frequency(Hz)
+
+Fig. 5: Bode plots of the LPF and BPF.
+connected in parallel, it could be observed from Fig. 5 that all
+the signals can pass through the system (i.e., Ge G) except the
+signal with ultra-high frequencies (e.g., higher than 1kHz).
+B. Tracking Performance Comparison
+The proposed approach was implemented on a PEA
+(Nano-OP30, Mad City Labs) to track different trajectories.
+The tracking performance was compared with that of an efficient ILC approach—MIIFC [18]. The experiment setup is
+shown in Fig. 6. All the signals were collected and generated
+through a data acquisition system (NI PCIe-6353, National
+Instruments) which was installed in the workstation (Intel
+Xeon W-2125, RAM 32GB). The controller was designed
+using MATLAB Simulink (MathWorks, Inc.).
+Four trajectories, including sinusoidal trajectories with the
+frequencies of 30Hz, 103Hz, 200Hz, and Γ (Eq. (21)) are
+used as the reference to be tracked.
+Γ(t) = [0.35 sin(2π4.2t − 4.2π) + 0.6 sin(2π10.2t − 10.2π)−
+0.5 sin(2π62.1 − 2.1π) + 0.21 sin(2π127t − 1.2π)+
+0.33 sin(2π183t − 1.3π)]/1.4 + 1.4.
+(21)
+
+TABLE I: Tracking performance comparison of “Ge G”, “G”,
+and MIIFC when tracking different trajectories.
+
+Workstation with DAQ
+
+Refs.
+
+Erms
+
+Emax
+
+Erms
+
+Emax
+
+Erms
+
+Emax
+
+Ge G
+
+0.83
+
+0.28
+
+0.15
+
+0.06
+
+1.22
+
+0.68
+
+4.20
+
+3.27
+
+G
+
+1.14
+
+0.39
+
+0.24
+
+0.09
+
+1.93
+
+1.10
+
+6.35
+
+5.33
+
+MIIFC
+
+0.85
+
+0.27
+
+1.54
+
+1.15
+
+1.72
+
+0.85
+
+1.50
+
+1.04
+
+0
+
+0.1
+
+Disp.( m)
+
+Nano-Drive Controller
+
+Fig. 6: Experimental setup
+
+201Hz
+
+Emax
+
+(a)
+
+PEA
+
+103Hz
+
+Erms
+
+(b)
+
+8
+
+Error( m)
+
+BNC
+
+11Hz
+
+Γ
+
+Error(%)
+
+6
+4
+2
+
+0.1
+0.05
+0
+-0.05
+-0.1
+
+0
+0
+
+where r(·) and y(·) are complex vectors obtained through
+discrete Fourier transform of the corresponding signals [18].
+Next, we use “Ge G” and “G” to denote the approaches
+using the method discussed in Sec. II and without using
+the new modeling method, respectively. Table I shows the
+tracking errors for all the three approaches while Fig. 7
+compares the tracking performance in time domain between
+MIIFC and Ge G.
+Observe that in Table. I, Ge G can decrease both the Erms
+and Emax by at least 30% for all the trajectories compared to
+G. This shows that the proposed method further improved the
+modeling accuracy. Compared to MIIFC, Ge G outperforms
+MIIFC in the low-frequency region with the tracking errors
+about 10% lower than that of MIIFC (for 11Hz and 103Hz
+cases) as shown in Table. I and Fig. 7. Although the tracking
+errors of Ge G increased a little bit when tracking the 201Hz
+trajectory, the tracking errors are less than 5%. This is mainly
+because the orders of the filters are not high enough.
+Here, we briefly explain how the order of the filters affect
+the tracking performance based on the collected data. When
+tracking 201Hz sinusoidal signal, the output of the LPF in
+Fig. 3 should be a constant but in the experiment it includes
+high frequency components as shown in Fig. 8, which then
+resulted in the tracking error. Based on the bode plot in Fig.
+5, about 3% (i.e., -30dB) of the input signal can pass through
+the LPF which was in accordance with the experimental
+data considering the input amplitude was 2V. Therefore, a
+better LPF need to be designed with the closed-loop stability
+guaranteed to further improve the tracking performance.
+
+0.2
+
+0.3
+
+8
+6
+4
+2
+
+(d)
+
+0.2
+
+Error( m)
+
+Time(s)
+0.1
+0
+-0.1
+-0.2
+-0.3
+
+0
+0
+
+0.01
+
+0.02
+
+0.03
+
+Time(s)
+Reference
+
+0
+
+MIIFC
+
+0.01
+
+0.02
+
+Time(s)
+G eG
+
+0.03
+
+Fig. 7: (a) Comparison of the tracking results for Γ signal
+using Ge G and MIIFC, (b) the tracking error, (c) comparison
+of the tracking results for 103Hz sinusoidal signal using Ge G
+and MIIFC, (d) the tracking error.
+(a)
+
+1.5
+
+(b)
+
+0.63
+0.62
+
+1
+
+Voltage (V)
+
+(22)
+
+0.3
+
+Time(s)
+
+10
+
+Disp.( m)
+
+||r(·) − y(·)||∞
+∆ ||r(·) − y(·)||2
+, Erms =
+Emax =
+||r(·)||∞
+||r(·)||2
+∆
+
+0.2
+
+(c)
+
+Voltage (V)
+
+The tracking errors Erms and Emax were computed as
+follows,
+
+0.1
+
+0.5
+0
+-0.5
+
+0.61
+0.6
+0.59
+0.58
+
+-1
+0
+
+0.2
+
+0.4
+
+0.6
+
+0.8
+
+1
+
+0.57
+0.4
+
+Time (s)
+
+0.41
+
+0.42
+
+0.43
+
+Time (s)
+
+Fig. 8: (a) Output of the LPF, (b) zoomed-in view of the
+rectangle area.
+the equation of error dynamics is derived, which are used
+to guide the selection of the filter parameters and controller
+parameters. The proposed approach has been validated with
+experiments on a commercial PEA showing that the tracking
+precision has been significantly improved.
+ACKNOWLEDGMENT
+This work was supported by the National Science Foundation (NSF) (CMMI-1751503) and Iowa State University.
+
+VI. C ONCLUSION
+In this work, we enhanced the performance of RNNinv
+in tracking control in two aspects—the tracking accuracy
+is further improved and the sampling frequency is doubled.
+We analyzed the closed-loop stability of the control law and
+
+REFERENCES
+[1] K. Mollaeian, Y. Liu, S. Bi, Y. Wang, J. Ren, and M. Lu, “Nonlinear
+cellular mechanical behavior adaptation to substrate mechanics identified by atomic force microscope,” International journal of molecular
+sciences, vol. 19, no. 11, p. 3461, 2018.
+
+[2] X. Wang, P. Xia, and P. Masarati, “Active aeroelastic control of
+aircraft wings with piezo-composite,” Journal of Sound and Vibration,
+vol. 455, pp. 1–19, 2019.
+[3] E. D. Gedikli, D. Chelidze, and J. Dahl, “Active control of flexible
+cylinders undergoing vortex-induced vibrations using piezo stripe
+actuators,” in Structural Health Monitoring, Photogrammetry & DIC,
+Volume 6, pp. 63–65, Springer, 2019.
+[4] G.-Y. Gu, L.-M. Zhu, C.-Y. Su, H. Ding, and S. Fatikow, “Modeling
+and control of piezo-actuated nanopositioning stages: A survey.,” IEEE
+Trans. Automation Science and Engineering, vol. 13, no. 1, pp. 313–
+332, 2016.
+[5] L. Cheng, W. Liu, Z.-G. Hou, J. Yu, and M. Tan, “Neural-networkbased nonlinear model predictive control for piezoelectric actuators,”
+IEEE Transactions on Industrial Electronics, vol. 62, no. 12, pp. 7717–
+7727, 2015.
+[6] W. Liu, L. Cheng, Z.-G. Hou, J. Yu, and M. Tan, “An inversionfree predictive controller for piezoelectric actuators based on a dynamic linearized neural network model,” IEEE/ASME Transactions on
+Mechatronics, vol. 21, no. 1, pp. 214–226, 2016.
+[7] A. M. Schäfer and H.-G. Zimmermann, “Recurrent neural networks
+are universal approximators,” International journal of neural systems,
+vol. 17, no. 04, pp. 253–263, 2007.
+[8] S. Xie and J. Ren, “Recurrent-neural-network-based predictive control
+of piezo actuators for precision trajectory tracking,” in 2019 Annual
+American Control Conference (ACC), pp. 3795–3800, IEEE, 2019.
+[9] S. Xie and J. Ren, “Tracking control using recurrent-neural-networkbased inversion model: A case study on piezo actuators,” to appear
+in CDC, 2019.
+[10] Y. Cao, L. Cheng, X. Chen, and J. Peng, “An inversion-based model
+predictive control with an integral-of-error state variable for piezoelectric actuators,” IEEE/ASME Transactions on Mechatronics, vol. 18,
+no. 3, pp. 895–904, 2013.
+[11] Y. Shan and K. K. Leang, “Dual-stage repetitive control with
+prandtl–ishlinskii hysteresis inversion for piezo-based nanopositioning,” Mechatronics, vol. 22, no. 3, pp. 271–281, 2012.
+[12] J. Ren and Q. Zou, “High-speed adaptive contact-mode atomic force
+microscopy imaging with near-minimum-force,” Review of Scientific
+Instruments, vol. 85, no. 7, p. 073706, 2014.
+[13] S. Xie and J. Ren, “High-speed afm imaging via iterative learningbased model predictive control,” Mechatronics, vol. 57, pp. 86–94,
+2019.
+[14] M. A. Müller and K. Worthmann, “Quadratic costs do not always work
+in mpc,” Automatica, vol. 82, pp. 269–277, 2017.
+[15] D. Limón, T. Alamo, F. Salas, and E. F. Camacho, “On the stability
+of constrained mpc without terminal constraint,” IEEE transactions on
+automatic control, vol. 51, no. 5, pp. 832–836, 2006.
+[16] M. Reble and F. Allgöwer, “Unconstrained model predictive control
+and suboptimality estimates for nonlinear continuous-time systems,”
+Automatica, vol. 48, no. 8, pp. 1812–1817, 2012.
+[17] K. M. Abughalieh and S. G. Alawneh, “A survey of parallel implementations for model predictive control,” IEEE Access, vol. 7, pp. 34348–
+34360, 2019.
+[18] K.-S. Kim and Q. Zou, “A modeling-free inversion-based iterative feedforward control for precision output tracking of linear
+time-invariant systems,” IEEE/ASME Transactions on Mechatronics,
+vol. 18, no. 6, pp. 1767–1777, 2013.
+
+

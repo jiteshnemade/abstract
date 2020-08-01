@@ -1,0 +1,16 @@
+
+recurrent neural networks (rnns) are powerful models that achieve exceptional performance on
+a plethora pattern recognition problems. however, the training of rnns is a computationally difficult
+task owing to the well-known “vanishing/exploding” gradient problem. algorithms proposed for training
+rnns either exploit no (or limited) curvature information and have cheap per-iteration complexity, or
+attempt to gain significant curvature information at the cost of increased per-iteration cost. the former
+set includes diagonally-scaled first-order methods such as adagrad and adam, while the latter consists
+of second-order algorithms like hessian-free newton and k-fac. in this paper, we present adaqn, a
+stochastic quasi-newton algorithm for training rnns. our approach retains a low per-iteration cost
+while allowing for non-diagonal scaling through a stochastic l-bfgs updating scheme. the method uses
+a novel l-bfgs scaling initialization scheme and is judicious in storing and retaining l-bfgs curvature
+pairs. we present numerical experiments on two language modeling tasks and show that adaqn is
+competitive with popular rnn training algorithms.
+
+1
+

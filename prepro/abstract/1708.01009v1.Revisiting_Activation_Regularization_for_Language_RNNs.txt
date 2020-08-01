@@ -1,0 +1,18 @@
+
+recurrent neural networks (rnns) serve as a
+fundamental building block for many sequence
+tasks across natural language processing. recent
+research has focused on recurrent dropout techniques or custom rnn cells in order to improve
+performance. both of these can require substantial modifications to the machine learning model
+or to the underlying rnn configurations. we revisit traditional regularization techniques, specifically l2 regularization on rnn activations and
+slowness regularization over successive hidden
+states, to improve the performance of rnns on
+the task of language modeling. both of these
+techniques require minimal modification to existing rnn architectures and result in performance improvements comparable or superior to
+more complicated regularization techniques or
+custom cell architectures. these regularization
+techniques can be used without any modification
+on optimized lstm implementations such as the
+nvidia cudnn lstm.
+
+1. 

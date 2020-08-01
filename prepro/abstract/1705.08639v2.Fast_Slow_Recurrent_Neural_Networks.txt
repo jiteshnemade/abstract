@@ -1,0 +1,18 @@
+
+processing sequential data of variable length is a major challenge in a wide range
+of applications, such as speech recognition, language modeling, generative image
+modeling and machine translation. here, we address this challenge by proposing a novel recurrent neural network (rnn) architecture, the fast-slow rnn
+(fs-rnn). the fs-rnn incorporates the strengths of both multiscale rnns and
+deep transition rnns as it processes sequential data on different timescales and
+learns complex transition functions from one time step to the next. we evaluate
+the fs-rnn on two character level language modeling data sets, penn treebank
+and hutter prize wikipedia, where we improve state of the art results to 1.19
+and 1.25 bits-per-character (bpc), respectively. in addition, an ensemble of two
+fs-rnns achieves 1.20 bpc on hutter prize wikipedia outperforming the best
+known compression algorithm with respect to the bpc measure. we also present
+an empirical investigation of the learning and network dynamics of the fs-rnn,
+which explains the improved performance compared to other rnn architectures.
+our approach is general as any kind of rnn cell is a possible building block for
+the fs-rnn architecture, and thus can be flexibly applied to different tasks.
+
+1 

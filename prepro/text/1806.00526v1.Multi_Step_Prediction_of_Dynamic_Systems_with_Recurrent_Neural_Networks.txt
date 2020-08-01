@@ -1,0 +1,2661 @@
+MULTI-STEP PREDICTION OF DYNAMIC SYSTEMS WITH RNNS, N. MOHAJERIN, S. L. WASLANDER
+
+1
+
+Multi-Step Prediction of Dynamic Systems with
+Recurrent Neural Networks
+
+arXiv:1806.00526v1 [cs.NE] 20 May 2018
+
+Nima Mohajerin, Member, IEEE, Steven L. Waslander, Member, IEEE,
+
+Abstract—Recurrent Neural Networks (RNNs) can encode rich
+dynamics which makes them suitable for modeling dynamic
+systems. To train an RNN for multi-step prediction of dynamic
+systems, it is crucial to efficiently address the state initialization
+problem, which seeks proper values for the RNN initial states
+at the beginning of each prediction interval. In this work, the
+state initialization problem is addressed using Neural Networks
+(NNs) to effectively train a variety of RNNs for modeling two
+aerial vehicles, a helicopter and a quadrotor, from experimental
+data. It is shown that the RNN initialized by the NN-based
+initialization method outperforms the state of the art. Further, a
+comprehensive study of RNNs trained for multi-step prediction
+of the two aerial vehicles is presented. The multi-step prediction
+of the quadrotor is enhanced using a hybrid model which
+combines a simplified physics-based motion model of the vehicle
+with RNNs. While the maximum translational and rotational
+velocities in the quadrotor dataset are about 4 m/s and 3.8
+rad/s, respectively, the hybrid model produces predictions, over
+1.9 second, which remain within 9 cm/s and 0.12 rad/s of
+the measured translational and rotational velocities, with 99%
+confidence on the test dataset.
+Index Terms—Recurrent Neural Networks, Nonlinear Dynamic
+System Modeling, State Initialization, Multi-step Prediction
+
+I. INTRODUCTION
+
+M
+
+ULTI-STEP prediction of dynamic motion remains
+a challenging problem. The simplifying assumptions
+required in the process of modeling dynamic systems lead to
+unmodeled dynamics, which in turn lead to repeatable and
+systematic prediction errors. When the prediction is required
+over very short periods into the future, the unmodeled dynamics may cause negligible error, however, using the model
+over longer prediction horizons, the unmodeled dynamics can
+lead to drastic growth in the prediction error over time. In
+the discrete-time domain, a prediction required for one time
+step into the future is referred to as a single-step prediction,
+and a prediction many steps into the future is referred to as a
+multi-step prediction.
+In this paper, the multi-step prediction of mobile robotic
+systems is considered. Recurrent Neural Networks (RNNs) are
+mainly employed to learn the dynamics of two aerial vehicles,
+a helicopter and a quadrotor, from experimental data. The
+helicopter dataset belongs to the Stanford Helicopter platform1
+which has been used in Apprenticeship Learning [1] and
+single-step prediction and modeling of the platform [2]. The
+quadrotor dataset, however, has been specifically collected for
+this work.
+Multi-step prediction has many applications in state estimation, simulation and control [3], [4]. For example, model based
+1 http://heli.stanford.edu/dataset/
+
+control schemes, such as Model Predictive Control (MPC) [5],
+can extensively benefit from an accurate long-term prediction.
+Accurate multi-step predictions allow for a slower update
+rate of the MPC, reducing the overall computational burden
+while maintaining smoothness and accuracy of the resulting
+control system response. As another example, in a moving
+vehicle when some measurements, such as GPS readings, are
+temporarily unavailable, a multi-step prediction can account
+for the missing measurements and approximate the system
+position and speed over the blackout period.
+The classic method of modeling, i.e., modeling from first
+principles (or white-box methods), suffer from two major
+difficulties. First, the developed model will contain many
+parameters which describe the system physical characteristics
+(mass, drag coefficient, etc.) and must be properly identified
+prior to using the model. Second, many properties of the
+system might be too difficult to model explicitly, such as
+the vortex-ring effect on a quadrotor vehicle [6]. Identifying
+the parameters of a model can be expensive. For instance,
+measuring the blade drag coefficient of a quadrotor needs
+a wind tunnel. Moreover, by changing the system physical
+properties slightly, the model should be adapted accordingly,
+which may involve new measurements and cumbersome tests.
+On the other hand, learning-based (or black-box) modeling
+relies on the observations from the system to decipher complex
+nonlinearities acting on the system. There are several blackbox architectures, such as polynomial models (the Wiener
+model, Voltera series, etc.), Fuzzy models [7], [8] and Neural
+Networks [9], [10]. Regardless of the method, a black-box
+model has many degrees-of-freedom (DOF), depicted as parameters or weights, that should be found based on a set of
+input-output observations from the system. The search to find
+the appropriate values for the model parameters is usually done
+through an optimization process and, since many black-box
+models are Machine Learning (ML) methods, the parameter
+optimization process is frequently referred to as a learning
+process.
+In recent years, ML has been going through rapid development. Deep Learning (DL) [11], [12] is revolutionizing the
+ML field and solving problems that could not have been
+solved before, such as speech recognition [13] and object
+detection and classification in images [14], [15]. Three main
+components propel this revolution: i) the newly available
+hardware capable of performing efficient parallel processing
+on large numerical models, ii) methods to train these models
+and iii) availability of large-scale datasets. Because of the third
+reason, the applications of deep learning have been mainly
+focused on natural language processing and image classifica-
+
+MULTI-STEP PREDICTION OF DYNAMIC SYSTEMS WITH RNNS, N. MOHAJERIN, S. L. WASLANDER
+
+tion for which such datasets are readily available. However,
+DL methods can be also used in modeling and control of
+robotic systems. In fact, in mobile robotics, where the robot
+is deployed in an unstructured environment with noisy and
+uncertain sensory information, learning from observation can
+deal with problems that are either too difficult or too expensive
+to handle with classical methods. This work demonstrates
+some of the capabilities and applicability of ML methods in
+such applications. Particularly, in this work we show how to
+employ RNNs to accurately predict the behavior of the two
+robotic systems using input information only, many steps into
+the future.
+Using RNNs in multi-step prediction requires a proper state
+initialization, that is, assigning proper initial values to the
+neuron outputs at the first step of prediction. The underlying
+reason is that the RNN recursively updates itself throughout
+the prediction horizon and therefore, exhibits dynamics. Like
+any other dynamic system, the (transient) response of an RNN
+in general depends heavily on its initial condition. For an RNN
+with hidden layers, the common approach is to initialize the
+hidden neuron outputs to zero (or random) values and run the
+network until the effect of the initial values washes out [16],
+[17]. Some of the drawbacks in the washout method are:
+• The washout period is not fixed and hard to determine
+a priori, during which the network does not produce a
+reliable prediction.
+• The network may become unstable during the washout
+period, leading to prolonged or even failed training sessions.
+• In the training process, the input sequence used in
+washout does not contribute to the learning process.
+The third drawback listed above is more severe when the
+dataset collection process is expensive, which is often the case
+with experimental data acquisition in the robotics domain.
+In this work, the RNN state initialization problem is carefully studied. An NN-based initialization method, previously
+proposed in [18], is revisited and expanded. It is shown that
+the network initialized with the NN-based method significantly
+outperforms the same network initialized by the washout
+method. After establishing the effectiveness and efficiency
+of our NN-based initialization method, the results of blackbox modeling of the two aerial vehicles are demonstrated and
+studied. To further improve the quadrotor model, the hybrid
+model in [19] is revisited. This work embodies the capability
+of neural networks in learning unmodeled dynamics of a real
+and challenging robotic system for multi-step prediction, for
+the first time, and may serve as a basis for future development
+and application of more sophisticated learning-based methods
+in modeling, prediction and control of such systems.
+II. BACKGROUND
+
+AND
+
+L ITERATURE R EVIEW
+
+Feed-Forward Neural Networks (FFNNs) have been used
+extensively in modeling and control of dynamic systems [20]–
+[25]. In a control problem, they may be employed as a
+modelling part of a controller in a Lyapunov design approach.
+In this method using a Lyapunov function, the equations for
+evolution of the neural network weights are extracted so that
+
+2
+
+the closed loop controller stabilizes the system [26]–[29].
+Since FFNNs lack exhibiting dynamics, they are mainly used
+as single-step predictor or compensator.
+RNNs possess dynamics and are universal approximators
+for reconstructing state-space trajectories of dynamic systems [30]–[32], which make them suitable candidate models
+for multi-step prediction problem. In [30], it is shown that any
+finite-time trajectory of a dynamic system can be approximated
+by some RNNs to any desired level of accuracy given a proper
+initial state. This result is extended to discrete RNNs in [31].
+This is another aspect to reinforce the importance of a proper
+state initialization for RNN in modeling dynamic systems.
+Nonlinear Auto-Regressive (NAR) models are classic tools
+to model dynamic systems [10], [33], [34]. In [33], Narendra et al. devised methods to use Multi-Layer Perceptrons
+(MLPs) in the Non-linear Autoregressive eXogenous (NARX)
+framework. In a discrete-time fashion, NARX framework
+implements a dynamic system whose output at any given time,
+yk , is a function of the input at that time, uk , and the system
+output and input at previous time steps,
+
+yk = f yk−1 , . . . , yk−τy , uk , uk−1 , . . . , uk−τu ,
+where the length of the memory buffers, i.e., τu and τy , are
+usually given or determined through a hyper-parameter optimization process. The function f (.) can be realised by various
+methods. In [33], the function f (.) is realized by an MLP.
+To avoid confusion, the method to implement this function
+is added to the NARX abbreviation as a suffix. For instance,
+if f (.) is realised by an MLP then the architecture will be
+referred to as NARX-MLP. A NARX-MLP is essentially an
+MLP equipped with buffers and feedback connections. Hence,
+it can be classified as an RNN.
+The NARX-MLP architectures are often trained via a SeriesParallel [33] mode which uses the network target values
+instead of the network past outputs as the delayed version(s)
+of the network output. This method is also known as teacher
+forcing [33]. Clearly, this mode converts the NARX architecture into a feedforward one which therefore loses the main
+advantage of an RNN and limits the ability of the method to
+represent dynamical systems accurately. On the other hand,
+training NARX-MLP in a closed-loop form (Parallel mode)
+to model dynamic systems can be difficult due to numerical
+stability issues in the calculation of the gradient for learning
+based optimization [35].
+One alternative to NARX model is to define an internal
+state, xk , and use a one step memory buffer,
+
+xk =f xk−1 , yk−1 , uk ,
+
+yk =g xk .
+
+This architecture is an example of a Recurrent Multilayer
+Perceptron (RMLP). An RMLP is made by one (or a few)
+locally recurrent layers of sigmoid neurons [36]. RMLPs have
+been used in a number of dynamic system identification and
+modelling problems, such as a heat exchanger [37], engine
+idle operation [38] and wind power prediction [39].
+It is not clear whether using RMLPs is more advantageous
+than NARX-MLPs. However, in [40] it is shown that NARXMLPs, in a single-step prediction scenario, outperform RMLPs
+
+MULTI-STEP PREDICTION OF DYNAMIC SYSTEMS WITH RNNS, N. MOHAJERIN, S. L. WASLANDER
+
+in modelling a real helicopter. NARX RNNs have been extensively studied [41], [42] and used in various modelling
+and identification problems [43]–[45]. In [46], a Radial Basis
+Function (RBF) network in a NARX architecture, i.e., NARXRBF, is used to model and control a quadrotor with three
+horizontal and one vertical propeller. In [47], another form
+of NARX-RBF is employed and trained using LevenbergMarquardt (LM) optimization algorithm to model a small-scale
+helicopter. Both approaches employ teacher forcing.
+Recently, Abbeel et al. used Rectified Linear Units neural
+networks to model dynamics of a real helicopter [2]. Although
+they have not used RNNs, their dataset is also used in this
+work to assess the performance of RNNs. In [48], a deep
+neural network, trained by a Model-Predictive Control (MPC)
+policy search, is used as a policy learner to control a quadrotor.
+The network generates one step policies and has a feedforward architecture. In [49], a few NN architectures, such as
+MLPs, RMLPs, Long-Short-Term-Memory (LSTM) and Gated
+Recurrent Unit cells are compared against each other in single
+step prediction of a few small robotic datasets. In [50], a hybrid
+of recurrent and feed-forward architectures is used to learn
+the latent features for MPC of a robotic end-effector to cut
+20 types of fruits and vegetables. Although the authors use
+recurrent structure, they also state that using their Transforming Recurrent Units (TRUs) in a multi-step prediction scheme
+results in “instability in the predicted values”, so they use
+their proposed network as a one-step predictor. However, the
+recurrent latent state helps to improve the predictions.
+III. P ROBLEM F ORMULATION
+In this section, the multi-step prediction problem is defined
+for a general non-linear dynamic system. As discussed earlier,
+regardless of the system to be modeled by RNNs, a proper state
+initialization is required and therefore, the state initialization
+problem is also defined. Note that for practical purposes we
+are working in the discrete time domain.
+A. Multi-Step Prediction with Recurrent Neural Networks
+Snm
+
+Consider a dynamic system
+with m input and n output
+dimensions. The system input and output at a time instance,
+k, is denoted by uk ∈ Rm and yk ∈ Rn , respectively. We
+assume that both the input and output are measurable at all
+ks. Consider an input sequence of length T starting at a time
+instance k0 + 1, Uk0 +1,T ∈ Rm × RT ,
+
+
+(1)
+Uk0 +1,T = uk0 +1 uk0 +2 . . . uk0 +T .
+
+The system response to this input is an output sequence
+denoted by Yk0 +1,T ∈ Rn × RT ,
+
+
+(2)
+Yk0 +1,T = yk0 +1 yk0 +2 . . . yk0 +T .
+
+The multi-step prediction problem seeks an accurate estimate
+of the system output over the same time-horizon, Ỹk0 +1,T ∈
+Rn × RT ,
+
+
+(3)
+Ỹk0 +1,T = ỹk0 +1 ỹk0 +2 . . . ỹk0 +T ,
+
+3
+
+which minimizes a Sum-of-Squares Error measure (SSE) over
+the prediction length, T ,
+L=
+
+kX
+0 +T
+
+e⊤
+k ek
+
+(4)
+
+k=k0 +1
+
+ek = yk − ỹk .
+
+(5)
+
+An RNN with m input and n output, Rm
+n , is a dynamic
+system. At each time instance k, feeding the input element
+uk to the RNN, it evolves through two major steps: 1) state
+update and 2) output generation,
+
+(6a)
+xk (θ) =f xk−1 (θ), uk ,
+
+(6b)
+ỹk (θ) =g xk (θ), uk ,
+
+where ỹk (θ) and xk (θ) are the RNN output vector and
+state vector, respectively, at time k. The vector θ ∈ Rq
+encompasses the network weights and q depends on the
+architecture of the RNN. The function f (.) is defined either
+explicitly (RMLPs) [36] or implicitly (LSTMs) [51] as are
+discussed in Section V. For g(.), however, we choose a
+linear map because modeling a dynamic system by RNN is
+a regression problem. Note that the network states and/or
+output may also depend on a history of the right-hand-side
+values in the equations (6).
+In the discrete domain, feedback connections require some
+form of a memory buffer. In an RNN, states are the buffered
+values since they determine the network output knowing the
+input and network functions. Depending on the feedback
+source, there are two types of states: 1) output-states, ok ,
+which encompasses feedbacks from the network output, and 2)
+internal-states, sk , which encompasses feedbacks from within
+the network. Therefore the RNN state vector is,
+ 
+o
+(7)
+xk = k ∈ Rs .
+sk
+where s is the states count. Therefore, we can rewrite equations (6) using single-step buffers,
+ok (θ) =ỹk−1 (θ),
+
+(8a)
+
+sk (θ) =f (xk−1 (θ), uk ),
+ỹk (θ) =g(xk (θ), uk ).
+
+(8b)
+(8c)
+
+Using RNNs to address multi-step prediction problem, we
+seek an RNN which given any input sequence Uk0 +1,T ,
+produces an output sequence Ỹk0 +1,T (θ) which minimizes
+the Mean SSE (MSSE) cost over the prediction interval
+[k0 + 1, k0 + T ],
+L(θ) =
+
+1
+T
+
+kX
+0 +T
+
+ek (θ)⊤ ek (θ)
+
+(9)
+
+k=k0 +1
+
+ek (θ) = yk − ỹk (θ).
+
+(10)
+
+where yk is the system output at time k ∈ [k0 + 1, k0 + T ] to
+the input uk ∈ Uk0 +1,T . Therefore, the solution to the multistep prediction problem is an RNN which minimizes L for all
+possible input-output sequences,
+
+θ ∗ = arg min L(θ)
+(11)
+θ
+
+MULTI-STEP PREDICTION OF DYNAMIC SYSTEMS WITH RNNS, N. MOHAJERIN, S. L. WASLANDER
+
+The optimization in equation (11) is practically impossible because there can be infinite input-output sequences. In practice,
+a dataset is collected by measuring the system input and output
+and a numerical optimization is carried out to find a minimum
+of the total cost,
+Lpred (θ) =
+
+D
+1 X
+Li (θ)
+D i=1
+
+D k0 +T
+1 X X
+ei,k (θ)⊤ ei,k (θ),
+=
+T D i=1
+
+(12)
+
+where D is the dataset size. The datasets employed in the
+optimization process are comprised of time-series samples in
+the form of input-output tuples,
+n
+o
+(13)
+D = si = Ui (T ), Yi (T ) .
+where T indicates that all samples are of the same length.
+There are many tricks and tweaks to enhance RNN training
+which some of them are used in this paper and will be
+mentioned in Section VI. For detailed discussions refer to [17]
+and [16].
+B. State Initialization in Recurrent Neural Networks
+Given an initial state, xk0 , we can rewrite the RNN inputoutput equation as a sequence-to-sequence map,
+
+(14)
+Ỹk0 +1,T = F xk0 , Uk0 +1,T .
+
+The function F : Rs × Rm × RT → Rn × RT , symbolizes the
+operations taking place sequentially inside the RNN, defined
+by (8).
+From (14), it is evident that the initial states play a key
+role in the immediate response of the RNN. Therefore, to
+have an accurate estimate one should properly initialize the
+RNN, i.e., set the initial states of the RNN, xk , to values that
+(12) is minimized. Note that minimizing (12) also requires
+training the RNN. Therefore, RNN state initialization should
+be considered as a part of RNN training which should be
+repeatable in the testing (generalization tests) as well. We will
+explain this insight in more details in Section IV.
+TO
+
+RNN
+
+According to (8), at each time-instance k ∈ [k0 + 1, k0 + T ]
+the states, xk , must be updated prior to generating the output,
+ỹk , which requires the knowledge of x(k − 1). Based on
+the universal approximation property, there exists an RNN*
+which can approximate the system to be modelled with ǫk
+error accuracy, where ǫk is the prediction error at time k
+and can be decreased infinitesimally for all k [31]. Therefore,
+Equation (16) for the RNN* becomes,
+ỹk∗0 = A∗s s∗k0 + A∗o o∗k0 + B∗ uk0 ,
+
+(17)
+
+and using the prediction error ǫk0 ,
+
+k=k0 +1
+
+IV. S OLUTIONS
+
+4
+
+yk0 + ǫk0 = A∗s s∗k0 + A∗o ok0 −1 + A∗o ǫk0 −1 + B∗ uk0 . (18)
+Letting ǫk → 0 for all k,
+A∗s s∗k0 −1 ≈ c∗ ,
+
+(19)
+
+where,
+c∗ = yk0 − A∗o yk0 −1 − B∗ uk0 .
+Note that the weights are known at the time of state initialization. However, the RNN* is not necessarily known. Therefore,
+during training an RNN, the state initialization problem for
+system identification boils down to minimizing the following
+cost,
+(20)
+Lsi = |As sk0 − c|,
+with respect to sk0 subject to a ≤ sk0 ≤ b. The constraints
+should enforce the initial states to remain within the range of
+the function which generates the hidden-states. For example
+if the states are generated by a tanh(.) then a = −1, b = +1.
+Ideally we want the Lsi = 0, however, since the initialization
+has to be carried out in both during training and testing phases,
+the exact solution may lead to overfitting as will be described
+later in this section.
+In this section , three methods of state initialization in RNNs
+are studied. The first method, which is also referred to by the
+term washout is described in [17] and perhaps is the most
+commonly used. The second method is based on optimizing
+the initial states along with the network weights [52]. The
+third method employs NNs and has been proposed previously
+by the authors [19] and is expanded here.
+A. RNN State Initialization: Washout
+
+STATE INITIALIZATION PROBLEM
+
+In the context of dynamic system modeling with RNNs, the
+function that produces the network output, i.e., g(.) in (8), is a
+linear mapping. For a prediction generated at the time-instance
+k, the output is,
+ỹk = Axk + Buk ,
+(15)
+where A ∈ Rn × Rs and B ∈ Rn × Rm are the output layer
+weights and their elements are included in the weight vector
+θ, hence, we have dropped θ. Using (7) to expand (15) and
+letting k = k0 we have,
+ỹk0 = As sk0 + Ao ok0 + Buk0 ,
+
+
+A = As Ao .
+
+(16a)
+(16b)
+
+The washout method is based on the idea that running an
+RNN for a period of time steps attenuates (washes out) the
+effect of the initial state values. Therefore, one can set the
+initial states to zero [17], or a random value [16], run the
+RNN for a length of time until the effect of the initial values
+wears off.
+Since there is no deterministic approach to obtain the
+washout period, it has to be treated as a hyper parameter
+and reduces the speed of the learning process. Additionally,
+since RNNs are dynamic systems, during the training process,
+they may temporarily experience instability. While over the
+entire learning process the stability of RNNs is chained to
+the stability of the system being learned, running an unstable
+instance of an RNN during training may result in extremely
+large cost values which cause the learning curve to diverge.
+
+MULTI-STEP PREDICTION OF DYNAMIC SYSTEMS WITH RNNS, N. MOHAJERIN, S. L. WASLANDER
+
+To avoid such ”blow-ups”, extra measures seem necessary. In
+this paper we employ washout as it is stated in [17].
+
+Uk0 +1,T
+
+5
+
+Predictor Ỹk0 +1,T Uk0 +1,T Predictor Ỹk0 +1,T
+RNN
+
+uk0
+
+B. RNN State Initialization: Optimization
+Another proposed approach to initialize an RNN is to
+augment the initial states sk to the weight vector θ and carry
+out the learning process with respect to the augmented weight
+vector [52]. Although this approach may address the state
+initialization problem during the training phase, it does not
+provide a mechanism to generate the initial state values in
+general, after the training is finished. For special cases (for
+instance in [52]) it may be possible to obtain the initial
+hidden state values by running an architecture or problem
+specific optimization process. Since a general approach that is
+applicable to any RNN regardless of the architecture is more
+appealing, this method is not desirable for our purposes.
+C. RNN State Initialization: NN-based
+Consider the ideal RNN, RNN* , where the network output
+differs from the desired output infinitesimally. We can write,
+∗
+ok =yk−1
+≈ yk−1 ,
+
+(21a)
+
+sk =f (xk−1 , uk ).
+
+(21b)
+
+Equations (21) govern the dynamics of the RNN* states.
+To approximate this mapping, it is possible to employ NNs.
+In [19], we have proposed an auxiliary FFNN to produce
+the RNN initial state values, receiving a short history of the
+system input and output. To avoid confusion, the auxiliary
+network will be referred to as the initializer and the RNN
+which performs the prediction as the predictor.
+The idea is to divide the data samples into two segments;
+the first segment is used as the input to the initializer, which
+initializes the predictor states, and the second one is used to
+train the whole network, i.e., the initializer-predictor pair. The
+number of steps in the prediction and initialization segment
+will be referred to as the prediction and initialization length
+and denoted by T and τ , respectively, as illustrated in Figure 1.
+The total length of the training sample is therefore Ttot =
+τ + T.
+0.3
+0.25
+
+Velocity (m/s)
+
+0.2
+0.15
+
+y k0
+yk0 −τ
+
+..
+.
+
+xk0
+xk0
+Initializer
+
+..
+.
+
+MLP
+
+
+
+Uk0 −τ,τ
+Yk0 −τ,τ
+
+Initializer
+RNN
+
+(a) MLP initializer
+
+(b) RNN initializer
+
+Fig. 2: The two proposed initializer-predictor pairs for multistep prediction.
+
+proposes a penalty on the initializer network output. Therefore,
+the initializer-predictor pair will be trained on the following
+cost,
+Ltot = αLpred + βLsi
+(22)
+where the prediction error, Lpred and Lsi are defined in (12)
+and (20), respectively, and the coefficients α and β can be used
+to balance between the two costs. Without loss of generality,
+α and β are set to one in this work. Nevertheless, they can
+be treated as hyper-parameters and tuned to achieve desired
+performance, if necessary.
+MLP Initializer Network: An MLP can be employed
+as the initializer network, which receives a history of the
+measurements from the system and produces the predictor
+initial states.
+xk0 = ζ uk0 −τ , uk0 −τ +1 , ..., uk0 ,
+
+yk0 −τ , yk0 −τ +1 , ..., yk0 .
+
+(23)
+
+In Figure 2a the block diagram of this type of the initializerpredictor pair is illustrated. The underlying assumption in this
+approach is that the dynamics of the RNN states, defined
+in (21), over a fixed period (i.e., the initialization length) can
+be approximated by a static function. The initializer network
+approximates that function.
+Recurrent Initializer Network: Since the RNN states also
+possess dynamic, it is also viable to employ an RNN to model
+their dynamic. An RNN for initialization purpose can be a
+sequence-to-sequence model, ξ(.), which sequentially receives
+the system measurement history over the initialization length,
+τ , and produces an output sequence, Xk0 −τ,τ ,
+
+(24)
+Xk0 −τ,τ = ξ Uk0 −τ,τ , Yk0 −τ,τ ,
+However, only the last element of the output sequence of the
+initializer network, xk0 , is used,
+
+
+Xk0 −τ,τ = xk0 −τ xk0 −τ +1 . . . xk0 .
+(25)
+
+0.1
+0.05
+0
+-0.05
+-0.1
+0
+k0 − τ
+
+uk0 −τ
+
+RNN
+
+5
+
+10
+k0 k0 + 1
+
+15
+
+20
+
+25
+
+Time (10ms)
+
+30
+
+35
+
+40
+
+45
+k0 + T
+
+50
+
+Fig. 1: Dividing a data sample into initialization (red) and prediction (black) segments. Each small circle is one measurement
+from the continuous signal. In this figure, τ = 6 and T = 40.
+
+The desired values for the output of the initializer network,
+i.e., the initial RNN state values, are unknown. However, (20)
+
+Figure 2b illustrates the RNN-RNN initializer-predictor pair.
+The initializer RNN states are set to zero. Clearly, the length
+of the initialization segment should be long enough to capture
+the dynamics of the predictor states.
+In the training process, the two networks are trained together, meaning that their weights are augmented and the
+gradient of the total cost in (22) is calculated with respect
+to the augmented weight vector.
+
+MULTI-STEP PREDICTION OF DYNAMIC SYSTEMS WITH RNNS, N. MOHAJERIN, S. L. WASLANDER
+
+V. M ODEL A RCHITECTURES
+Two classes of models are considered. The first class
+implements RNN-based black-box models. The high-level
+architectures of the black-box models are depicted in Figure 2.
+The predictors in this figure can either be a Multi-Layer-FullyConnected (MLFC) RNN, which essentially is an RMLP with
+skip connections across the network, or Long-Short-TermMemory [51] cells arranged in layers. The initializer networks,
+however, are either MLP or LSTM.
+The second class implements a hybrid of the black-box
+model and a simple physics-based dynamic model of the system in a single end-to-end network. The physics-based model
+represents a priori knowledge about the system behaviour
+derived from first principles while the black-box model learns
+the unmodeled dynamics. The hybrid model is trained for the
+quadrotor vehicle in this work.
+
+A. Multi-Layer-Fully-Connected RNN
+This architecture consists of sigmoid layers which are
+connected in series and equipped with inter-layer (skip) connections in feedforward and feedback directions. The presence
+of skip connections helps to attenuate the effect of the structural vanishing gradient problem. This network is previously
+presented and studied for multi-step prediction of a quadrotor
+vehicle in [18], [53], [54]. For an MLFC with L layers, each
+layer Gl , where l = 1, ..., L, has ml inputs and nl outputs
+(neurons). The equations governing the dynamics of Gl are
+l
+l l
+l
+xlk = Al yk−1
+ + B uk + b
+l
+l
+l
+yk = f xk ,
+
+
+l
+
+(26)
+l
+
+where xlk ∈ Rn is the layer activation level, ykl ∈ Rn is
+l
+the layer output, ulk ∈ Rm is the layer input, all at time
+l
+l
+step k. The matrix Al ∈ Rn × Rn is the feedback weight,
+l
+l
+l
+Bl ∈ Rn × Rm is the input weight matrix, bl ∈ Rn is a bias
+l
+l
+weight vector and f l (.) : Rn → Rnf is the layer activation
+function (f l ∈ C ∞ ). For an MLFC with L layers the input to
+Gl at time k, i.e., ulk is constructed as,
+h
+i
+l+1
+L
+ulk = uk , yk1 , . . . , ykl−1 , yk−1
+, . . . , yk−1
+.
+
+(27)
+
+B. Long-Short-Term-Memory RNN
+LSTMs, first introduced in [51], consist of cells which are
+equipped with gates, and are referred to as gated RNNs.
+Gates in LSTMs are sigmoid layers which are trained to let
+information pass throughout the network in such a way that the
+gradient of the information is preserved across time. There are
+many versions of LSTMs [55]. The version described in [56],
+equipped with peephole connections, is used in this work.
+Peephole connections are connection from the cell, c(.), to
+
+6
+
+the gates. The equations of the LSTM we use in this study
+are given by
+
+gi k =σ Wii uk + Wim mk−1 + Wic ck−1 + bi ,
+
+gkf =σ Wfi uk + Wfm mk−1 + Wfc ck−1 + bf ,
+
+gko =σ Woi uk + Wom mk−1 + Woc ck + bo ,
+
+ck =gki ⊙ f Wci uk + Wcm mk−1 + bc + gkf ⊙ ck−1 ,
+
+mk =g ck ⊙ gko ,
+
+yk =h Wy mk + by = Wy mk + by .
+(28)
+In this set of equations, indices i, f , o and c correspond to the
+input gate, forget gate, output gate and cell. Gate activation
+functions are logistic sigmoid (σ(.)) while the cell activation
+function g(.) and the output activation function h(.) are chosen
+by the designer. Since the problem at hand is regression,
+the activation functions h(.) and g(.) are set to identity and
+tangent-hyperbolic function, respectively.
+Note that in LSTMs, there are two types of states: cell states,
+ck , and hidden states, mk . In our initialization scheme, they
+both are treated similar to the hidden states of MLFCs. That
+is, they are both initialized by the initializer network.
+C. Hybrid model
+It is possible to incorporate prior knowledge in modeling
+a dynamic system with RNNs to enhance both the training
+convergence speed and the accuracy of the predictions. In the
+context of system identification, white-box models are one of
+the most convenient ways to represent the prior knowledge.
+Depending on the simplifying assumptions taken in white-box
+modeling, as well as the intended usage for the final model,
+the definition of the states and input to the white-box model
+may vary. Therefore, the input to the white-box model is not
+necessarily the measured input collected in the dataset. For
+instance, it is difficult to measure thrust acting on a quadrotor
+vehicle, and the dependency of the thrust on the motor speeds
+is complex in general. However, it is possible to approximate
+this dependency throughout the training process and employ
+a white-box model which receives thrust as input. Therefore,
+the first level of learning is to approximate the required input
+to the white-box model from the measured input, which is
+unsupervised in nature since it is already assumed that the
+required input to the white-box is not measured during dataset
+collection.
+The desired values for the white-box model output, on
+the other hand, are partially or entirely measured during
+dataset collection. However, since the white-box model does
+not capture many of the complex nonlinearities acting on
+the system, its output may be too inaccurate to be useful in
+generating predictions of the measured output. Therefore, a
+second level of training is deemed necessary for compensating
+for the error between the white-box model prediction and the
+actual output measurements. Figure 3 illustrates our suggested
+hybrid model based on the two level training discussed above.
+It comprises three modules; an Input Model (IM), a Physics
+Model (PM) and an Output Model (OM). The PM module
+represents the white-box model while the IM and OM modules
+
+MULTI-STEP PREDICTION OF DYNAMIC SYSTEMS WITH RNNS, N. MOHAJERIN, S. L. WASLANDER
+
+u
+
+r
+
+IM
+
+v̂n
+
+v̂
+
+PM
+
+ṽn
+
+OM
+
+w
+
++
+
+p̂
+
+ṽ
+
+7
+
+can be found in [26], [57], [58]. This configuration is illustrated in Figure 4. Blue links represent feedback connections
+and black links represent feedforward connections. The gains
+wω and wξ̇ are set to the maximum values of the vehicle body
+rates and velocity (Table I).
+
+w−1
+
+VI. R ESULTS AND D ISCUSSIONS
+
+Fig. 3: A suggested method to incorporate white-box models
+with RNNs as black box models (Hybrid or grey-box).
+
+are RNNs (with initialization networks). The PM module
+receives r, generated by the IM module, as input and updates
+the state vector, x = [p̂, v̂]. The vector p̂ represents the part
+of the states that can be updated using integrators only, e.g.,
+position. The vector v̂ is additionally dependent on the input to
+the PM module. The main responsibility of the OM module is
+to compensate for the deviation of the v̂ vector from the output
+measurements. The weights denoted by w normalize the input
+to the OM module for numerical stability. The OM module
+generates correction to the white-box prediction, assuming
+the white-box prediction error can be compensated by an
+additive term. The inclusion of the PM module output in the
+hybrid model output ensures that the PM module is actively
+engaged in the prediction. During the supervised training of
+the hybrid model, if the PM module only receives the error
+information through the OM module, it is possible, and highly
+likely, that the PM module is not effectively employed and the
+OM module, due to its many DOFs, learns a mapping which
+is too far from being a reliable and accurate model for the
+system [19].
+
+Two datasets are used for training RNNs in the described
+multi-step prediction problem. The first is the Stanford helicopter dataset2 which is intended for Apprenticeship Learning [1]. The second dataset, which is collected for this
+work, encompasses various flight regimes of a quadrotor
+flying indoors. The quadrotor dataset is publicly available at
+https://github.com/wavelab/pelican dataset.
+A. Quadrotor Dataset
+The quadrotor dataset consists of time-series samples which
+are recovered from post-processing measurements of the states
+of a flying quadrotor in a cubic indoor space. The total
+recorded flight time is approximately 3 hours and 50 minutes,
+which in total corresponds to about 1.4 million time steps for
+each time-series. The vehicle states are measured using onboard sensors as well as a precise motion capture system. The
+vehicle is operated by a human pilot in various flight regimes,
+such as hover, slight, moderate and aggressive maneuvers. The
+maximum values for the 6 DOFs of the vehicle are listed in
+Table I. For more details about the dataset refer to [59].
+ẋ (m/s)
+
+ẏ (m/s)
+
+ż (m/s)
+
+.
+p (rad/s)
+
+q (rad/s)
+
+r (rad/s)
+
+3.9268
+
+3.9721
+
+5.8526
+
+3.9116
+
+3.8506
+
+3.7902
+
+TABLE I: Maximum values for the Pelican measurements.
+−1
+wω
+
+B. Helicopter Dataset
+η̂
+wω
+
+ω̂
+
+u
+
+IM
+
+τ̃
+
+MM
+
++
+
+ω̂ n
+
+˙
+ξ̂
+
+ω̃ n
+
+OM
+˙
+ξ̂n
+
+˙
+ξ̃n
+
++
+
+wξ̇
+
+ξ̂
+
+wξ̇−1
+
+Fig. 4: Hybrid model of a quadrotor.
+
+C. Architectures and Implementation
+
+For modeling the quadrotor, the PM module implements
+the vehicle motion model and, therefore, is referred to as
+the Motion Model (MM) module. The MM module receives
+torques and thrust and updates the vehicle states, x, which is,
+T
+
+xT = [η T ωT ξ T ξ̇ ]
+= [φ θ ψ p q r x y z ẋI ẏI żI ].
+
+The Helicopter data set was collected in August 2008 as
+a part of research for Apprenticeship Learning [1]. It has
+also been used for a single-step prediction system identification problem [2]. The flights are carried out in an outdoor
+environment, however, the dataset does not provide a wind
+measurement. The flight time is approximately 55 minutes and
+there are 300k samples for each quantity. For more information
+about the dataset see http://heli.stanford.edu/index.html.
+
+(29)
+
+where η is the Euler angles, ω is the body angular rates in
+the body frame (or body rates), ξ is the position and ξ̇ is the
+velocity, both in the inertial frame. The details of the model
+
+The predictor network can be either an MLFC, LSTM or
+LSTM equipped with buffers. The buffers are called Tapped
+Delay Lines (TDLs) [9]. The TDL size is 10, throughout
+the experiments in this work. Each of the predictors may
+be initialized in one of the three fashions: washout, with an
+MLP initializer or with an RNN initializer. In case of an
+RNN initializer, an LSTM with one layer of LSTM cells is
+employed. In order to refer to each configuration, the following
+notation is used:
+2 Available
+
+at http://heli.stanford.edu/dataset/
+
+MULTI-STEP PREDICTION OF DYNAMIC SYSTEMS WITH RNNS, N. MOHAJERIN, S. L. WASLANDER
+
+Tpred = 1.9 sec @ 100Hz
+60
+
+||ēφ̇,k || (deg/sec)
+
+60
+50
+40
+30
+20
+10
+0
+10
+
+15
+
+where ēξ̇,k is measured in meters per second (m/s) and ēω,k
+and ēη̇,k are measured in degrees per second (deg/sec). The
+˙ ω and η̇ correspond to the velocity, body rates
+subscripts, ξ,
+and Euler rates, respectively. Note that each error is averaged
+over the three perpendicular axes to give the average errors
+on each component of each vector. All the three prediction
+errors are calculated at each prediction step, k. Note that using
+absolute values weighs all errors equally, regardless of sign.
+Using other norms does not significantly alter the comparative
+results.
+
+20
+
+25
+
+30
+
+35
+
+To compare the effect of our NN-based initialization method
+versus washout, simple configurations of MLFCs and LSTMs,
+initialized by either our method or washout, are trained and
+studied. To save training time, the networks are trained on
+three subsets of the helicopter dataset. Each dataset belongs
+to a Multi-Input-Single-Output (MISO) subsystem of the helicopter which maps the pilot commands to the Euler rates. The
+following architectures are trained and compared in Figure 5:
+•
+•
+•
+•
+
+MLFC: 1×50 - MLP: 60×10
+MLFC: 1×50 - Washout: 10
+LSTM: 1×50 - MLP: 60×10
+LSTM: 1×50 - Washout: 10
+
+From Figure 5 it is observed that the NN-based initialization
+method has improved both the immediate and the overall prediction accuracy. When the prediction error is long, however,
+the NN-based and washout initialized RNN predictors converge to almost the same error eventually. It is also evident that
+an efficient washout period is difficult to determine, whereas in
+our NN-based initialization methods such a problem does not
+exist. The results clearly show the superiority of our NN-based
+initialization scheme over the state-of-the-art.
+
+30
+20
+
+40
+
+50
+
+Tpred = 0.4 sec @ 100Hz
+
+150
+
+Tpred = 1.9 sec @ 100Hz
+60
+
+60
+
+40
+
+20
+
+50
+40
+30
+20
+10
+
+5
+
+10
+
+15
+
+20
+
+25
+
+30
+
+35
+
+40
+
+50
+
+Time (10ms)
+
+100
+
+150
+
+Time (10ms)
+
+Tpred = 0.4 sec @ 100Hz
+
+Tpred = 1.9 sec @ 100Hz
+
+60
+
+70
+
+||ēψ̇,k || (deg/sec)
+
+||ēψ̇,k || (deg/sec)
+
+100
+
+Time (10ms)
+
+80
+
+50
+40
+30
+20
+10
+0
+
+60
+50
+40
+30
+20
+10
+0
+
+5
+
+10
+
+15
+
+20
+
+25
+
+30
+
+35
+
+40
+
+50
+
+Time (10ms)
+LSTM: 1x50 MLP: 60x10
+
+100
+
+150
+
+Time (10ms)
+LSTM: 1x50 Washout: 10
+
+MLFC: 1x50 MLP: 60x10
+
+MLFC: 1x50 Washout: 10
+
+Fig. 5: Comparison between NN-based (using MLP) and
+washout initialization on the simplified helicopter dataset. From
+top to bottom: roll rate, pitch rate and yaw rate.
+
+F. MLFC vs. LSTM
+Having established the superiority of NN-based initialization scheme, next the predictor architecture is evaluated. The
+following architectures are trained on the same subsets of the
+helicopter dataset:
+•
+•
+•
+•
+
+E. NN-based Initialization vs. Washout
+
+40
+
+Time (10ms)
+
+0
+
+To evaluate the network prediction accuracy, the mean and
+distribution of the prediction error at each time step are
+studied. The distributions will be illustrated using box-plots
+over the two aforementioned prediction lengths. Note that
+for the evaluation the test dataset is used, i.e., each sample
+for evaluation has not been used to train the network. The
+following norms are used,
+
+||ēξ̇,k || = 13 |eẋI ,k | + |eẏI ,k | + |eżI ,k | ,
+
+||ēω,k || = 31 |ep,k | + |eq,k | + |er,k | ,
+(30)
+
+1
+||ēη̇,k || = 3 |eφ̇,k | + |eθ̇,k | + |eψ̇,k | ,
+
+50
+
+10
+5
+
+||ēθ̇,k || (deg/sec)
+
+D. Evaluation Metrics
+
+||ēφ̇,k || (deg/sec)
+
+For example, an LSTM predictor with 3 layers, each having
+200 LSTM cells initialized by an MLP with 1000 neurons in
+the hidden layer and an initialization length of 10 is referred
+to by LSTM: 3×200-MLP:1000×10 .
+The initialization length is 0.1s, or 10 steps, for all of the
+networks trained in this work. Two prediction lengths are
+considered, Tpred = 0.4s and Tpred = 1.9s, which correspond
+to 40 steps and 190 steps of prediction, respectively.
+
+Tpred = 0.4 sec @ 100Hz
+70
+
+||ēθ̇,k || (deg/sec)
+
+[predictor]: [number of layers] × [size of each layer] [initializer type]: [hidden layer size]×[initialization length]
+
+8
+
+•
+
+MLFC: 1×50 - MLP: 60×10
+MLFC: 2×50 - MLP: 100×10
+MLFC: 2×100 - MLP: 200×10
+LSTM: 1×50 - MLP: 60×10
+LSTM: 2×50 - MLP: 100×10
+
+As a comparative measure, the following Root Mean Sum
+of Squared Errors (RMSSE) measure is calculated on the test
+dataset,
+v
+u
+nG Tpred
+u
+X
+X
+1
+RM SSE = t
+(31)
+e⊤
+i (k)ei (k),
+Tpred nG i=1
+k=τ +1
+
+where nG is the size of the test dataset, G.
+In Figure 6 the RMSSE measure versus the size of the networks (number of weights) are plotted for the aforementioned
+architectures. In these graphs it is observed that the LSTMs
+with MLP initialization outperform other methods. In fact,
+LSTMs with fewer weights perform better than MLFCs. As a
+part of hyper-parameter optimization, it is a reasonable choice
+to conduct the remaining experiments with LSTMs initialized
+by the NN-based scheme.
+G. MLP vs RNN Initializers
+In this section, variants of LSTM networks initialized with
+the two initializer networks are examined. The LSTM networks are comprised of layers of LSTM cells connected in
+
+MULTI-STEP PREDICTION OF DYNAMIC SYSTEMS WITH RNNS, N. MOHAJERIN, S. L. WASLANDER
+
+2
+1
+0
+2
+
+4
+
+6
+
+8
+
+4
+2
+
+Tpred = 0.4 sec
+
+×10 -3
+
+4
+
+10
+
+H. Black-box Modeling of the Helicopter
+0
+
+2
+
+×10 4
+
+Number of weights
+
+4
+
+6
+
+8
+
+10
+×10 4
+
+Number of weights
+
+2
+1
+
+Tpred = 1.9 sec
+
+×10 -3
+
+8
+
+3
+
+RMSSE
+
+6
+4
+2
+
+0
+
+0
+0
+
+2
+
+4
+
+6
+
+8
+
+Tpred = 0.4 sec
+
+×10 -3
+
+0
+
+2
+
+4
+
+6
+
+8
+
+10
+×10 4
+
+Number of weights
+
+2
+1
+
+Tpred = 1.9 sec
+
+×10 -3
+
+4
+
+RMSSE
+
+3
+
+10
+×10 4
+
+Number of weights
+
+3
+2
+
+To study the reliability and accuracy of the predictions it is
+best to look at the distribution of the prediction error, across
+the test datasets, throughout the prediction length.
+Figure 8 compares the mean of the error distributions over
+the two prediction lengths. It would have been expected that
+the prediction error increases monotonically throughout the
+prediction length. This is more or less the case for Tpred =
+0.4s. However, for longer prediction lengths the monotonic
+increasing behaviour is no longer observed. Instead, a peak
+appears at the early stages of the prediction and it is attenuated
+as we go forward in time. This is contrary to our expectation.
+
+1
+0
+4
+
+6
+
+8
+
+10
+
+0
+
+2
+
+×10 4
+
+Number of weights
+
+4
+
+6
+
+8
+
+10
+×10 4
+
+Number of weights
+
+Fig. 6: Network size vs. RM SSE and LSTMs vs. MLFCs,
+helicopter reduced dataset.
+
+series. The last layer output is fed back to the first layer. For
+some experiments, to provide the predictor with a truncated
+history of the signals, TDLs are placed at the input and
+output of the networks. The networks map the pilot commands
+to the Euler rates (4 inputs and 3 outputs). The following
+architectures are trained and assessed:
+LSTM: 7×200 - MLP: 15000×10
+LSTM: 7×200 - RNN: 2500×10
+LSTM TDL: 7×200 - MLP: 15000×10
+LSTM TDL: 7×200 - RNN: 2500×10
+
+•
+•
+•
+•
+
+Tpred = 0.4 sec
+
+0.4
+
+E(||ēξ,k
+˙ ||) m/s
+
+2
+
+0.3
+0.2
+0.1
+0
+0
+
+10
+
+20
+
+0.08
+
+0.08
+0.07
+
+0.06
+
+0.07
+0.06
+
+0.05
+4.5
+
+5
+
+5.5
+
+6
+
+6.5
+
+LSTM: 7x200 MLP: 15000x10
+
+5
+
+φ̇
+
+6
+
+6.5
+
+4.5
+
+0.06
+6
+
+6.5
+
+6.5
+
+ψ̇
+
+0.075
+0.07
+
+0.062
+0.06
+0.058
+
+0.065
+5.5
+
+Network weights ×10 7
+
+6
+
+0.064
+
+RMSSE
+
+0.065
+
+5.5
+
+LSTM TDL: 7x200 RNN: 2500x10
+
+θ̇
+
+0.07
+
+5
+
+5
+
+Network weights ×10 7
+
+LSTM TDL: 7x200 MLP: 15000x10
+
+0.08
+
+RMSSE
+
+RMSSE
+
+5.5
+
+LSTM: 7x200 RNN: 2500x10
+
+0.075
+
+4.5
+
+0.07
+
+Network weights ×10 7
+
+0.056
+4.5
+
+5
+
+5.5
+
+6
+
+6.5
+
+Network weights ×10 7
+
+0
+0
+
+LSTM: 7x200 RNN: 2500x10
+
+Tpred = 0.4 sec
+
+15
+
+10
+
+5
+
+0
+10
+
+20
+
+50
+
+100
+
+150
+
+30
+
+LSTM TDL: 7x200 MLP: 15000x10
+
+40
+
+LSTM TDL: 7x200 RNN: 2500x10
+
+Tpred = 1.9 sec
+20
+15
+10
+5
+0
+0
+
+50
+
+100
+
+150
+
+Time (x10ms)
+
+Fig. 8: Mean of the error distributions for the four black-box
+models of the helicopter. The top row plots correspond to the
+velocity and the bottom row plots correspond to angular rates.
+
+0.08
+
+0.06
+4.5
+
+Network weights ×10 7
+
+40
+
+ψ̇
+
+0.09
+
+RMSSE
+
+0.09
+
+RMSSE
+
+RMSSE
+
+θ̇
+0.09
+
+0.2
+
+Time (x10ms)
+
+LSTM: 7x200 MLP: 15000x10
+
+Time (x10ms)
+
+φ̇
+
+0.4
+
+Time (x10ms)
+
+0
+
+0.1
+
+30
+
+Tpred = 1.9 sec
+
+0.6
+
+E(||ēη̇,k ||) deg/s
+
+0
+
+E(||ēξ,k
+˙ ||) m/s
+
+0
+
+E(||ēη̇,k ||) deg/s
+
+RMSSE
+
+it can be seen that the trained models behave similarly and
+therefore, we mainly focus on these four architectures.
+
+LSTM:1x50-MLP:60x10
+LSTM:2x50-MLP:100x10
+MLFC:1x50-MLP:60x10
+MLFC:2x50-MLP:100x10
+MLFC:2x100-MLP:200x10
+
+0
+0
+
+RMSSE
+
+Tpred = 1.9 sec
+
+×10 -3
+
+6
+
+RMSSE
+
+RMSSE
+
+Tpred = 0.4 sec
+
+×10 -3
+
+3
+
+9
+
+4.5
+
+5
+
+5.5
+
+6
+
+6.5
+
+Network weights ×10 7
+
+Fig. 7: Comparisons of network sizes and types on learning
+the helicopter angular rates from pilot commands. (Top row:
+Tpred = 0.4s, bottom row: Tpred = 1.9s)
+
+Figure 7 illustrates the total RMSSE cost on the test dataset
+for the helicopter angular rates over the previously mentioned
+prediction lengths. The networks are quite large, therefore, a
+few strategies were chosen to prevent overfitting; the network
+weights were initialized to tiny numbers, weight decay regularizer and drop-out method [60] were also employed. Since
+the measures are calculated over the test dataset, overfitting
+did not occur. Based on the results illustrated in Figure 7,
+
+As the LSTMs are efficient in learning long-term dependencies [61], the decrease in the error over late predictions
+might be due to noise attenuation and accumulating more
+information about the process by the LSTMs. Also, the peaks
+may be reduced if the initialization length increases. However,
+increasing the initialization length decreases the lengths to be
+used for training the predictor networks. It is also observed
+that the LSTMs, equipped by TDLs and initialized by RNNs
+generally perform better for longer horizons, which reinforces
+this hypothesis. However, for the Euler rate predictions, the
+behaviour of the mean error is not consistent. This inconsistency may be due to the size and quality of the helicopter
+dataset. Some of the drawbacks in using the helicopter dataset
+for multi-step prediction are,
+1) The input to the networks is the pilot command and
+there are many levels of transformation which take
+place before the commands affect the helicopter motion.
+Time synchronization can also become very difficult to
+manage in such situations. To circumvent this, using
+actual motor speeds as the inputs is likely to mitigate
+effects of delay and command transformation.
+
+3
+2
+1
+0
+0
+
+10
+
+20
+
+30
+
+40
+
+E(||ēω,k ||) deg/s
+
+Tpred = 0.4 sec
+
+Tpred = 1.9 sec
+4
+3
+2
+1
+0
+0
+
+50
+
+Time (x10ms)
+LSTM: 7x200 MLP: 15000x10
+
+LSTM TDL: 7x200 MLP: 15000x10
+
+E(||ēξ,k
+˙ ||) m/s
+
+0.04
+
+0.02
+
+0
+10
+
+20
+
+30
+
+0.04
+0.03
+0.02
+0.01
+0
+
+40
+
+0
+
+50
+
+Time (x10ms)
+
+0.5
+
+0
+20
+
+150
+
+Tpred = 1.9 sec
+
+E(||ēξ,k
+˙ ||) m/s
+
+Tpred = 0.4 sec
+
+10
+
+100
+
+Time (x10ms)
+
+1
+
+0
+
+150
+
+LSTM TDL: 7x200 RNN: 2500x10
+
+Tpred = 1.9 sec
+
+0.06
+
+0
+
+100
+
+Time (x10ms)
+LSTM: 7x200 RNN: 2500x10
+
+Tpred = 0.4 sec
+
+E(||ēξ,k
+˙ ||) m/s
+
+I. Black-box Modeling of the Quadrotor
+The quadrotor models in this study map a trajectory of the
+motor speeds and a truncated history of the system states (to
+initialize the RNNs) to the vehicle velocity and body angular
+rate vectors (or body rates). Learning velocity directly from
+motor speeds is difficult, because of the dependency of the
+velocity on the vehicle attitude. A network whose output comprises of both the velocity and body rates is difficult to train,
+as the network output associated with the velocity diverges
+during early stages of the training and prohibits the training to
+converge. Therefore, as proposed in [54], the velocity and body
+rates are decoupled and learned separately: one network learns
+to predict body rates from motor speeds and the other learnes
+to predict the velocity from motor speeds and body rates.
+As the training is offline, the actual body rates are used to
+train the second network, which resembles the teacher forcing
+method [33]. However, to use the two networks for multi-step
+prediction, the first network provides the second network with
+the predicted body rates, in a cascaded architecture. We call
+this mode practical.
+Figure 9 illustrates the mean of the error norms, measured
+at each prediction step, for the aforementioned architectures,
+over the two prediction lengths. For the body rate prediction
+(the top row), the prediction accuracy on average remains
+better than 3.5 (deg/sec) over 1.9 seconds prediction length
+(Tpred = 1.9s). For this length, similar to the helicopter
+black-box model, an initial increase in the prediction error
+is observed. Although the error improves as the prediction
+proceeds, this initial increase is not favourable in a control
+application. The later improvement of the prediction error is
+due to the properties of the LSTM network as discussed for
+the helicopter model.
+The plots in the middle row illustrate the average of the
+norm of the velocity prediction errors in the teacher force
+mode, i.e., the samples in the test dataset include the measured
+body rates as inputs. The accuracy of the predictions on
+average remains better than 4 cm/s over almost 2 seconds.
+From the plots on the first and second rows, it is also
+observed that TDLs improve the prediction accuracy, which is
+consistent with our observation from the helicopter dataset. It
+is also observed that the LSTMs initialized with RNNs (RNNRNN pairs) have better prediction accuracy over the longer
+prediction lengths; a reinforcing observation on the argument
+that the LSTMs efficiently employ information spread across
+time.
+
+10
+
+4
+
+E(||ēξ,k
+˙ ||) m/s
+
+2) Considering the complex dynamics of a helicopter, the
+dataset is relatively small. Better prediction performance
+is expected if more data is collected in a variety of flight
+regimes.
+3) The helicopter is flown outdoors and is very likely
+affected by wind. However, no information about the
+wind is provided in the helicopter dataset. To obtain a
+predictor for the vehicle dynamic a controlled environment is more desirable.
+As we have considered the above drawbacks in collecting
+the quadrotor dataset, it is expected that quadrotor dataset
+better suits the multi-step prediction problem at hand.
+
+E(||ēω,k ||) deg/s
+
+MULTI-STEP PREDICTION OF DYNAMIC SYSTEMS WITH RNNS, N. MOHAJERIN, S. L. WASLANDER
+
+30
+
+1
+
+0.5
+
+0
+
+40
+
+Time(x10ms)
+
+0
+
+50
+
+100
+
+150
+
+Time (x10ms)
+
+Fig. 9: Mean of the error norms for the black-box model of the
+quadrotor, over the two prediction lengths. From top to bottom,
+the y axis corresponds to body rates, velocity in the teacher
+force and velocity in the practical mode.
+
+The bottom row corresponds to the velocity prediction errors
+in the practical mode. Comparing the teacher force mode,
+the velocity prediction accuracy is degraded by a factor of
+approximately 25. Additionally, it can be observed that the
+networks with the RNN initializer suffer more from the error
+in body rate prediction. In conclusion, the black-box model
+provides a reliable and accurate body rate prediction, however,
+the velocity prediction is far from desirable.
+J. Hybrid Mmodel of the Quadrotor
+As opposed to the black-box model, the hybrid model
+(Figure 4) provides the velocity and body rate prediction
+simultaneously. The IM and OM modules in the hybrid model
+are initialized RNNs. The proceeding results correspond to
+the IM and OM modules configured as LSTM: 4×200 - MLP:
+5000×10. In this section, the error distributions are studied to
+further assess the model prediction accuracy.
+In Figures 10, 11, 12 and 13 we compare the error distributions of the black-box model (in the practical mode) and the
+hybrid model for the two prediction lengths. For the shortest
+prediction length (0.4s) the hybrid model reduces the body rate
+error by 50% and the velocity error by about 20× compared
+to the black-box model.
+For the body rate prediction over Tpred = 1.9s, the blackbox initially performs worse, however, in the long run it performs better than the hybrid model. One possible explanation
+for this behaviour is that the MM module in the hybrid model
+limits the exploration capacity of the OM module. Although,
+the inclusion of the motion model contributes significantly to
+the accuracy of the early prediction steps, it may also impose
+
+MULTI-STEP PREDICTION OF DYNAMIC SYSTEMS WITH RNNS, N. MOHAJERIN, S. L. WASLANDER
+
+Distribution of ||ēξ,k
+˙ ||, Hybrid model
+(m/sec)
+
+0.15
+0.1
+0.05
+0
+0
+
+20
+
+40
+
+60
+
+80
+
+100
+
+120
+
+140
+
+160
+
+180
+
+Time (x10ms)
+
+Distribution of ||ēξ,k
+˙ ||, Blackbox model, Practical mode
+(m/sec)
+
+1.5
+1
+0.5
+0
+0
+
+20
+
+40
+
+60
+
+80
+
+100
+
+120
+
+140
+
+160
+
+180
+
+Time (x10ms)
+
+Fig. 12: Comparison of the velocity error distribution between
+the hybrid (top) and the black-box (bottom) models (Tpred =
+1.9s).
+Distribution of ||ēω,k ||, Hybrid model
+10
+
+(deg/sec)
+
+restrictions on the search for the optimal weights. However, the
+LSTMs in the black-box model are free to explore the entire
+weight space and they can accumulate relevant information
+over longer time to perform better. For the velocity, we see that
+black-box still performs worse, however, a slight decrease is
+seen on the later predictions which is similar to the behaviour
+in the body rate prediction.
+In Figure 14, the mean of the prediction errors are illustrated
+before compensation (the MM output) and after, for each
+prediction lengths. This figure shows the importance of RNN
+network initialization. The plots show that the MM module
+prediction error starts from a non-zero value which requires the
+OM module to immediately compensate for that. Therefore,
+the output of the OM module should start from a non-zero
+value which requires a proper state initialization for the RNNs.
+Note that at each prediction step, the compensated states are
+fed back into the MM module.
+
+11
+
+5
+
+0
+0
+
+20
+
+40
+
+60
+
+80
+
+100
+
+120
+
+140
+
+160
+
+180
+
+160
+
+180
+
+Time (x10ms)
+
+Distribution of ||ēξ,k
+˙ ||, Hybrid model
+
+Distribution of ||ēω,k ||, Black-box model
+10
+
+(deg/sec)
+
+(m/sec)
+
+0.1
+
+0.05
+
+0
+0
+
+5
+
+10
+
+15
+
+20
+
+25
+
+30
+
+35
+
+40
+
+Time (x10ms)
+
+0
+0
+
+20
+
+40
+
+60
+
+80
+
+100
+
+120
+
+140
+
+Time (x10ms)
+
+Distribution of ||ēξ,k
+˙ ||, Blackbox model, Practical mode
+
+Fig. 13: Comparison of the body rate error distribution between
+the hybrid (top) and the black-box (bottom) models (Tpred =
+1.9s).
+
+1.5
+
+(m/sec)
+
+5
+
+1
+0.5
+0
+0
+
+5
+
+10
+
+15
+
+20
+
+25
+
+30
+
+35
+
+40
+
+Time (x10ms)
+
+Fig. 10: Velocity error distribution of the hybrid (top) and
+the black-box (bottom) models (Tpred = 0.4s). Note that the
+prediction by the hybrid model is over an order of magnitude
+better than the black-box.
+
+Distribution of ||ēω,k ||, Hybrid model
+(deg/sec)
+
+10
+
+model. The accuracy of the trained hybrid model for multistep prediction is demonstrated experimentally. The prediction
+provided by the hybrid model can be effectively employed in
+a variety of control schemes. We hope that the provided study
+and experiments in this work illustrate a number of efficient
+ways to benefit from the ever rising power of machine learning
+methods in modeling and control of robotic systems.
+
+5
+
+R EFERENCES
+0
+0
+
+5
+
+10
+
+15
+
+20
+
+25
+
+30
+
+35
+
+40
+
+Time (x10ms)
+
+Distribution of ||ēω,k ||, Black-box model
+(deg/sec)
+
+10
+
+5
+
+0
+0
+
+5
+
+10
+
+15
+
+20
+
+25
+
+30
+
+35
+
+40
+
+Time (x10ms)
+
+Fig. 11: Comparison of the body rate error distribution between
+the hybrid (top) and the black-box (bottom) models (Tpred =
+0.4s).
+
+VII. C ONCLUSION
+In this paper, we employ RNNs to identify the dynamics of
+two aerial vehicles. The importance of RNN state initialization,
+as well as the effectiveness of our proposed method to properly
+initialize the states of RNNs are demonstrated. The RNNs with
+our proposed state initialization method are used as black-box
+models to learn the model of a helicopter and a quadrotor, for
+multi-step prediction, from experimental dataset. To overcome
+drawbacks from a pure black-box model, a simplified model
+of the quadrotor motion is embedded with RNNs in a hybrid
+references
+[1] P. Abbeel, A. Coates, and A. Y. Ng, “Autonomous helicopter aerobatics
+through apprenticeship learning,” The International Journal of Robotics
+Research, vol. 29, no. 13, pp. 1608–1639, 2010.
+[2] A. Punjani and P. Abbeel, “Deep learning helicopter dynamics models,”
+in Robotics and Automation (ICRA), IEEE International Conference on.
+IEEE, 2015, pp. 3223–3230.
+[3] A. G. Parlos, O. T. Rais, and A. F. Atiya, “Multi-step-ahead prediction
+using dynamic recurrent neural networks,” Neural Networks, vol. 13,
+no. 7, pp. 765–786, 2000.
+[4] R. Boné and M. Crucianu, “Multi-step-ahead prediction with neural
+networks: a review,” 9emes rencontres internationales: Approches Connexionnistes en Sciences, vol. 2, pp. 97–106, 2002.
+[5] J. Maciejowski, Predictive Control with Constraints. Prentice Hall,
+2002.
+[6] G. M. Hoffmann, H. Huang, S. L. Waslander, and C. J. Tomlin, “Precision flight control for a multi-vehicle quadrotor helicopter testbed,”
+Control engineering practice, vol. 19, no. 9, pp. 1023–1036, 2011.
+[7] R. R. Yager and L. A. Zadeh, An introduction to fuzzy logic applications
+in intelligent systems. Springer Science & Business Media, 2012, vol.
+165.
+[8] J. J. E. Oviedo, J. P. Vandewalle, and V. Wertz, Fuzzy logic, identification
+and predictive control. Springer Science & Business Media, 2006.
+[9] S. Haykin, Neural Networks: A Comprehensive Foundation. PrenticeHall, 1999.
+[10] O. Nelles, Nonlinear system identification: from classical approaches
+to neural networks and fuzzy models. Springer Science & Business
+Media, 2013.
+
+MULTI-STEP PREDICTION OF DYNAMIC SYSTEMS WITH RNNS, N. MOHAJERIN, S. L. WASLANDER
+
+Mean of ||ēξ,k
+˙ ||
+
+Compensated
+
+MM Output
+
+(m/sec)
+
+0.04
+
+0.02
+
+0
+0
+
+5
+
+10
+
+15
+
+20
+
+25
+
+30
+
+35
+
+40
+
+Time (x10ms)
+
+Mean of ||ēξ,k
+˙ ||
+
+Compensated
+
+MM Output
+
+(m/sec)
+
+0.08
+0.06
+0.04
+0.02
+0
+0
+
+20
+
+40
+
+60
+
+80
+
+100
+
+120
+
+140
+
+160
+
+180
+
+Time (x10ms)
+
+Mean of ||ēω,k ||
+
+Compensated
+
+MM Output
+
+(deg/sec)
+
+3
+2
+1
+0
+0
+
+5
+
+10
+
+15
+
+20
+
+25
+
+30
+
+35
+
+40
+
+Time (x10ms)
+
+(deg/sec)
+
+Mean of ||ēω,k ||
+
+Compensated
+
+MM Output
+
+4
+2
+0
+0
+
+20
+
+40
+
+60
+
+80
+
+100
+
+120
+
+140
+
+160
+
+180
+
+Time (x10ms)
+
+Fig. 14: The means of uncompensated output of the MM
+module vs. the compensated output for the velocity and body
+rate predictions.
+
+[11] G. Hinton, S. Osindero, and Y.-W. Teh, “A fast learning algorithm for
+deep belief nets,” Neural computation, vol. 18, no. 7, pp. 1527–1554,
+2006.
+[12] G. Hinton and R. Salakhutdinov, “Reducing the dimensionality of data
+with neural networks,” Science, vol. 313, no. 5786, pp. 504–507, 2006.
+[13] G. Hinton, L. Deng, D. Yu, G. E. Dahl, A.-R. Mohamed, N. Jaitly,
+A. Senior, V. Vanhoucke, P. Nguyen, T. N. Sainath et al., “Deep neural
+networks for acoustic modeling in speech recognition: The shared views
+of four research groups,” Signal Processing Magazine, IEEE, vol. 29,
+no. 6, pp. 82–97, 2012.
+[14] V. Badrinarayanan, A. Kendall, and R. Cipolla, “Segnet: A deep convolutional encoder-decoder architecture for image segmentation,” arXiv
+preprint arXiv:1511.00561, 2015.
+[15] C. Szegedy, S. Ioffe, V. Vanhoucke, and A. A. Alemi, “Inception-v4,
+inception-resnet and the impact of residual connections on learning.” in
+AAAI, 2017, pp. 4278–4284.
+[16] H.-G. Zimmermann, C. Tietz, and R. Grothmann, “Forecasting with
+recurrent neural networks: 12 tricks,” in Neural Networks: Tricks of the
+Trade. Springer, 2012, pp. 687–707.
+[17] H. Jaeger, Tutorial on training recurrent neural networks, covering
+BPTT, RTRL, EKF and the “echo state network” approach. GMDForschungszentrum Informationstechnik, 2002, vol. 5.
+[18] N. Mohajerin and S. L. Waslander, “State initialization for recurrent
+neural network modeling of time-series data,” in Neural Networks
+(IJCNN), International Joint Conference on. IEEE, 2017, pp. 2330–
+2337.
+[19] N. Mohajerin, M. Mozifian, and S. L. Waslander, “Deep learning a
+quadrotor dynamic model for multi-step prediction,” in Robotics and
+Automation (ICRA), IEEE International Conference on. IEEE, 2018.
+[20] V. A. Akpan and G. D. Hassapis, “Nonlinear model identification
+and adaptive model predictive control using neural networks,” ISA
+Transactions, vol. 50, no. 2, pp. 177 – 194, 2011.
+[21] O. Nerrand, P. Roussel-Ragot, D. Urbani, L. Personnaz, and G. Dreyfus,
+“Training recurrent neural networks: why and how? an illustration in
+dynamical process modeling,” Neural Networks, IEEE Transactions on,
+vol. 5, no. 2, pp. 178–184, 1994.
+[22] A. Delgado, C. Kambhampati, and K. Warwick, “Dynamic recurrent
+neural network for system identification and control,” Control Theory
+and Applications, IEE Proceedings, vol. 142, no. 4, pp. 307 –314, July
+1995.
+[23] I. Baruch and C. Mariaca-Gaspar, “A levenberg-marquardt learning
+applied for recurrent neural identification and control of a wastewater treatment bioprocess,” International Journal of Intelligent Systems,
+vol. 24, pp. 1094–1114, 2009.
+
+12
+
+[24] J. Atuonwu, Y. Cao, G. Rangaiah, and M. Tade, “Identification and
+predictive control of a multistage evaporator,” Control Engineering
+Practice, vol. 18, no. 12, pp. 1418 – 1428, 2010.
+[25] R. Al Seyab and Y. Cao, “Nonlinear system identification for predictive
+control using continuous time recurrent neural networks and automatic
+differentiation,” Journal of Process Control, vol. 18, no. 6, pp. 568 –
+581, 2008.
+[26] T. Madani and A. Benallegue, “Adaptive control via backstepping
+technique and neural networks of a quadrotor helicopter,” in Proceedings
+of the 17th World Congress of The International Federation of Automatic
+Control, 2008.
+[27] H. Boudjedir, O. Bouhali, and N. Rizoug, “Neural network control based
+on adaptive observer for quadrotor helicopter,” International Journal of
+Information Technology, Control and Automation, vol. 2, no. 3, pp. 39–
+54, 2012.
+[28] T. Dierks and S. Jagannathan, “Output feedback control of a quadrotor
+uav using neural networks,” Neural Networks, IEEE Transactions on,
+vol. 21, no. 1, pp. 50–66, 2010.
+[29] C. Nicol, C. Macnab, and A. Ramirez-Serrano, “Robust adaptive control
+of a quadrotor helicopter,” Mechatronics, vol. 21, no. 6, pp. 927–938,
+2011.
+[30] K.-i. Funahashi and Y. Nakamura, “Approximation of dynamical systems
+by continuous time recurrent neural networks,” Neural Networks, vol. 6,
+no. 6, pp. 801–806, 1993.
+[31] L. Jin, P. N. Nikiforuk, and M. M. Gupta, “Approximation of discretetime state-space trajectories using dynamic recurrent neural networks,”
+Automatic Control, IEEE Transactions on, vol. 40, no. 7, pp. 1266–1270,
+1995.
+[32] A. M. Schäfer and H. G. Zimmermann, “Recurrent neural networks
+are universal approximators,” in Artificial Neural Networks–ICANN.
+Springer, 2006, pp. 632–640.
+[33] K. Narendra and K. Parthasarathy, “Identification and control of dynamical systems using neural networks,” Neural Networks, IEEE Transactions on, vol. 1, no. 1, pp. 4 –27, March 1990.
+[34] S. Chen, S. Billings, and P. Grant, “Non-linear system identification
+using neural networks,” International journal of control, vol. 51, no. 6,
+pp. 1191–1214, 1990.
+[35] N. Mohajerin, J. Histon, R. Dizaji, and S. Waslander, “Feature extraction
+and radar track classification for detecting uavs in civilian airspace,” in
+2014 IEEE Radar Conference (RadarCon 2014). Cincinnati, OH, USA,
+2014.
+[36] J. F. Kolen and S. C. Kremer, A Field Guide to Dynamical Recurrent
+Networks. New York: IEEE Press, 2001.
+[37] A. Parlos, K. Chong, and A. Atiya, “Application of the recurrent
+multilayer perceptron in modeling complex process dynamics,” Neural
+Networks, IEEE Transactions on, vol. 5, no. 2, pp. 255–266, March
+1994.
+[38] X. Li and W. Yu, “Dynamic system identification via recurrent multilayer
+perceptrons,” Information Sciences, vol. 147, no. 1, pp. 45–63, 2002.
+[39] S. Li, “Wind power prediction using recurrent multilayer perceptron
+neural networks,” in Power Engineering Society General Meeting, vol. 4.
+IEEE, July 2003.
+[40] M. V. Kumar, S. Omkar, R. Ganguli, P. Sampath, and S. Suresh,
+“Identification of helicopter dynamics using recurrent neural networks
+and flight data,” Journal of the American Helicopter Society, vol. 51,
+no. 2, pp. 164–174, 2006.
+[41] H. Siegelmann, B. Horne, and C. Giles, “Computational capabilities of
+recurrent narx neural networks,” Systems, Man, and Cybernetics, Part
+B: Cybernetics, IEEE Transactions on, vol. 27, no. 2, pp. 208–215, Apr
+1997.
+[42] T. Lin, B. Horne, P. Tino, and C. Giles, “Learning long-term dependencies in narx recurrent neural networks,” Neural Networks, IEEE
+Transactions on, vol. 7, no. 6, pp. 1329–1338, Nov 1996.
+[43] M. Basso, L. Giarre, S. Groppi, and G. Zappa, “Narx models of an
+industrial power plant gas turbine,” Control Systems Technology, IEEE
+Transactions on, vol. 13, no. 4, pp. 599–604, July 2005.
+[44] S. Anderson, N. Lepora, J. Porrill, and P. Dean, “Nonlinear dynamic
+modeling of isometric force production in primate eye muscle,” Biomedical Engineering, IEEE Transactions on, vol. 57, no. 7, pp. 1554–1567,
+July 2010.
+[45] Z. Li, M. Hayashibe, C. Fattal, and D. Guiraud, “Muscle fatigue tracking
+with evoked emg via recurrent neural network: Toward personalized
+neuroprosthetics,” Computational Intelligence Magazine, IEEE, vol. 9,
+no. 2, pp. 38–46, May 2014.
+[46] J. Wu, H. Peng, Q. Chen, and X. Peng, “Modeling and control approach
+to a distinctive quadrotor helicopter,” ISA Transactions, vol. 53, no. 1,
+pp. 173–185, 2014.
+
+MULTI-STEP PREDICTION OF DYNAMIC SYSTEMS WITH RNNS, N. MOHAJERIN, S. L. WASLANDER
+
+[47] Z. Taha, A. Deboucha, and M. Bin Dahari, “Small-scale helicopter system identification model using recurrent neural networks,” in TENCON
+IEEE Region 10 Conference. IEEE, 2010, pp. 1393–1397.
+[48] T. Zhang, G. Kahn, S. Levine, and P. Abbeel, “Learning deep control
+policies for autonomous aerial vehicles with mpc-guided policy search,”
+in Robotics and Automation (ICRA), IEEE International Conference on.
+IEEE, 2016, pp. 528–535.
+[49] O. Ogunmolu, X. Gu, S. Jiang, and N. Gans, “Nonlinear systems
+identification using deep dynamic neural networks,” arXiv preprint
+arXiv:1610.01439, 2016.
+[50] I. Lenz, R. A. Knepper, and A. Saxena, “Deepmpc: Learning deep latent
+features for model predictive control.” in Robotics: Science and Systems,
+2015.
+[51] J. Schmidhuber and S. Hochreiter, “Long short-term memory,” Neural
+Computation, vol. 9, no. 8, pp. 1735–1780, 1997.
+[52] V. Becerra, J. Calado, P. Silva, and F. Garces, “System identification
+using dynamic neural networks: training and initialization aspects,” IFAC
+Proceedings Volumes, vol. 35, no. 1, pp. 235–240, 2002.
+[53] N. Mohajerin and S. L. Waslander, “Modular deep recurrent neural
+network: Application to quadrotors,” in Systems, Man and Cybernetics,
+IEEE International Conference on, 2014.
+[54] ——, “Modelling a quadrotor vehicle using a modular deep recurrent
+neural network,” in Systems, Man and Cybernetics, IEEE International
+Conference on, 2015.
+[55] K. Greff, R. K. Srivastava, J. Koutnı́k, B. R. Steunebrink, and J. Schmidhuber, “Lstm: A search space odyssey,” Neural networks and learning
+systems, IEEE Transactions on, 2017.
+[56] H. Sak, A. Senior, and F. Beaufays, “Long short-term memory recurrent
+neural network architectures for large scale acoustic modeling,” in
+Fifteenth Annual Conference of the International Speech Communication
+Association, 2014.
+[57] H. Voos, “Nonlinear control of a quadrotor micro-uav using feedbacklinearization,” in Mechatronics, ICM. IEEE International Conference on.
+IEEE, 2009, pp. 1–6.
+[58] A. Freddi, A. Lanzon, and S. Longhi, “A feedback linearization approach
+to fault tolerance in quadrotor vehicles,” in Proceedings of The 2011
+IFAC World Congress, Milan, Italy, 2011.
+[59] N. Mohajerin, “Modeling dynamic systems for multi-step prediction
+with recurrent neural networks,” Ph.D. dissertation, University of
+Waterloo, 2017. [Online]. Available: http://hdl.handle.net/10012/12766
+[60] N. Srivastava, G. E. Hinton, A. Krizhevsky, I. Sutskever, and
+R. Salakhutdinov, “Dropout: a simple way to prevent neural networks
+from overfitting.” Journal of machine learning research, vol. 15, no. 1,
+pp. 1929–1958, 2014.
+[61] S. Hochreiter, Y. Bengio, P. Frasconi, J. Schmidhuber et al., “Gradient
+flow in recurrent nets: the difficulty of learning long-term dependencies.”
+A field guide to dynamical recurrent neural networks. IEEE Press, 2001.
+
+13
+
+

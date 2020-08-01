@@ -1,0 +1,22 @@
+
+while recurrent neural networks
+(rnns) are famously known to be turing
+complete, this relies on infinite precision
+in the states and unbounded computation
+time. we consider the case of rnns with
+finite precision whose computation time
+is linear in the input length. under these
+limitations, we show that different rnn
+variants have different computational
+power. in particular, we show that the
+lstm and the elman-rnn with relu
+activation are strictly stronger than the
+rnn with a squashing activation and the
+gru. this is achieved because lstms
+and relu-rnns can easily implement
+counting behavior. we show empirically
+that the lstm does indeed learn to
+effectively use the counting mechanism.
+
+1
+

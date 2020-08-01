@@ -1,0 +1,16 @@
+
+due to the highly parallelizable architecture,
+transformer is faster to train than rnn-based
+models and popularly used in machine translation tasks. however, at inference time, each
+output word requires all the hidden states of
+the previously generated words, which limits the parallelization capability, and makes it
+much slower than rnn-based ones. in this paper, we systematically analyze the time cost
+of different components of both the transformer and rnn-based model. based on it,
+we propose a hybrid network of self-attention
+and rnn structures, in which, the highly parallelizable self-attention is utilized as the encoder, and the simpler rnn structure is used
+as the decoder. our hybrid network can decode 4-times faster than the transformer. in
+addition, with the help of knowledge distillation, our hybrid network achieves comparable
+translation quality to the original transformer.
+
+1
+

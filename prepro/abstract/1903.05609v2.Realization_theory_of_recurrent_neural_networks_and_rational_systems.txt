@@ -1,0 +1,13 @@
+ in this paper, we show that, under mild assumptions, input-output behavior of a continuous-time recurrent
+neural network (rnn) can be represented by a rational or
+polynomial non-linear system. the assumptions concern the
+activation function of rnns, and they are satisfied by many
+classical activation functions such as the hyperbolic tangent.
+we also present an algorithm for constructing the polynomial
+and rational system. this embedding of rnns into rational
+systems can be useful for stability, identifiability, and realization
+theory for rnns, as these problems have been studied for polynomial/rational systems. in particular, we use this embedding
+for deriving necessary conditions for realizability of an inputoutput map by rnn, and for deriving sufficient conditions for
+minimality of an rnn.
+
+i. 

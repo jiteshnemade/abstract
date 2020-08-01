@@ -1,0 +1,2196 @@
+How recurrent networks implement contextual processing in sentiment analysis
+
+Niru Maheswaranathan * 1 David Sussillo * 1
+
+arXiv:2004.08013v1 [cs.CL] 17 Apr 2020
+
+Abstract
+Neural networks have a remarkable capacity for
+contextual processing—using recent or nearby inputs to modify processing of current input. For
+example, in natural language, contextual processing is necessary to correctly interpret negation
+(e.g. phrases such as “not bad”). However, our
+ability to understand how networks process context is limited. Here, we propose general methods for reverse engineering recurrent neural networks (RNNs) to identify and elucidate contextual
+processing. We apply these methods to understand RNNs trained on sentiment classification.
+This analysis reveals inputs that induce contextual
+effects, quantifies the strength and timescale of
+these effects, and identifies sets of these inputs
+with similar properties. Additionally, we analyze
+contextual effects related to differential processing of the beginning and end of documents. Using
+the insights learned from the RNNs we improve
+baseline Bag-of-Words models with simple extensions that incorporate contextual modification,
+recovering greater than 90% of the RNN’s performance increase over the baseline. This work
+yields a new understanding of how RNNs process
+contextual information, and provides tools that
+should provide similar insight more broadly.
+
+1. Introduction
+Neural networks do a remarkable job at learning structure
+in natural data. These architectures exploit complex relationships between inputs to perform tasks at state-of-the-art
+levels (LeCun et al., 2015). Despite this amazing performance, we still only have a rudimentary understanding of
+exactly how these networks work (Castelvecchi, 2016).
+Rigorously understanding how networks solve important
+tasks is a central challenge in deep learning. This under*
+Equal contribution 1 Google Research, Brain Team, Mountain View, California, USA. Correspondence to: Niru Maheswaranathan <nirum@google.com>, David Sussillo <sussillo@google.com>.
+
+standing is lacking because we use complex optimization
+procedures to set the parameters of ever more complex
+network architectures. Our inability to fundamentally understand how a trained system works makes it difficult to
+identify biases in the network or training data, control for adversarial input, bracket or bound network behavior, suggest
+ways of improving efficiency or accuracy, and elucidate the
+(potentially simple) core mechanisms underlying the task.
+In this work, we focus on building general tools and analyses to understand how recurrent neural networks (RNNs)
+process contextual effects. By contextual effects, we mean
+effects where the interpretation of an input depends on surrounding inputs. For example, in natural language, the
+interpretation of words is modified by preceding words for
+negation (“not bad” vs “bad”) or emphasis (“extremely awesome” vs “awesome”) (Quirk et al., 1985; Horn & Kato,
+2000). We analyze networks trained to perform sentiment
+classification, a commonly studied natural language processing (NLP) task (Wiegand et al., 2010; Mohammad, 2017;
+Zhang et al., 2018).
+When interpreting or understanding how recurrent networks
+work, one line of research uses attribution methods to analyze sensitivity to particular inputs (Simonyan et al., 2013;
+Ribeiro et al., 2016; Li et al., 2015; Arras et al., 2017; Murdoch et al., 2018). These methods utilize gradients of the
+network loss or unit activations with respect to inputs. A second line of research uses tools from dynamical systems analysis to decompose RNN trajectories (Zipser, 1991; Tsung &
+Cottrell, 1995; Casey, 1996; Rodriguez et al., 1999; Sussillo
+& Barak, 2013; Mante et al., 2013; Cueva & Wei, 2018;
+Jordan et al., 2019; Maheswaranathan et al., 2019b). Here,
+we merge these lines of research to understand contextual
+processing of large numbers of inputs in recurrent systems.
+In particular, our key insight is that rich contextual processing can be understood as a composition of precisely organized input-driven state deflections combined with highly
+organized transient dynamics. Critically, the former can
+be as understood using Jacobians with respect to the input,
+analogous to attribution methods, while the latter can be
+understood through Jacobians with respect to the recurrent
+state, analogous to work on RNN dynamics.
+Our main contributions in this work are:
+• a data-driven method for identifying contextual inputs,
+
+How recurrent networks implement contextual processing
+(b) 4
+
+5
+
+Model prediction (logit)
+
+Principal component #2
+
+(a)
+
+0
+
+−5
+−5
+0
+5
+Principal component #1
+
+Probe sentences
+
+3
+2
+1
+0
+−1
+−2
+−3
+−4
+
+Baseline
+“This movie is awesome. I
+like it.”
+
+Negation
+“This movie is not awesome.
+I don't like it.”
+
+Intensifier
+“This movie is extremely awesome.
+I definitely like it.”
+
+0
+
+5
+
+10
+
+15
+
+Time (t)
+
+Figure 1. RNNs and contextual processing. (a) Approximate line attractor dynamics in a GRU trained to perform sentiment classification.
+PCA visualization of trajectories of the system during an example positive (green) and negative (red) review. The approximate line
+attractor is visualized as the light red to green line, colored according to the readout (logit). (b) Evolution of RNN predictions (logits)
+when processing example reviews over time (tokens in the input sentence). Gray (baseline): “This movie is awesome. I like it” (with pad
+tokens inserted to align it with the other examples), Blue (intensifier): “This movie is extremely awesome. I definitely like it.” Orange
+(negation): “This movie is not awesome. I don’t like it.” The RNN correctly handles the intensifier and negation context.
+
+•
+•
+•
+•
+
+a breakdown of the types of contextual effects learned,
+analysis of the strength and timescale of these effects,
+a mathematical model that describes this behavior,
+and a demonstration that simple and interpretable baseline models, augmented to incorporate this new understanding, recover almost all of the accuracy of the
+nonlinear RNNs.
+
+movie is awesome. I like it.”), one with intensifiers (“This
+movie is extremely awesome. I definitely like it.”), and
+one with negation (“This movie is not awesome. I don’t
+like it.”). The RNN is capable of correctly assessing the
+sentiment in these reviews. Below, we break down exactly
+how the RNN is able to accomplish this.
+
+3. Preliminaries
+2. Background
+
+3.1. Linearization and expansion points
+
+Previous work (Maheswaranathan et al., 2019b) analyzed recurrent networks trained to perform sentiment classification.
+They found that RNNs learned to store the current prediction
+as the location along a 1D manifold of approximate fixed
+points of the dynamics, called a line attractor (Seung, 1996;
+Mante et al., 2013). Additionally, they found that words
+with positive and negative valence drive the hidden state
+along this line attractor, which is aligned with the readout.
+A recap of this analysis is presented in Figure 1a, for a gated
+recurrent unit (GRU) (Cho et al., 2014) trained using the
+Yelp 2015 dataset (Zhang et al., 2015).
+
+We denote the hidden state of a recurrent network at time t
+as a vector, ht . Similarly, the input to the network at time t
+is given by a vector xt . We use F to denote a function that
+applies the recurrent network update, i.e. ht = F (ht−1 , xt ).
+The RNN defines an input-driven discrete-time dynamical
+system that sequentially processes inputs, in this case words
+in a document encoded as a sequence of one-hot input vectors. The final prediction (logit) is an affine projection (or
+readout) of the hidden state. In this work, we focus on binary
+sentiment classification, thus the logit is a scalar (wT ht +b),
+with readout weights w and bias b.
+
+Critically, the mechanisms discussed in Maheswaranathan
+et al. (2019b) involved only integration of valence tokens
+along the line attractor. We tested the RNN on the same task
+after randomly shuffling the input words. Shuffling breaks
+apart important contextual phrases, such as “really awesome”
+and “not bad”. On the shuffled test examples, the accuracy
+drops by ∼ 4% (Fig. 10a), close to the performance of a Bagof-Words (BoW) baseline model. Thus, there are additional
+accuracy gains, present in the best performing RNNs, that
+are not explainable using prior known mechanisms.
+
+We can write the first-order approximation to the RNN
+dynamics (Khalil, 2001; Maheswaranathan et al., 2019b)
+around an expansion point (he , xe ) as:
+
+The capability of RNNs to understand context can also be
+observed by probing the RNN with examples that contain
+contextual effects. Figure 1b shows the predictions of the
+RNN in response to three probe reviews, a baseline (“This
+
+ht ≈ F (he , xe )+Jrec |(he ,xe ) ∆ht−1 +Jinp |(he ,xe ) ∆xt , (1)
+where ∆ht−1 = ht−1 − he , ∆xt = xt − xe , and
+{Jrec , Jinp } are Jacobian matrices computed at the expansion
+point. In particular,
+the recurrent Jacobian
+
+
+∂F (h,x)i
+rec
+Jij |(he ,xe ) = ∂hj
+defines the recurrent local dynam
+
+inp
+(h,x)i
+ics and the input Jacobian Jij
+|(he ,xe ) = ∂F∂x
+dej
+fines the system’s sensitivity to inputs.
+
+How recurrent networks implement contextual processing
+
+3.2. Linearization to understand dynamics
+
+∆ht ≈ Jrec |(h∗ ,x∗ ) ∆ht−1 + Jinp |(h∗ ,x∗ ) ∆xt .
+
+(2)
+
+To study the effects of modifier tokens, we also need to
+analyze the system away from approximate fixed points. In
+particular, we analyze the system at hmod , defined as the
+state after processing a particular modifier word. To do this,
+we linearize with respect to just the inputs for a single time
+step, expanding only in x, around xe = 0:
+∆ht = ht − F (hmod , 0) ≈ Jinp |(hmod ,0) xt ,
+
+(3)
+
+where equation (3) does not expand in h, to focus on input
+sensitivity. We make extensive use of the input Jacobian in
+equation (3) in our analysis in §5.
+
+0
+
++1
+
++2
+
+#1
+
+3.3. Linearization to understand modifier words
+
+-1
+
+PC
+
+We use equation (2) to study integration dynamics around
+approximate fixed points, as in Maheswaranathan et al.
+(2019b). These approximate fixed points are found numerically (see Supp. Mat. §B for details).
+
+-2
+
+PC #3
+
+Fixed points are points in state space that remain the same
+when applying the RNN: h∗ = F (h, x∗ ). If the expansion
+point (he , xe ) is an approximate fixed point of the dynamics,
+equation (1) simplifies to a linear dynamical system:
+
+PC #2
+
+Figure 2. State-space plot of a GRU trained on a toy language
+to isolate effects of modifier tokens. This example shows a line
+attractor (line from red to green) that performs integration of valence (value from -2 to +2, bold black numbers). Modifiers such
+as “extremely” (blue) and “not” (orange) achieve their effects by
+deflecting the state away from the line attractor to hextremely and
+hnot , respectively. The effect of these deflections is to modify
+the valence of the input when projected onto the readout. Six
+trajectories are shown, all starting from hpre . Gray shows the single step trajectory for “good” (N, +1) and “bad” (H, -1). In blue
+are the single-step trajectories for “extremely good” (N, +2) and
+“extremely bad” (H, -2), and the multi-step trajectories for “not
+good” (N, -1) and “not bad” (H, +1) are in orange. We defined the
+duration of the effect of the “not” modifier to be 4 tokens.
+
+4. Toy language to isolate modifier dynamics
+In order to illuminate how negation or emphasis is implemented in RNNs we developed a small toy language
+to isolate modifier effects. The language consisted of a
+small number of valence tokens, each with integer valence {−2, −1, 0, 1, 2}, analogous to words such as “awful”, “bad”, “the”, “good”, and “awesome”, respectively.
+In addition, we added two modifier words, an intensifier
+that doubled the valence of the next input, and a negator
+that flipped the sign of the valence of the next four inputs
+(analogous to words such as “extremely” and “not”).
+We generated reviews using this language by randomly ordering the tokens and trained RNNs to track the corresponding sentiment, defined as the cumulative sum of potentially
+modified valence inputs. For example, after training, the
+RNN correctly integrated “good” as +1, “extremely good”
+as +2 and “not good” as -1. We analyzed the networks
+using the methods developed by Maheswaranathan et al.
+(2019b). An example state-space plot from a trained network is shown in Figure 2. Note that this RNN also exhibits
+line attractor dynamics.
+We draw two key insights from this exercise (see Supp.
+Mat. §A for a full analysis). First, modifiers achieve their
+effects by deflecting the state away from the line attractor
+as opposed to along it, the latter of which is what valence
+
+words do. We found that the effect of this deflection away
+from the line attractor on the valence of the subsequent word
+was very well approximated by wT Jinp |(hmod ,0) xval (Supp.
+Fig. 12), where hmod is the state after the modifier input,
+xval is the valence word following the modifier, and w and
+bias b are the readout weights and bias. As shown in the
+Supp. Mat. §A, removing the projection of Jinp |(hmod ,0) x
+into the modification subspace removes the effect of the
+modifier (Supp. Fig. 14).
+Second, the deflection of the state away from the line attractor caused by xmod remains for the duration of the modifier
+effect. For example, in the toy language we confined the
+temporal extent of the modification effects of “extremely”
+and “not” to one word and four words, respectively, and the
+corresponding deflections off the line attractor remain for
+one and four time steps, respectively. Finally, the transient
+dynamics associated with valence modification can be isolated in the local linear dynamics around fixed points on the
+line attractor (Supp. Fig. 11 & 13).
+
+5. Reverse engineering contextual processing
+We turn our attention now to natural language, studying our
+best performing RNN, a GRU, trained to perform sentiment
+classification on the Yelp 2015 dataset (Zhang et al., 2015).
+
+(a)
+
+5.1. Identifying modifier words
+
+Count
+
+1000
+500
+
+Modifier
+tokens
+
+0
+10−4 10−3 10−2 10−1 100
+Change in Input Jacobian (||ΔJinp||F)
+
+For RNNs trained on real world datasets, we did not know
+what words might act as modifiers, therefore, we wanted
+a data driven approach to identify them. Inspired by the
+toy model, we looked for particular words that deflected
+the hidden state to dimensions where the input Jacobian
+changed substantially, as that indicated differential processing of inputs. We defined the change in input Jacobian after
+a particular input, xmod , as:
+dF
+dx
+
+−
+(hmod ,0)
+
+dF
+dx
+
+,
+
+3
+2
+1
+0
+−1
+−2
+−3
+
+extremely
+
+not
+
+−4
+−2
+0
+2
+4
+Principal component #1
+
+Figure 3. Identifying modifier words. Histogram of Frobenius
+norm of change in input Jacobian. Note the log scaling on the
+x-axis, implying this distribution is heavy-tailed. We defined a
+modifier token as anything with a norm greater than 0.1. Example
+words above this threshold that are intuitively modifiers include
+“not”, “never”, “overall”, and “definitely”. Additional words found
+by this measure that are not as intuitive include: “zero”, “two”,
+“poisoning”, and “worst”.
+
+∆Jinp |hmod ≡
+
+Modifier component #1
+
+How recurrent networks implement contextual processing
+
+(4)
+
+(h∗ ,0)
+
+where hmod = F (h∗ , xmod ) is the hidden state after processing xmod , starting from a point on the line attractor, h∗1 .
+Thus, ∆Jinp |hmod measures how the system’s processing of
+words changes as a function of a a preceding word, xmod .
+We studied the size of the changes in input processing by
+computing the Frobenius norm, k∆Jinp |hmod kF , for each of
+the top 10,000 most common words in the dataset. The
+resulting distribution is shown in Figure 3 and is evidently
+heavy-tailed. Examining words with large values reveals
+common negators (e.g. “not”, “never”) and intensifiers (e.g.
+“very”, “definitely”). We selected a set of modifier words for
+further analysis by keeping words whose change in input
+Jacobian was greater than an arbitrary threshold of 0.12 .
+5.2. Analyzing example modifier words
+5.2.1. DYNAMICS OF EXAMPLE MODIFIER TRANSIENTS
+We next looked at the dynamics of the hidden state in response to example modifier words, “extremely” or “not”,
+1
+We suppress the h∗ in the notation as it was held constant in
+our analyses.
+2
+None of the presented results are particularly sensitive to this
+choice.
+
+(b)
+
+"not"
+τ = 2.7 tokens
+"extremely"
+τ = 1.9 tokens
+
+Distance from
+line attractor
+
+3
+2
+1
+0
+0
+
+5
+Time (t)
+
+10
+
+Figure 4. Impulse response to a modifier word. (a) Two trajectories of the network hidden state in response to modifier words
+“extremely” and “not”, projected onto the top PCA component
+(x-axis) as well as the top modifier component (y-axis); see text for
+details. (b) Distance from the line attractor after a single modifier
+word. Circles show response of the RNN, line is an exponential fit.
+
+followed by a series of pad tokens. Figure 4a shows the
+impulse response to “extremely” and “not”, projected into
+a two-dimensional subspace for visualization3 . Each modifier word deflects the hidden state off of the line attractor,
+which then relaxes back over the course of 5-10 time steps,
+similarly to the toy example. Figure 4b shows the same
+impulse response as a function of time, quantified using the
+Euclidean distance from the line attractor. These transients,
+induced by modifiers, explore parts of the RNN state space
+that critically are not contained in the top two PCA dimensions (Fig 1a). It was only through focusing on the change
+in input Jacobian that we were able to identify them.
+5.2.2. M ODIFIER BARCODES
+Next, we asked how the system leverages these transient
+dynamics to enable contextual processing. To answer this,
+we analyzed how the input Jacobian changes along these
+transients in comparison to their values at the line attractor.
+However, a complication arises because a modifier may have
+differing effects on each word and there are many words in
+the vocabulary. Therefore we developed a visualization, a
+modifier barcode, to study the effect of changing Jacobians.
+3
+
+The two-dimensional subspace in Fig 4 consists of the top
+PCA component (x-axis) and the top modifier component (defined
+later in §5.3.1).
+
+0.5
+0.0
+−0.5
+
+"the"
+"not"
+"extremely"
+
+−1.0
+Positive words
+
+0.30
+very
+
+2
+
+extremely
+1
+0
+
+0.20
+
+but
+
+0.15
+
+−1
+
+0.10
+zero
+
+−2
+−3
+
+Negative words
+
+0.25
+five
+
+never
+not
+
+0.05
+0.00
+
+−2
+
+−1
+0
+1
+Modifier component #2
+
+Change in Input Jacobian (||ΔJinp||F)
+
+3
+
+1.0
+
+Modifier component #1
+
+Change in prediction (logit)
+
+How recurrent networks implement contextual processing
+
+2
+
+Figure 5. Barcodes for visualizing the effects of modifiers. The
+barcode is a quantitative signature of a particular modifier word.
+Shown are the barcodes for ‘the’ (gray), “extremely” (blue), and
+“not” (orange). Each point in a barcode is the change in the model’s
+prediction in response to a particular valence word when a modifier
+word precedes it (e.g. “not great”, “not bad”, “not amazing”,
+etc. (orange)), for the top 100 positive words (e.g. “amazing”,
+“awesome”; left) and the top 100 most negative words (e.g. “hate”,
+“awful”; right). For example the “not” barcode shows a negative or
+reduced change for positive valence words and a strong positive
+output change for negative words.
+
+Figure 6. Low-dimensional modifier subspace. Projection of modifier points (teal circles) onto the top two modifier components,
+obtained by performing principal components analysis (PCA) on
+the set of states after processing modifier words. Highlighted are a
+number of example modifiers, including “not” and “extremely”)
+from the previous figure. Emphasizers (e.g. “extremely”, “very”)
+are on one side of the subspace, whereas negators (e.g. “not”,
+“never) are on the other side.
+
+Barcodes are intended to quantify how a given modifier
+word affects processing of future inputs. For a given probe
+word x, we define a barcode for a modifier word as:
+
+these effects over the entire set of identified modifier words.
+In particular, we are interested in understanding how many
+different types of modifiers are there, and whether we can
+succinctly describe their effects and dynamics.
+
+barcodemod (x) = wT ∆Jinp |hmod x,
+
+(5)
+
+mod
+
+where h
+is the RNN state after a modifier word has been
+processed. As there were 90,000 words in the vocabulary
+we instead selected 100 positive and 100 negative words
+(e.g. “awesome” and “awful”) to comprise the barcode4 .
+Figure 5 shows three barcodes, for the words “the”, “extremely”, and “not”. For words that are not modifiers (such
+as “the”), the effects of inputs before and after the word
+are the same, thus the barcode values are close to zero. For
+intensifiers, such as “extremely”, we see that positive words
+(left half of Figure 5) and negative words (right half) are
+accentuated). For negators, such as “not”, positive and
+negative words are made relatively more negative or more
+positive, respectively. In summary, the modifier barcode
+allows us to easily assess what the effects of a particular
+modifier are, through the changing input Jacobian.
+5.3. Summary across all modifier words
+5.3.1. M ODIFIER SUBSPACE
+So far we have analyzed the modifier dynamics and barcodes
+for a couple of example modifiers. Next, we will summarize
+4
+Words were selected by taking the 100 largest (most positive)
+and 100 smallest (most negative) logistic regression weights, using
+a separately fit logistic regression classifier (Bag-of-words model).
+Results do not depend on the particular set of probe words chosen.
+
+First, we collected all of the deflections in the hidden state
+induced by modifier words. This is a set of points in the
+RNN hidden state where there are substantial changes to
+the input Jacobian. We ran principal components analysis
+on this set of points to identify a low-dimensional modifier
+subspace, also ensuring that the subspace is orthogonal to
+the line attractor5 . In particular, two components explained
+96.2% of the variance, suggesting that the dominant modifier
+effects can be understood as occurring in a 2D plane.
+We projected all of the modifier inputs into this 2D subspace
+for visualization to highlight the distribution of modifiers in
+this subspace, as well as some example modifiers (Fig. 6).
+Negators (words like “not” and “never”) live in one part of
+the subspace, whereas intensifiers (words like “extremely”
+and “definitely”) live in another part. Interestingly, these
+two types of modifiers share the same subspace.
+5.3.2. FAST AND SLOW MODIFIER DYNAMICS
+We then studied the dynamics in the modifier subspace. In
+particular, the dynamics of how the hidden state evolves in
+this subspace determines the length of the effects of each
+modifier (called the “scope” in linguistics (Quirk et al., 1985;
+Horn & Kato, 2000)). Figure 7 shows the dynamics of mod5
+
+We do this additional orthogonalization step to ensure that
+the identified modifier subspace does not have any valence effects,
+which occur along the line attractor.
+
+How recurrent networks implement contextual processing
+(a)
+
+(b)
+
+2
+
+we computed barcodes for the top two modifier axes6 (Fig.
+8). We saw that qualitatively, the two dimensions have
+similar effects, so the predominant difference between them
+is presumably the difference in timescales discussed above.
+
+10
+
+Timescale (τ)
+
+1
+
+0
+
+6
+4
+2
+
+−2
+−1
+0
+1
+Modifier component #2
+
+Mod. Comp. #2
+
+0
+
+−1
+
+Mod. Comp. #1
+
+Modifier component #1
+
+8
+
+Figure 7. Timescales of modifier effects. (a) Hidden state dynamics of the impulse response to modifier inputs. Note the line
+attractor projects out of the page. (b) Distribution of the estimated
+timescale of the decay along each modifier component across
+modifier words.
+
+Change in prediction (logit)
+
+ifiers in the 2D subspace, along with a quantification of
+the timescale of the decay in each modifier dimension or
+component (Fig. 7b). We observed that the first modifier
+component is faster (mean τ = 2.6 tokens), whereas the
+second one is slower (mean τ = 4.3 tokens), though there
+is spread in the distributions in both dimensions. This argues that the scope of modifier words in RNNs trained to
+perform sentiment classification lasts for tens of tokens and
+agrees with estimates of the scope of negation from human
+annotators (Taboada et al., 2011; Strohm & Klinger, 2018).
+0.4
+
+However, there are still rich patterns of effects in terms
+of the barcode weights for individual valence words. For
+example, the barcode weight corresponding to the valence
+word “stars” has a strong projection on the first modifier
+component, but not the second. This suggests that modifier
+words that induce important contextual changes for “stars”
+(e.g. “zero stars” and “five stars”) should preferentially have
+larger projections onto the first modifier component, and
+not the second. Indeed, we see that “zero” and “five” are
+included in the set of modifier words, and have projections
+only on the first, faster modifier component (Fig. 6). By
+tuning the input Jacobian for different words along these two
+modifier components, the network is able to correspondingly
+tune the timescale of their effects.
+5.3.4. P ERTURBATION EXPERIMENT
+Finally, to test whether the modifier subspace is necessary
+for contextual computation, we performed a perturbation
+experiment. To do this, we evaluated the network as usual
+except at every timestep we projected the hidden state out
+of the modifier subspace. Doing this, we reasoned, should
+interrupt contextual processing, but leave integration of valence intact. Indeed, we find that this perturbation has these
+expected effects both on single examples and across all test
+examples (Supp. Fig. 18, §F).
+
+6. Other contextual effects
+
+0.2
+
+In addition to modifiers, we found contextual effects that
+are active during network processing of the beginning and
+end of documents.
+
+0.0
+−0.2
+
+6.1. Beginning of documents
+
+−0.4
+Positive words
+
+Negative words
+
+Modifier component #1 (fast, τ = 2.6 words)
+Modifier component #2 (slow, τ = 4.3 words)
+
+Figure 8. Barcodes for the principal components (eigenvectors) of
+the modification subspace. These barcodes show how the two
+dimensions of the modification subspace support rich modification
+of valence words with two time constants.
+
+5.3.3. S UMMARY OF MODIFIER BARCODES
+Beyond dynamics, we were also interested in how the input
+Jacobian changes in this two dimensional subspace. In
+particular, we wanted to understand whether or not there
+are different types of modification effects. To look at this,
+
+After training, we found that the RNN’s initial state, h0 (a
+vector of trainable parameters) is far from the line attractor (Fig. 1a), which surprised us. The reason for this was
+revealed when we computed the modifier barcode corresponding to the learned initial state (Fig. 9a). This barcode
+has a signature very much like that of an intensifier word
+such as “extremely”, in that it accentuates both positive
+and negative valence. Moreover, we can also see that h0 ,
+when projected into the modifier subspace, has a significant
+projection on both modifier components (Fig. 9b). The implication of this is that words at the beginning of a document
+will be emphasized relative to words later in the document.
+6
+
+Although we focus on the top two components in the main
+text, the barcodes for the top 10 modifier components are presented
+in Supp. Fig. 16.
+
+How recurrent networks implement contextual processing
+
+0.5
+0.0
+−0.5
+
+(c)
+
+1
+
+(d) 1.5
+2
+
+2
+Prediction (logit)
+
+(b)
+1.0
+
+Modifier component #1
+
+Change in prediction (logit)
+
+(a)
+
+End of document (EOD) effects
+3
+
+t=0
+t=1
+t=2
+t=3
+
+0
+−1
+
+1
+
+awesome
+good
+bad
+
+0
+
+awful
+
+−1
+−2
+
+−2
+
+0
+−3
+
+−1.0
+Positive words Negative words
+
+−3
+
+−2
+−1
+0
+1
+2
+Modifier component #2
+
+25
+Time (t)
+
+Transient suppression
+
+Beginning of document (BOD) effects
+
+1.0
+
+0.5
+
+0.0
+
+50
+Positive
+words
+
+3
+
+Negative
+words
+
+Figure 9. Contextual effects that occur at the beginning (a-b) and end (c-d) of documents. (a) Barcode measured at the initial state, h0 ,
+reveals that the initial state emphasizes sentiment. (b) Projection of the (trained) initial state (gray circle, t = 0) onto the modifier subspace
+and corresponding dynamics in response to 50 pad tokens (gray line, t = 1, . . . , 50). The initial state initially has a large projection onto
+both modifier components, which means that words in the beginning of each document are emphasized (weighted more strongly) relative
+to words in the middle of the document. (c) When a valence word enters the network it introduces a transient deflection on the readout
+that decays in ∼ 50 steps. This means that words at the end of a review are modified, as the transient has not had time to decay. In the four
+examples shown, the effect is to emphasize these words. (d) Summary of the amount of transient suppression across many words.
+
+Presumably, the RNN learned to do this because it improves
+training performance. We tested this hypothesis directly
+using a perturbation experiment. We projected h0 out of
+the 2D modifier subspace, and then re-tested the GRU using
+this new initial state. We found that this perturbation caused
+a drop in accuracy of 0.17% on the test set and 0.23% on
+the train set, corresponding to an decrease in 68 and 1150
+correct reviews, respectively. Importantly, projecting out a
+random 2D subspace did not affect the accuracy, indicating
+that this accuracy effect is unique to the modifier subspace.
+6.2. End of documents
+We also found contextual effects that emphasized words at
+the end of documents. Here, we identified a different mechanism responsible: short-term transient dynamics. When we
+looked at the impulse response of the system (Fig. 9c), we
+found that the projection onto the readout in response these
+tokens is initially large, but then decays over the course of
+around 50 tokens, until it settles to the steady-state valence
+of each word. We quantified this effect by computing the
+ratio of the steady-state valence to its initial valence. We did
+this for a large set of positive and negative words (Fig. 9d),
+and find consistent effects. The implication is that words at
+the end of a review are also emphasized, as their transient
+effects do not have time to decay away. We further identified
+two linear modes of the recurrent dynamics responsible for
+these transient effects (analyzed in Supp. Mat. §E).
+We also tested that end of document emphasis matters to
+performance with another perturbation experiment. We
+added 50 pad tokens to the end of each review, thus allowing
+the transient dynamics to decay and thereby removing their
+effects along the readout. We evaluated the RNN on this
+padded dataset and found that the test accuracy dropped by
+
+0.05% and the train accuracy by 0.2%, corresponding to
+incorrectly categorizing 20 and 1000 reviews, respectively.
+
+7. Additional RNN architectures
+So far, we have analyzed a particular RNN architecture,
+a GRU. We additionally trained and analyzed other RNN
+architectures, including an LSTM (Hochreiter & Schmidhuber, 1997), Update Gate RNN (Collins et al., 2016), and a
+Vanilla RNN. We found that all of the gated architectures
+were capable of processing modifiers. In particular, shuffling inputs reduced accuracy for the gated architectures
+by a similar amount (Figure 10a), and they have similar
+responses to test phrases with modifier words (Figure 10b).
+Finally, we repeated the analyses in Figures 3-6 for the
+LSTM, which are shown in Supp. Mat. §C. This hints at
+universal mechanisms underlying contextual processing in
+gated RNNs (Maheswaranathan et al., 2019a).
+
+8. Bilinear model captures modifier effects
+Taken together, our analyses reveals the mechanisms by
+which RNNs perform contextual processing. In particular,
+the key mechanism involves changing the input Jacobian
+(Jinp ) in the modifier subspace, and modifier words explicitly project the state into that subspace.
+We can synthesize how the input Jacobian changes by expressing it as the sum of the input Jacobian at the line attractor, Jinp |(h∗ ,0) , with P additional bilinear terms:
+Jinp |(hmod ,0) = Jinp |(h∗ ,0) +
+
+P
+X
+
+
+(hmod −h∗ )T mp Ap ,
+
+p=1
+
+(6)
+
+How recurrent networks implement contextual processing
+(b)
+96%
+
+Logistic Regression
+Vanilla RNN
+UGRNN
+LSTM
+GRU
+
+Test Accuracy
+
+95%
+94%
+93%
+92%
+
+Prediction
+
+(a)
+
+GRU
+
+Shuffled
+
+Vanilla RNN
+
+5.0
+
+5.0
+
+2.5
+
+2.5
+
+2.5
+
+2.5
+
+0.0
+
+0.0
+
+0.0
+
+0.0
+
+2.5
+
+2.5
+
+2.5
+
+2.5
+
+5.0
+
+90%
+Original
+
+UGRNN
+
+5.0
+
+5.0
+
+91%
+
+LSTM
+
+5.0
+
+0.04
+
+0.04
+Extremely Awesome
+Awesome
+Not Awesome0.02
+Extremely Awful
+
+Extremely Awesome
+5.0 Awesome
+Not Awesome
+Extremely Awful
+Awful
+Not Awful
+
+5.0
+
+Figure 10. Summary across different architectures. (a) We performed a control experiment by randomly shuffling the tokens of each
+example sequence. We then classified these shuffled reviews using the RNNs trained on the original (non-shuffled) data. These results
+show that word order matters for gated RNNs but not for the Vanilla RNN or BoW model; thus the gated RNNs take word order into
+account. (b) Example predictions for RNNs for the phrases “extremely awesome”, “awesome”, “not awesome”, “extremely awful”,
+“awful”, and “not awful”. The gated RNN architectures show similar, modulated responses to these tokens while the Vanilla RNN shows
+little modulation of the valences of either “awesome” or “awful”, regardless of the preceding modifier word.
+
+where Ap is a fixed matrix (with the same dimensions as
+the input Jacobian) and mp is a modifier component. Thus
+we capture the variation in Jinp as a function of hmod by
+starting with the input Jacobian at h∗ , a point along the line
+attractor, and adding a small number of bilinear terms to it.
+The additional P terms consist of two components. The first,
+(hmod −h∗ )T mp , a scalar, captures the strength or amount
+of modification as a function of the projection of the hidden
+state onto the modifier component mp . As the hidden state
+decays back to the line attractor, the modification effects naturally decay along with the dot product (ht −h∗ )T mp , with
+h0 = hmod . The second term, Ap , models the corresponding change in the input Jacobian. These Ap terms capture
+variation in the barcodes in Figure 8. We fit the parameters
+(mp and Ap ) by regressing eq. (6) against the actual input
+Jacobian for the set of modifier words7 . This approximation
+captures 83%, 96%, and 98% of the input Jacobian variation
+across all modification tokens for P ∈ [1, 2, 3], respectively.
+
+9. Augmented baseline models with insights
+from RNNs recover performance
+The result that the bilinear model defined in equation (6)
+achieves 98% of the variance in Jinp |(hmod ,0) with only P =
+3 terms motivates baseline models of the form
+wT Jinp |(h∗ ,0) +
+
+P
+X
+
+
+(hmod −h∗ )T mp wT Ap + b, (7)
+
+p=1
+
+where w and b are the readout weights and bias, respectively. First, we note that the first term wT Jinp |(h∗ ,0) ∈ RW
+is analogous to the weights β ∈ RW in a Bag-of-Words
+7
+This regression can be solved in closed form via a singular
+value decomposition (SVD).
+
+model (BoW). The additional P terms can be interpreted as
+additional β mod weights that activate after a modifier word
+occurs and whose effect decays as hmod returns to the line
+attractor. Thus, we propose augmented models of the form
+!
+T
+P
+X
+X
+p
+β[t] +
+(f m ∗ µm ) [t] βmod [t] + b,
+(8)
+t=1
+
+p=1
+
+where we have transitioned to indexing β by time t, which
+selects the weight for the word occurring at index t in the
+p
+review. Modifier weights βmod
+[t] are defined separately from
+the baseline valence weights β[t].
+We model the decaying effect of modifiers via convolution of an indicator that signals the location of each modifier word, µm [t], with a causal exponential filter f m [s] =
+αm exp(−s/τ m ), with scaling αm and timescale τ m .
+All of the augmented baseline models have the form given
+by equation (8), with different choices for what modifiers to
+include. In particular, we trained the following models (full
+descriptions are in Supp. Mat. §G):
+Bag-of-Words (BoW): Baseline model with no modifiers.
+Convolution of Modifier Words (CoMW): BoW plus
+convolutional modifiers with the same regression
+weights (modifiers do not have unique weights).
+Convolution of BOD/EOD: BoW plus two additional
+modifier tokens for the beginning and end of the document (BOD/EOD), with the same regression weights.
+CoMW + βmod : BoW plus conv. modifiers with learned
+regression weights (modifiers have unique weights).
+Convolution of BOD/EOD + βBOD + βEOD : BoW plus
+BOD/EOD modifiers, with learned regression weights.
+CoMW + βmod + βBOD + βEOD : BoW plus convolutional
+and BOD/EOD modifiers, with learned regression
+weights (the most powerful of the above models).
+
+How recurrent networks implement contextual processing
+
+For all of our baseline experiments we set the number of
+modifiers, M = 400, and the number of modifier β mod
+vectors to P = 3 (as P = 3 explains 98% of the variance of
+Jinp |(hmod ,0) in the bilinear model in §8). The models were
+trained using the Adam optimizer (Kingma & Ba, 2014).
+We selected hyperparameters (learning rate, learning rate
+decay, momentum, an `2 regularization penalty, and dropout
+rate) via a validation set using random search. We found
+dropout directly on the input words to be a useful regularizer
+for the more powerful models.
+Results for these augmented baselines are in Table 1. The
+classic BoW model achieved 93.57% (on the Yelp dataset)
+and represents a baseline that does not implement contextual
+processing. The additional five baseline models range in
+increasing modeling power, with the most powerful baseline
+model achieving 95.63%, a test accuracy that is very close
+to the best performing RNN (90% of the difference).
+
+the-art performance on sentiment classification (Dieng et al.,
+2016; Johnson & Zhang, 2016; Zhang et al., 2018), without
+explicitly building in contextual effects, often fine tuning
+larger models trained using unsupervised methods (Howard
+& Ruder, 2018; Sun et al., 2019; Yang et al., 2019).
+Methods for interpreting and understanding the computations performed by recurrent networks include: inspecting
+individual units (Karpathy et al., 2015); using input and
+structural probes (Socher et al., 2013; Hewitt & Manning,
+2019); visualizing salient inputs (Li et al., 2015; Ribeiro
+et al., 2016; Arras et al., 2017; Murdoch et al., 2018), analyzing and clustering RNN dynamics (Elman, 1990; 1991;
+Strobelt et al., 2016; Ming et al., 2017; Maheswaranathan
+et al., 2019b); and studying changes due to perturbed or
+dropped inputs (Kádár et al., 2017). For a review of these
+methods, and others, see Belinkov & Glass (2019).
+
+11. Discussion
+Table 1. Test accuracies across baseline models and RNNs for the
+Yelp and IMDB datsets.
+Y ELP 2015
+
+IMDB
+
+BASELINE MODELS
+BAG OF WORDS
+C ONVOLUTION OF BOD & EOD TOKENS
+C ONV. + BOD & EOD TOKENS + β BOD + β EOD
+C ONVOLUTION OF M ODIFIER W ORDS (C O MW)
+C O MW + β MOD
+C O MW + β MOD + β BOD + β EOD
+
+93.57%
+93.99%
+94.37%
+94.76%
+95.40%
+95.63%
+
+89.47%
+89.57%
+89.60%
+89.90%
+90.68%
+90.75%
+
+RNN MODELS
+GRU (C HO ET AL ., 2014)
+LSTM (H OCHREITER & S CHMIDHUBER , 1997)
+U PDATE G ATE RNN (C OLLINS ET AL ., 2016)
+VANILLA RNN
+
+95.84%
+95.05%
+95.67%
+92.96%
+
+89.63%
+91.59%
+89.43%
+89.55%
+
+10. Related Work
+Understanding context has long been an important challenge
+in natural language processing (Morante & Sporleder, 2012;
+Mohammad, 2017). In particular, including pairs of words
+(bigrams) as features in simple BoW models significantly
+improves classification performance (Wang & Manning,
+2012). Polanyi & Zaenen (2006) introduced the idea of
+“contextual valence shifters”, which model contextual effects by shifting valence for a hand crafted set of modifier
+words. Further work refined these ideas, demonstrating
+their usefulness in improving sentiment classification accuracy (Kennedy & Inkpen, 2006; Taboada et al., 2011);
+identifying the amount and scope of the shifts combining
+human annotators (Ruppenhofer et al., 2015; Schulder et al.,
+2017; Kiritchenko & Mohammad, 2017) and automated
+methods (Choi & Cardie, 2008; Ikeda et al., 2008; Liu &
+Seneff, 2009; Li et al., 2010; Boubel et al., 2013); and finally
+using these lexicons to regularize RNNs (Teng et al., 2016;
+Qian et al., 2016). More recently, due to larger and more
+readily available datasets, neural networks achieve state-of-
+
+In summary, we provide tools and analyses that elucidate
+how neural networks implement contextual processing.
+Here, we focused on unidirectional recurrent networks. Extending these tools to other tasks and architectures, such
+as those that use attention (Bahdanau et al., 2014; Vaswani
+et al., 2017), is a promising future research direction. For
+example, we predict that the reverse direction of a bidirectional RNN (Schulder et al., 2017) would reveal backwards
+modifiers (e.g. the suffix -less which has a suppressive effect
+on the preceding word stem, as in soulless).
+Our analysis reveals rich modifier effects and timescales
+learned by the RNN. These properties are remarkably consistent with properties of modifiers from the linguistics literature, including: the length or scope of contextual effects
+lasting a few words (Chapman et al., 2001; Taboada et al.,
+2011; Reitan et al., 2015; Strohm & Klinger, 2018), the
+asymmetry in the strength and number of negators vs intensifiers (Horn, 1989; Kennedy & Inkpen, 2006; Taboada
+et al., 2011; Schulder et al., 2017), the relative weighting of
+different intensifiers (Ruppenhofer et al., 2015), and the fact
+that negation is better modeled as an additive effect rather
+than a multiplicative effect (Zhu et al., 2014).
+This speaks to the general scientific program of analyzing
+optimized universal dynamical systems to provide insights
+into the underlying structure of natural data.
+
+Acknowledgements
+The authors wish to thank Alex H. Williams, Larry Abbott, Jascha Sohl-Dickstein, and Surya Ganguli for helpful
+discussions.
+
+How recurrent networks implement contextual processing
+
+References
+Arras, L., Montavon, G., Müller, K.-R., and Samek, W. Explaining recurrent neural network predictions in sentiment
+analysis. arXiv preprint arXiv:1706.07206, 2017.
+Bahdanau, D., Cho, K., and Bengio, Y. Neural machine
+translation by jointly learning to align and translate. arXiv
+preprint arXiv:1409.0473, 2014.
+Belinkov, Y. and Glass, J. Analysis methods in neural
+language processing: A survey. Transactions of the Association for Computational Linguistics, 7:49–72, 2019.
+Boubel, N., François, T., and Naets, H. Automatic extraction of contextual valence shifters. In Proceedings of
+the international conference recent advances in natural
+language processing RANLP 2013, pp. 98–104, 2013.
+Casey, M. The dynamics of discrete-time computation,
+with application to recurrent neural networks and finite
+state machine extraction. Neural computation, 8(6):1135–
+1178, 1996.
+Castelvecchi, D. Can we open the black box of AI? Nature
+News, 538(7623):20, 2016.
+Chapman, W. W., Bridewell, W., Hanbury, P., Cooper, G. F.,
+and Buchanan, B. G. A simple algorithm for identifying
+negated findings and diseases in discharge summaries.
+Journal of biomedical informatics, 34(5):301–310, 2001.
+Cho, K., Merrienboer, B. v., Gulcehre, C., Bougares, F.,
+Schwenk, H., and Bengio, Y. Learning Phrase Representations using RNN Encoder-Decoder for Statistical
+Machine Translation. In Proc. Conference on Empirical Methods in Natural Language Processing, Unknown,
+Unknown Region, 2014.
+Choi, Y. and Cardie, C. Learning with compositional semantics as structural inference for subsentential sentiment analysis. In Proceedings of the 2008 Conference on
+Empirical Methods in Natural Language Processing, pp.
+793–801, 2008.
+Collins, J., Sohl-Dickstein, J., and Sussillo, D. Capacity and
+trainability in recurrent neural networks. arXiv preprint
+arXiv:1611.09913, 2016.
+Cueva, C. J. and Wei, X.-X.
+Emergence of gridlike representations by training recurrent neural networks to perform spatial localization. arXiv preprint
+arXiv:1803.07770, 2018.
+Dieng, A. B., Wang, C., Gao, J., and Paisley, J. TopicRNN:
+A recurrent neural network with long-range semantic
+dependency. arXiv preprint arXiv:1611.01702, 2016.
+
+Elman, J. L. Finding structure in time. Cognitive science,
+14(2):179–211, 1990.
+Elman, J. L. Distributed representations, simple recurrent
+networks, and grammatical structure. Machine learning,
+7(2-3):195–225, 1991.
+Golub, M. and Sussillo, D. FixedPointFinder: A tensorflow
+toolbox for identifying and characterizing fixed points
+in recurrent neural networks. Journal of Open Source
+Software, 3(31):1003, 2018. doi: 10.21105/joss.01003.
+Hewitt, J. and Manning, C. D. A structural probe for finding
+syntax in word representations. In Proceedings of the
+2019 Conference of the North American Chapter of the
+Association for Computational Linguistics: Human Language Technologies, Volume 1 (Long and Short Papers),
+pp. 4129–4138, 2019.
+Hochreiter, S. and Schmidhuber, J. Long short-term memory.
+Neural computation, 9(8):1735–1780, 1997.
+Horn, L. A natural history of negation. University of
+Chicago Press, 1989.
+Horn, L. R. and Kato, Y. Negation and polarity: Syntactic
+and semantic perspectives. OUP Oxford, 2000.
+Howard, J. and Ruder, S. Universal language model
+fine-tuning for text classification.
+arXiv preprint
+arXiv:1801.06146, 2018.
+Ikeda, D., Takamura, H., Ratinov, L., and Okumura, M.
+Learning to shift the polarity of words for sentiment classification. In Proceedings of the Third International Joint
+Conference on Natural Language Processing: Volume-I,
+2008.
+Johnson, R. and Zhang, T. Supervised and semi-supervised
+text categorization using lstm for region embeddings.
+arXiv preprint arXiv:1602.02373, 2016.
+Jordan, I. D., Sokol, P. A., and Park, I. M. Gated recurrent units viewed through the lens of continuous time
+dynamical systems. arXiv preprint arXiv:1906.01005,
+2019.
+Kádár, A., Chrupała, G., and Alishahi, A. Representation of
+linguistic form and function in recurrent neural networks.
+Computational Linguistics, 43(4):761–780, 2017.
+Karpathy, A., Johnson, J., and Fei-Fei, L. Visualizing
+and understanding recurrent networks. arXiv preprint
+arXiv:1506.02078, 2015.
+Kennedy, A. and Inkpen, D. Sentiment classification of
+movie reviews using contextual valence shifters. Computational intelligence, 22(2):110–125, 2006.
+
+How recurrent networks implement contextual processing
+
+Khalil, H. K. Nonlinear Systems. Pearson, 2001. ISBN
+0130673897.
+Kingma, D. P. and Ba, J. Adam: A method for stochastic
+optimization. arXiv preprint arXiv:1412.6980, 2014.
+Kiritchenko, S. and Mohammad, S. M. The effect of negators, modals, and degree adverbs on sentiment composition. arXiv preprint arXiv:1712.01794, 2017.
+
+Murdoch, W. J., Liu, P. J., and Yu, B. Beyond word importance: Contextual decomposition to extract interactions
+from LSTMs. In International Conference on Learning
+Representations, 2018.
+Polanyi, L. and Zaenen, A. Contextual valence shifters.
+In Computing attitude and affect in text: Theory and
+applications, pp. 1–10. Springer, 2006.
+
+LeCun, Y., Bengio, Y., and Hinton, G. Deep learning. nature,
+521(7553):436–444, 2015.
+
+Qian, Q., Huang, M., Lei, J., and Zhu, X. Linguistically regularized lstms for sentiment classification. arXiv preprint
+arXiv:1611.03949, 2016.
+
+Li, J., Chen, X., Hovy, E., and Jurafsky, D. Visualizing
+and understanding neural models in nlp. arXiv preprint
+arXiv:1506.01066, 2015.
+
+Quirk, R., Greenbaum, S., Leech, G., and Svartvik, J. A
+Comprehensive Grammar of the English Language. Longman, 1985.
+
+Li, S., Lee, S. Y. M., Chen, Y., Huang, C.-R., and Zhou, G.
+Sentiment classification and polarity shifting. In Proceedings of the 23rd International Conference on Computational Linguistics, pp. 635–643. Association for Computational Linguistics, 2010.
+
+Reitan, J., Faret, J., Gambäck, B., and Bungum, L. Negation
+scope detection for twitter sentiment analysis. In Proceedings of the 6th Workshop on Computational Approaches
+to Subjectivity, Sentiment and Social Media Analysis, pp.
+99–108, 2015.
+
+Liu, J. and Seneff, S. Review sentiment scoring via a parseand-paraphrase paradigm. In Proceedings of the 2009
+Conference on Empirical Methods in Natural Language
+Processing: Volume 1-Volume 1, pp. 161–169. Association for Computational Linguistics, 2009.
+
+Ribeiro, M. T., Singh, S., and Guestrin, C. Why should
+I trust you? explaining the predictions of any classifier.
+In Proceedings of the 22nd ACM SIGKDD International
+conference on knowledge discovery and data mining, pp.
+1135–1144, 2016.
+
+Maheswaranathan, N., Williams, A., Golub, M., Ganguli, S.,
+and Sussillo, D. Universality and individuality in neural
+dynamics across large populations of recurrent networks.
+In Advances in Neural Information Processing Systems
+32, pp. 15603–15615. Curran Associates, Inc., 2019a.
+
+Rodriguez, P., Wiles, J., and Elman, J. L. A recurrent neural
+network that learns to count. Connection Science, 11(1):
+5–40, 1999.
+
+Maheswaranathan, N., Williams, A., Golub, M., Ganguli,
+S., and Sussillo, D. Reverse engineering recurrent networks for sentiment classification reveals line attractor
+dynamics. In Advances in Neural Information Processing
+Systems 32. Curran Associates, Inc., 2019b.
+Mante, V., Sussillo, D., Shenoy, K. V., and Newsome, W. T.
+Context-dependent computation by recurrent dynamics
+in prefrontal cortex. Nature, 503(7474):78, 2013.
+Ming, Y., Cao, S., Zhang, R., Li, Z., Chen, Y., Song, Y.,
+and Qu, H. Understanding hidden memories of recurrent
+neural networks. In 2017 IEEE Conference on Visual
+Analytics Science and Technology (VAST), pp. 13–24.
+IEEE, 2017.
+
+Ruppenhofer, J., Brandes, J., Steiner, P., and Wiegand, M.
+Ordering adverbs by their scaling effect on adjective intensity. In Proceedings of the International Conference
+Recent Advances in Natural Language Processing, pp.
+545–554, 2015.
+Schulder, M., Wiegand, M., Ruppenhofer, J., and Roth, B.
+Towards bootstrapping a polarity shifter lexicon using
+linguistic features. In Proceedings of the Eighth International Joint Conference on Natural Language Processing
+(Volume 1: Long Papers), pp. 624–633, 2017.
+Seung, H. S. How the brain keeps the eyes still. Proceedings of the National Academy of Sciences, 93(23):
+13339–13344, 1996. ISSN 0027-8424. doi: 10.1073/
+pnas.93.23.13339.
+
+Mohammad, S. M. Challenges in sentiment analysis. In A
+practical guide to sentiment analysis, pp. 61–83. Springer,
+2017.
+
+Simonyan, K., Vedaldi, A., and Zisserman, A. Deep inside convolutional networks: Visualising image classification models and saliency maps. arXiv preprint
+arXiv:1312.6034, 2013.
+
+Morante, R. and Sporleder, C. Modality and negation: An
+introduction to the special issue. Computational linguistics, 38(2):223–260, 2012.
+
+Socher, R., Perelygin, A., Wu, J., Chuang, J., Manning,
+C. D., Ng, A., and Potts, C. Recursive deep models for
+semantic compositionality over a sentiment treebank. In
+
+How recurrent networks implement contextual processing
+
+Proceedings of the 2013 conference on empirical methods
+in natural language processing, pp. 1631–1642, 2013.
+Strobelt, H., Gehrmann, S., Huber, B., Pfister, H., Rush,
+A. M., et al. Visual analysis of hidden state dynamics in
+recurrent neural networks. CoRR, abs/1606.07461, 2016.
+
+Zhang, L., Wang, S., and Liu, B. Deep learning for sentiment analysis: A survey. Wiley Interdisciplinary Reviews: Data Mining and Knowledge Discovery, 8(4):
+e1253, 2018. doi: 10.1002/widm.1253.
+
+Strohm, F. and Klinger, R. An empirical analysis of the role
+of amplifiers, downtoners, and negations in emotion classification in microblogs. In 2018 IEEE 5th International
+Conference on Data Science and Advanced Analytics
+(DSAA), pp. 673–681. IEEE, 2018.
+Sun, C., Qiu, X., Xu, Y., and Huang, X. How to fine-tune
+bert for text classification? In China National Conference on Chinese Computational Linguistics, pp. 194–206.
+Springer, 2019.
+Sussillo, D. and Barak, O. Opening the black box: lowdimensional dynamics in high-dimensional recurrent neural networks. Neural computation, 25(3):626–649, 2013.
+Taboada, M., Brooke, J., Tofiloski, M., Voll, K., and Stede,
+M. Lexicon-based methods for sentiment analysis. Computational linguistics, 37(2):267–307, 2011.
+
+Zhang, X., Zhao, J., and LeCun, Y. Character-level convolutional networks for text classification. In Cortes, C.,
+Lawrence, N. D., Lee, D. D., Sugiyama, M., and Garnett,
+R. (eds.), Advances in Neural Information Processing
+Systems 28, pp. 649–657. Curran Associates, Inc., 2015.
+
+Teng, Z., Vo, D.-T., and Zhang, Y. Context-sensitive lexicon
+features for neural sentiment analysis. In Proceedings
+of the 2016 conference on empirical methods in natural
+language processing, pp. 1629–1638, 2016.
+Tsung, F.-S. and Cottrell, G. W. Phase-space learning. In
+Advances in Neural Information Processing Systems, pp.
+481–488, 1995.
+Vaswani, A., Shazeer, N., Parmar, N., Uszkoreit, J., Jones,
+L., Gomez, A. N., Kaiser, Ł., and Polosukhin, I. Attention is all you need. In Advances in neural information
+processing systems, pp. 5998–6008, 2017.
+Wang, S. and Manning, C. D. Baselines and bigrams: Simple, good sentiment and topic classification. In Proceedings of the 50th annual meeting of the association for
+computational linguistics: Short papers-volume 2, pp.
+90–94. Association for Computational Linguistics, 2012.
+
+Zhu, X., Guo, H., Mohammad, S., and Kiritchenko, S. An
+empirical study on the effect of negation words on sentiment. In Proceedings of the 52nd Annual Meeting of
+the Association for Computational Linguistics (Volume 1:
+Long Papers), pp. 304–313, 2014.
+
+Wiegand, M., Balahur, A., Roth, B., Klakow, D., and Montoyo, A. A survey on the role of negation in sentiment
+analysis. In Proceedings of the Workshop on Negation and
+Speculation in Natural Language Processing, NeSp-NLP
+’10, pp. 60–68, Stroudsburg, PA, USA, 2010. Association
+for Computational Linguistics. URL http://dl.acm.
+org/citation.cfm?id=1858959.1858970.
+Yang, Z., Dai, Z., Yang, Y., Carbonell, J., Salakhutdinov,
+R. R., and Le, Q. V. Xlnet: Generalized autoregressive
+pretraining for language understanding. In Advances in
+neural information processing systems, pp. 5754–5764,
+2019.
+
+Zipser, D. Recurrent network model of the neural mechanism of short-term active memory. Neural Computation,
+3(2):179–193, 1991.
+
+How recurrent networks implement contextual processing
+
+A. Toy sentiment task
+A.1. Task introduction
+In order to illuminate how negation or emphasis is implemented in RNNs we developed a small toy language to isolate their
+effects. The language consisted of a small number of valence tokens, each with integer valence {−2, −1, 0, 1, 2} (analogous
+to words such as “awful”, “bad”, “the”, “good”, “awesome”). In addition, we added two modifier words, an intensifier that
+doubled the valence of the next input (analgous to words such as “extremely”), and a negator that reversed the valence of
+the next four inputs (analogous to words such as “not”). We varied the timescales of the modifier effects because there
+was evidence for this in the Yelp 2015 sentiment data we analyzed and also because we were interested in understanding
+modifier words with different dynamics.
+We generated random reviews using this language by randomly selecting 50 words and placing them sequentially. To avoid
+overly complex effects we made sure that “not” could not follow “not” within 4 tokens and that “extremely” could not
+directly follow “extremely”. We trained RNNs to track the corresponding sentiment, defined as the per-time step cumulative
+sum of potentially modified valence inputs. In this way, we could explicitly define per-time step target values for the output,
+thus controlling how an intensifier or negator works. As we specified a per-time step integration target for the network, we
+used a least-mean-squares loss, as opposed to cross-entropy loss typically used for classification. These are differences from
+the standard sentiment classification setup where a review is only associated with a single positive or negative classification
+pertaining to the entire review. For example, after training, the RNN correctly integrated long sequences of words and we
+verified that the RNN integrated “good” as +1, “extremely good” as +2 and “not the the the good” as -1.
+A.2. Confirmation of line attractor dynamics in the toy model
+
+{ }
+
+We analyzed the trained networks using the methods developed by Maheswaranathan et al. (2019b). An example state-space
+plot from a trained network is shown in Figure 2. We verified that the network indeed has line attractor dynamics, as in
+(Maheswaranathan et al., 2019b). More precisely, using fixed point optimization (see Supplemental Methods Section B) we
+identified a 1D manifold of slow points as shown in Figure 2. Each one of these slow points was approximately marginally
+stable, meaning in this case that a single mode of the linearized system was marginally stable. This can be seen in the
+eigenvalue plot in Supp. Figure 11. The eigenvalue associated with this mode is very close to (1, 0) in the complex plane.
+
+0.4
+
+0.4
+
+0.2
+
+0.2
+
+0.0
+
+0.0
+
+0.2
+
+0.2
+
+0.4
+
+0.4
+0.00 0.25 0.50 0.75 1.00
+{ }
+
+0.00 0.25 0.50 0.75 1.00
+{ }
+
+Figure 11. GRU trained on toy sentiment task. Shown are the eigenvalue plots for two fixed points along the line attractor. These fixed
+points are the ones closest to the hextremely and hnot operating points, on the left and right panels, respectively. In both plots there is an
+integration mode near (1, 0). In the left panel, the eigenvalue associated with the mode for the single-step decay dynamic for “extremely”
+is shown in blue. In the right panel, the eigenvalues associated with the decay dynamic for the “not” token are shown in orange. The
+“extremely” emphasis was defined for only the next word, while the “not” negation was defined for four time steps.
+
+A.3. Analysis of state deflections caused by inputs after modifier tokens
+The first analysis we performed beyond those done in (Maheswaranathan et al., 2019b) was to examine whether effects of
+modifier tokens could be well-approximated by a carefully chosen linearization. We chose
+ht ≈ F (hmod , 0) + Jinp |(hmod ,0) xt ,
+
+(9)
+
+How recurrent networks implement contextual processing
+
+with hmod denoting the state immediately after a modifier word enters the system. We measured the quality of equation (9)
+by computing the output value
+wT Jinp |(he ,0) xt + b,
+(10)
+for all valence words when he was set to be either 1) the state somewhere along the line attractor (denoted h∗ ), which
+measures normal integration dynamics, or 2) the state after a modifier word (denoted hmod ), which measures modified
+integration dynamics, so he ∈ {h∗ , hmod }. We show the results in Supp. Figure 12. The results show the linear expansion is
+very good, yielding a 92% accuracy in comparison to the full nonlinear update.
+The quality of these expansion results now gives an abstract explanation for how the RNN implements context via
+modification words. A modifier enters the system and causes a deflection to hmod . The computational purpose for this
+deflection is to enter a region of state space that modifies processing of subsequent word(s). This can be measured by Jinp ,
+as in equation (9) and to good approximation is essentially a linear update to hmod , as measured by the effect on the readout.
+
+good
+awesome
+bad
+awful
+very good
+very awesome
+very bad
+very awful
+not good
+not awesome
+not bad
+not awful
+not nnn good
+not nnn awesome
+not nnn bad
+not nnn awful
+
+2.5
+0.0
+2.5
+
+Figure 12. The effect of modifier tokens in the GRU trained on toy sentiment task. We computed Jinp |he ,0 x as described in the text for
+both modifier inputs and non-modifier inputs. We then measured the readout values for all valence tokens and modifiers (red dashed
+lines). We also measured the readout value for the full nonlinear update from he (red solid lines). The linear update on the readout is
+approximate to 91.8% as measured by the mean absolute value of the ratio of the approximation over the full nonlinear update. Note that
+“nnn” means three noise words between “not” and the valence word.
+
+A.4. Analysis of state dynamics that participate in modifier computation
+Having established how modifier words cause contextual state deflections we became interested in how the RNN implemented
+the transient response to each modifier. In particular, as we defined the effect of “extremely” to last one token and the effect
+of “not” to last for four, we expected there to be different length transients induced by these modifiers. To investigate this,
+we studied the linear system defined by
+∆ht ≈ Jrec |(h∗ ,x∗ ) ∆ht−1 ,
+(11)
+where x∗ = 0, and h∗ was a fixed point along the line attractor chosen because it was closest to hmod , where hmod =
+F (h0 , xmod ) and h0 is the system initial condition. Here xmod ranges over “extremely” and “not”.
+Examination of the eigenvalue spectra for linearizations around the fixed points along the line attractor (Supp. Figure 11)
+revealed three obvious modes far away from the bulk of the eigenvalue distribution. We wondered whether any of these three
+modes were responsible for implementing the transient dynamics associated with the two modifier words. We reasoned that
+if these modes of were of any utility to modifier dynamics, then a projection of the state onto these modes should be apparent
+when a modifier word enters the RNN. Therefore, we computed the subspace angle between (hmod - h∗ ) and `a , the ath left
+eigenvector of the recurrent Jacobian from equation (11). The results are shown in Supp. Fig. 13 and indeed show that the
+isolated extremely fast decaying mode is related to processing of “extremely” and that the oscillatory mode is related to
+processing the “not” token. It is the modes with smallest subspace angle that are highlighted with color in Supp. Fig. 11.
+Finally, we reasoned that if these modes of the linearized systems were important for processing the effect of modifier inputs,
+then removing the projection onto those modes should remove the effect of the modifier. We therefore rank ordered the left
+eigenvectors by how much their individual removal perturbed the effect of the modifier. Specifically, we defined the state
+
+Angle (degrees)
+
+How recurrent networks implement contextual processing
+
+50
+
+50
+
+0
+
+0
+0
+
+25
+
+50
+75
+Linear mode #
+
+100
+
+0
+
+25
+
+50
+75
+Linear mode #
+
+100
+
+Figure 13. Subspace angles between state space deflections caused by modifier tokens and the left eigenvectors of the linearized systems
+around fixed points. Left panel. The subspace angles (degrees) between (hextremely −h∗ ) and `a for the ath left eigenvector of the linear
+system around the fixed point closest to hextremely . Right panel is the same as the left panel, except for analysis of the “not” modifier.
+
+deflection of a valence word after a modifier word as hvalence = F (hmod , xvalence ), then we measured error in wT hvalence + b
+as the components of hmod that projected onto `a were removed, for all a. We then computed the cumulative sum of these
+effects, starting with the removal of the mode that was most important and then removing both the first and second most
+important modes, etc.8 The results are shown in Supp. Fig. 14 and confirm that removing even the single mode with largest
+projection into (hmod −h∗ ) essentially completely destroys the modification effect.
+
+1.0
+
+Readout projction
+
+0.0
+
+0.5
+
+0.5
+99 3
+
+1.0
+
+4 17 16 33 32 27
+
+19 39
+0.0
+
+1.5
+
+0.5
+
+2.0
+
+1.0
+0
+
+Linear mode #
+
+10
+
+69 70 98 97 96 95 94 51
+0
+
+Linear mode #
+
+11 12
+10
+
+Figure 14. Removing the components of hmod that project onto select left eigenvectors of the linearized systems around fixed points
+completely destroys the effect of the modifier input. See text for methodological details. Left) The result of removing `99 , a very fast
+decaying mode, completely destroyed the effect of the “extremely” modifier token on the valence word “bad”. Right) removing the modes
+`69 and `70 completely destroyed the effect of the “not” modifier token on the valence word “bad”. In this case there were three noise
+words used, e.g. “not the the the bad”.
+
+B. Fixed point finding methodology
+We treat any recurrent neural network (RNN) update as a function F , that updates a hidden state h in response to some
+input: ht = F (ht−1 , xt ). This defines a discrete time dynamical system. Fixed points of these dynamics are given by points
+h∗ where applying the function F does not change the state: h∗ = F (h∗ , x), for some input x. Here, we focus on fixed
+points in the absence of input (x = 0).
+To computationally identify fixed points of the recurrent dynamics, we numerically solve the following optimization
+problem (Sussillo & Barak, 2013; Golub & Sussillo, 2018):
+1
+min kh − F (h, 0)k22 .
+h 2
+8
+
+For complex conjugate pairs, we always removed the pair when one vector was slated to be removed.
+
+(12)
+
+How recurrent networks implement contextual processing
+
+In general, the function minimized in equation (12) has many local minima, corresponding to different slow points or
+fixed points of F . We are interested in finding all slow points, regardless of whether they are local minima, such that
+|h∗ −F (h∗ , 0)| is significantly smaller than |Jrec |(h∗ ,0) ∆ht−1 | in ht ≈ F (h∗ , 0)+Jrec |(h∗ ,0) ∆ht−1 , thereby enabling highquality linear approximations to the dynamics. We find these by running the optimization problem above starting from a large
+set of initial points, taken from the randomly selected RNN hidden states visited during test examples (Maheswaranathan
+et al., 2019b). We initialized the fixed point finding routine using 10,000 hidden states of the RNNs while performing
+sentiment classification.
+
+(a)
+
+(b)
+
+Count
+
+1000
+500
+
+Modifier
+tokens
+
+0
+10−4 10−3 10−2 10−1 100
+Change in Input Jacobian (|| Jinp||F)
+
+2
+1
+
+very
+five
+
+extremely
+but
+
+0
+1
+2
+
+zero
+never
+not
+
+1
+0
+1
+Modifier component #2
+
+Change in prediction (logit)
+
+(d)
+Modifier component #1
+
+(c)
+
+Modifier component #1
+
+C. Additional architectures
+3
+2
+1
+0
+1
+2
+3
+
+extremely
+
+not
+
+4
+2
+0
+2
+4
+Principal component #1
+
+1.0
+0.5
+0.0
+0.5
+
+"the"
+"not"
+"extremely"
+
+1.0
+Positive words
+
+Negative words
+
+Figure 15. Analysis of modifier effects for an LSTM. This figure reproduces the analyses for an LSTM that are shown in the main paper
+for a GRU. It shows that LSTMs implement contextual effects of modifier words in a way very similar to the GRU. (a) Histogram of
+modifiers using data driven approach, as in Fig. 3. (b) Impulse response to modifier words, as in Fig. 4a. (c) Modifier subspace showing
+arrangement of various modifier words, as in Fig. 6. (d) Modifier barcodes for “not”, “the”, and “extremely” as in Fig. 5.
+
+In the main text, we provided a detailed analysis of a particular RNN, a gated recurrent unit (GRU) (Cho et al., 2014). We
+were interested in whether our results were sensitive to this particular RNN architecture. To explore this, we trained an
+analyzed additional RNN architectures on the same task. Supp. Fig. 15 shows the results of applying our analyses to a
+trained LSTM (Hochreiter & Schmidhuber, 1997). We find a remarkable degree of similarity between the two networks
+(compare Fig. 3, Fig. 4a, Fig. 6, and Fig. 5 from the main text to Supp. Fig. 15a-d, respectively).
+We see similar results for the other gated RNN architecture we trained, the Update Gate RNN (UGRNN; (Collins et al.,
+2016)). However, for the Vanilla RNN, we find that it does not have a clear modifier subspace, and is incapable of correctly
+processing contextual effects (Fig. 10). We suspect this is due to difficulties in training vanilla RNNs, rather than due to
+reduced modeling capacity, as the mechanisms proposed in this paper can in theory be implemented using Vanilla RNNs.
+The degree of similarity in the mechanisms learned by gated RNNs for contextual processing suggest that these mechanisms
+may be universal computational motifs (Maheswaranathan et al., 2019a).
+
+How recurrent networks implement contextual processing
+
+D. Additional barcodes
+0.5
+
+Modifier Comp. #1
+
+0.0
+
+−0.5
+
+0.5
+
+Modifier Comp. #2
+
+0.0
+
+Pos
+
+Neg
+
+Modifier Comp. #6
+
+0.0
+
+−0.5
+
+0.5
+
+−0.5
+
+0.5
+
+Neg
+
+−0.5
+
+Modifier Comp. #3
+
+0.0
+
+Pos
+
+Neg
+
+Modifier Comp. #7
+
+0.0
+
+Pos
+
+0.5
+
+−0.5
+
+0.5
+
+Neg
+
+−0.5
+
+Modifier Comp. #4
+
+0.0
+
+Pos
+
+Neg
+
+Modifier Comp. #8
+
+0.0
+
+Pos
+
+0.5
+
+−0.5
+
+0.5
+
+Neg
+
+−0.5
+
+Modifier Comp. #5
+
+0.0
+
+Pos
+
+Neg
+
+Modifier Comp. #9
+
+0.0
+
+Pos
+
+0.5
+
+−0.5
+
+Pos
+
+Neg
+
+Modifier Comp. #10
+0.5
+
+0.0
+
+Pos
+
+Neg
+
+−0.5
+
+Pos
+
+Neg
+
+Figure 16. Additional modifier barcodes. For every modifier component, we compute a barcode to summarize the effect of that particular
+modifier dimension on inputs. The barcode summarizes the change in sensitivity to particular salient inputs (here, the top 100 positive and
+top 100 negative words). Barcode values of zero indicate that the sensitivity to those words is not affected (that is, there are no contextual
+effects). Each panel shows the barcode corresponding to a given modifier component. We additionally highlight the first (purple) and
+second (pink) components using different colors.
+
+The barcodes presented in Figure 8 show the effects of modifiers along the top two modifier components (colored in purple
+and pink, respectively). Below (Fig. 16), we present additional barcodes for the top 10 modifier components. Note that
+nearly all of the variance in the modifier subspace is captured by just a few (2-3) components. Perturbation experiments also
+suggest that contributions from modifier components outside the top three to overall accuracy are minor (Supp. Fig. 18, §F).
+However, these additional barcodes do contain interesting structure. In particular, components seven and nine may have
+subtle contributions to processing of modifiers.
+
+E. Transient EOD effects are implemented using two modes
+We observed contextual processing at the end of a document, implemented using transient decay dynamics. That is, valence
+words would initially induce a large projection onto the readout, but this would decay to a steady-state value (Fig.9b). The
+steady-state effect occurs due to integration along the line attractor (Maheswaranathan et al., 2019b).
+For the transient effects, we studied modes outside of the integration modes (those associated with slow eigenvalues) and
+modifier dynamics (those associated with very fast modes on the timescale of tens of tokens). In particular, we found two
+additional modes which were strongly activated by valence words, mode 78 (with a corresponding timescale of 19.57 tokens)
+and mode 194 (with a timescale of 6.63 tokens).
+To quantify the transient suppression for these two modes, we computed the (instantaneous) change in prediction when
+we applied the linearized RNN with individual modes (eigenmodes) removed. This allows us to examine how important
+individual modes are to the instantaneous processing of valence tokens. Removing modes 78 and 194 resulted in strong
+changes in the valence associated with positive and negative words (Supp. Fig. 17a). To verify the timescale of these
+transient effects, we computed the average change in prediction across a set of 100 valence (50 positive and 50 negative)
+words over time. This allows us to investigate how individual eigenmodes contribute to the overall transient (Supp. Fig. 17b).
+Finally, we performed a perturbation experiment to examine the effect of these two modes in particular. We probed the
+system’s step response to valence tokens (“awesome”, “good”, “bad”, and “’awful”), and either ran the full system or
+projected the hidden state out of subspace defined by modes 78 and 194 (Fig. 17c). This perturbation reduced or eliminated
+the transient effects.
+Taken together, these results suggest that the RNN implements end of document contextual processing using two additional
+modes of the recurrent dynamics. These modes induce a transient that decays with timescales of around 7 and 20 tokens.
+
+How recurrent networks implement contextual processing
+
+(b)
+Difference in step response
+
+Change in prediction
+
+0.50
+0.25
+0.00
+0.25
+0.50
+
+Mode 78
+Mode 194
+
+Positive words
+
+(c)
+2
+
+0.20
+
+Mode 78
+Mode 194
+
+0.15
+0.10
+0.05
+
+Prediction (logit)
+
+(a)
+
+1
+awesome
+good
+bad
+
+0
+
+awful
+
+1
+2
+
+0.00
+0
+
+25
+Time (t)
+
+Negative words
+
+50
+
+0
+
+25
+Time (t)
+
+50
+
+Figure 17. An analysis of transient linear dynamics that contribute to the end of document contextual effects. (a) We analyzed the linear
+modes of the recurrent Jacobian around a typical fixed point on the line attractor. In particular, we studied the projection of the linear
+modes onto the readout as a function of eigenvalue decay. We found two modes, #78, and #194 (dark green and light green respectively)
+that had substantial projections onto the readout and correspondingly large effects on the transient valence of positive and negative words
+(gray shows the change in prediction for the other modes). (b) The average absolute change in transient valence to valence words achieved
+by modes #78 and #194. (c) The transient valence of “awesome”, “good”, “bad”, “awful” are reproduced from Figure 9 (solid lines),
+while the effect of removing the projection of the readout onto transient modes #78 and #194 are also shown (dashed lines).
+
+Therefore, the last 20 or so tokens in a given document will be emphasized relative to those in the middle of a document.
+
+F. Perturbations
+Here, we perform perturbation experiments to eliminate particular mechanisms in the RNN. This demonstrates that these
+mechanisms are necessary for particular function. To test whether the modifier subspace is necessary for contextual
+processing, we probed the RNN with the same examples from Fig. 1a, but at every step we project the RNN hidden state out
+of either the modifier subspace (Supp. Fig. 18a) or a random control subspace (Supp. Fig. 18b). The modifier subspace
+perturbation selectively removes the network’s ability to process contextual inputs. Finally, we ran the same perturbation for
+all of the examples in the test set. We found a negligible effect on accuracy when projecting out of a random subspace, but a
+significant reduction in accuracy when projecting out of the modifier subspace (Supp. Fig. 18c).
+
+G. Augmented baseline models
+Below, we provide full definitions for all of the augmented baseline models tested in §9.
+Bag-of-words model (W + 1 parameters): Each word in the document is associated with a scalar weight. These weights
+are then summed along with a bias.
+T
+X
+β[t] + b
+(13)
+t=1
+
+Convolution of Modifier Words (CoMW) (W + 1 + 2M parameters): Modifier words scale the same weights used to
+estimate the valence of each word without modification. The modifier scaling decays exponentially with time.
+!
+T
+M
+X
+X
+m
+m
+β[t] +
+(f ∗ µ ) [t] β[t] + b
+(14)
+t=1
+
+m=1
+
+Convolution of BOD and EOD Tokens (W +1+4 parameters): We augmented each example with Beginning of Document
+(BOD) token and End of Document (EOD) tokens. For the EOD token, the exponential filter was flipped acausally.
+
+
+T
+X
+X
+β[t] +
+(f m ∗ µm ) [t] β[t] + b
+(15)
+t=1
+
+m∈[BOD,EOD]
+
+How recurrent networks implement contextual processing
+
+15
+
+Project out of modifier subspace
+4
+3
+2
+1
+0
+−1
+−2
+−3
+−4
+
+(b)
+Model prediction (logit)
+
+Model prediction (logit)
+
+(a)
+
+0
+
+5
+
+10
+
+15
+
+Project out of random subspace
+
+(c)
+
+Summary
+
+4
+3
+2
+1
+0
+−1
+−2
+−3
+−4
+0
+
+5
+
+Time (t)
+
+10
+
+15
+
+Time (t)
+
+Figure 18. Perturbation experiment demonstrates that the modifier subspace is necessary for contextual processing. (a) Perturbation where
+a trained network is probed with three example sentences, “This movie is awesome. I like it.” (gray), “This movie is not awesome, I
+don’t like it.” (orange), and “This movie is extremely awesome, I definitely like it.” (blue), and where the hidden state is projected out
+of the modifier subspace (here, the modifier subspace is three dimensional) at each iteration. This perturbation collapses the trajectories,
+indicating that the system is no longer capable of processing modifier tokens. Moreover, the effect of this perturbation is to selectively
+remove contextual effects, but does not affect the baseline integration. (b) Random control where we project the hidden state out of a
+random three dimensional subspace. We see that this has no effect on the network activity (compare with Fig. 1b). (c) Summary across all
+test examples. Performance of original network (dashed green line) compared with perturbations where we project the hidden state at each
+timestep or iteration when applying the RNN. Projecting out of a random three dimensional subspace (solid gray line) has a negligible
+effect on the accuracy, whereas projecting out of the modifier subspace (solid red line) has a significant effect, equivalent to shuffling
+input tokens (Fig. 10a).
+
+Convolution of Modifier Words + β mod (W + 1 + 2M + P W parameters): Modifier words exponentially scale additional
+learned weight vectors used exclusively to estimate modification.
+!
+T
+P X
+M
+X
+X
+p
+m
+m
+β[t] +
+(f ∗ µ ) [t] βmod [t] + b
+(16)
+t=1
+
+p=1 m=1
+
+Convolution of BOD and EOD Tokens + β BOD + β EOD (W + 1 + 4 + 2W parameters): Similar to Convolution of BOD
+and EOD Tokens, except that we allow the learning of two separate βmod weights to estimate the effects of both the beginning
+and end of the review.
+
+
+T
+X
+X
+m
+β[t] +
+(f m ∗ µm ) [t] βmod
+[t] + b
+(17)
+t=1
+
+m∈[BOD,EOD]
+
+Convolution of Modifier Words + βmod + βBOD + βEOD (W + 1 + 4 + 2W + 2M + P W parameters): Combines the
+most powerful model versions from above to learn both modifier word effects as well as contextual effects at the beginning
+and end of the review.
+
+
+T
+P X
+M
+X
+X
+X
+p
+m
+β[t] +
+(f m ∗ µm ) [t] βmod
+[t] +
+(f m ∗ µm ) [t] βmod
+[t] + b
+(18)
+t=1
+
+m∈[BOD,EOD]
+
+p=1 m=1
+
+

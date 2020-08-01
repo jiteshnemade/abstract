@@ -1,0 +1,16 @@
+
+recurrent neural networks (rnns) produce state-of-art performance on many
+machine learning tasks but their demand on resources in terms of memory and
+computational power are often high. therefore, there is a great interest in optimizing the computations performed with these models especially when considering
+development of specialized low-power hardware for deep networks. one way of
+reducing the computational needs is to limit the numerical precision of the network
+weights and biases, and this will be addressed for the case of rnns. we present
+results from the use of different stochastic and deterministic reduced precision
+training methods applied to two major rnn types, which are then tested on three
+datasets. the results show that the stochastic and deterministic ternarization, pow2ternarization, and exponential quantization methods gave rise to low-precision
+rnns that produce similar and even higher accuracy on certain datasets, therefore
+providing a path towards training more efficient implementations of rnns in
+specialized hardware.
+
+1
+

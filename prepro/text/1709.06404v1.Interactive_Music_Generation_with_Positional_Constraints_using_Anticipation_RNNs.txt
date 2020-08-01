@@ -1,0 +1,365 @@
+Interactive Music Generation with Positional Constraints using
+Anticipation-RNNs
+Gaëtan Hadjeres1, 2 and Frank Nielsen3, 4
+
+arXiv:1709.06404v1 [cs.AI] 19 Sep 2017
+
+1
+
+LIP6, Université Pierre et Marie Curie
+2
+Sony CSL, Paris
+3
+École Polytechnique, Palaiseau, France
+4
+Sony CSL, Tokyo
+
+Abstract
+Recurrent Neural Networks (RNNS) are now widely used on sequence generation tasks due to their ability to
+learn long-range dependencies and to generate sequences of arbitrary length. However, their left-to-right generation
+procedure only allows a limited control from a potential user which makes them unsuitable for interactive and creative
+usages such as interactive music generation.
+This paper introduces a novel architecture called Anticipation-RNN which possesses the assets of the RNN-based
+generative models while allowing to enforce user-defined positional constraints. We demonstrate its efficiency on the
+task of generating melodies satisfying positional constraints in the style of the soprano parts of the J.S. Bach chorale
+harmonizations.
+Sampling using the Anticipation-RNN is of the same order of complexity than sampling from the traditional RNN
+model. This fast and interactive generation of musical sequences opens ways to devise real-time systems that could
+be used for creative purposes.
+
+1
+
+Introduction
+
+Recently, a number of powerful generative models on symbolic music have been proposed. If they now perform well
+on a variety of different musical datasets, from monophonic folk-music [17] to polyphonic Bach chorales [12], these
+models tend to face similar limitations: they do not provide musically-interesting ways for a user to interact with them.
+Most of the time, only an input seed can be specified in order to condition the model upon: once the generation is
+finished, the user can only accept the result or regenerate another musical content. We believe that this restriction
+hinders creativity since the user do not play an active part in the music creation process.
+Generation in these generative models is often performed from left to right; Recurrent Neural Networks (RNNs)
+[7] are generally used to estimate the probability of generating the next musical event, and generation is done by
+iteratively sampling one musical event after another. This left-to-right modeling seems natural since music unfolds
+through time and this holds both for monophonic [17, 5] and polyphonic [4, 12] music generation tasks. However,
+this does not match real compositional principles since composition is mostly done in an iterative and non-sequential
+way [3]. As a simple example, one may want to generate a melody that ends on a specific note, but generating such
+melodies while staying in the learned style (the melodies are sampled with the correct probabilities) is in general a non
+trivial problem when generation is performed from left to right. This problem has been solved when the generative
+model is a Markov model [14, 15] but remains hard when considering arbitrary RNNs.
+In order to solve issues raised by the left-to-right sampling scheme, approaches based on MCMC methods have
+been proposed, in the context of monophonic sequences with shallow models [16] or on polyphonic musical pieces
+using deeper models [10, 9]. If these MCMC methods allow to generate musically-convincing sequences while enforcing many user-defined constraints, the generation process is generally order of magnitudes longer than the simpler
+left-to-right generation scheme. This can prevent for instance using these models in real-time settings.
+1
+
+The problem of generating sequences while enforcing user-defined constraints is rarely considered in the machine
+learning literature but it is of crucial importance when devising interactive generative models. In this paper, we
+propose a neural network architecture called Anticipation-RNN which is capable of generating in the style learned
+from a database while enforcing user-defined positional constraints. This architecture is very general and works with
+any RNN implementation. Furthermore, the generation process is fast as it only requires two function calls per musical
+event. In Sect. 2, we precisely state the problem we consider and Sect. 3 describes the proposed architecture together
+with an adapted training procedure. Finally, we demonstrate experimentally the efficiency of our approach on the
+dataset of the chorale melodies by J.S. Bach in Sect. 4. In Sect. 5, we discuss about the generality of our approach and
+about future developments.
+
+2
+
+Statement of the problem
+
+We consider an i.i.d. dataset D := {s = (s1 , . . . , sN ) ∈ AN } of sequences of tokens st ∈ A of arbitrary length N
+over a vocabulary A. We are interested in probabilistic models over sequences p(s) such that
+Y
+p(s) =
+p(st |s<t ),
+(1)
+t
+
+where s<t = (s1 , . . . , st−1 ) for t > 0 and ∅ if = 0. This means that the generative model p(s) over sequences
+is defined using the conditional probabilities p(st |s<t ) only. Generation with this generative model is performed
+iteratively by sampling st from p(st |s<t ) for t = 1..N where N is arbitrary. Due to their simplicity and their
+efficiency, Recurrent Neural Networks (RNNs) are used to model the conditional probability distributions p(st |s<t ):
+they allow to reuse the same neural network over the different time steps by introducing a hidden state vector in order
+to summarize the previous observations we condition on. More precisely, by writing f the RNN, int its input, outt+1
+its output and ht its hidden state at time t, we have
+outt+1 , ht+1 = f (int , ht )
+
+(2)
+
+for all time indices t. When int = st , the vector outt+1 is used to define p(st+1 |s<t+1 ) for all time indices t without
+the need to take as an input the entire sequence history s<t+1 .
+If this approach is successful on many applications, such a model can only be conditioned on the past which
+prevents some possible creative use for these models: we can easily fix the beginning s<t of a sequence and generate
+a continuation s≥t = (st , . . . , sN ) but it becomes more intricate to fix the end s≥t of a sequence and ask the model to
+generate a beginning sequence.
+We now write punconstrained (s) the probability of a sequence s when no constraint is set. For simplicity of notation,
+we will suppose that we only generate sequences of fixed length N and denote by S := AN the set of all sequences
+over A. The aim of this paper is to be able to enforce a set of positional constraints
+C = {(i, ci )}i∈I ,
+
+(3)
+
+where I is the set of constrained time indexes and ci ∈ A the value of the constrained note at time index i. Ideally, we
+want to sample constrained sequences
+Sconstrained {s ∈ S,
+
+∀(i, ci ) ∈ C}
+
+si = ci
+
+(4)
+
+with the “correct” probabilities. This means that, if we denote by pconstrained (s) the probability of a sequence s in the
+constrained model:
+• pconstrained (s) = 0,
+• pconstrained (s) =
+
+∀s ∈
+/ Sconstrained
+
+1
+α punconstrained (s),
+
+∀s ∈ S,
+
+(5)
+with α :=
+
+P
+
+s∈Sconstrained
+
+punconstrained (s).
+
+(6)
+
+To put it in words, the set of constraints C defines a subset Sconstrained of S from which we want to sample from
+using the probabilities (up to a normalization factor) given by punconstrained . However, sampling from Sconstrained using
+2
+
++
+
++
+
++
+
++
+
+Figure 1: Anticipation-RNN architecture. The aim is to predict (s1 , . . . , sN ) given (c1 , . . . , cN ) and (s0 , . . . , sN −1 ).
+the acceptance-rejection sampling method is not efficient due to the arbitrary number of constraints. Exact sampling
+from Sconstrained is possible when the conditional probability distributions are modeled using models such as Markov
+models but is intractable in general. This problem in the case of Markov models can in fact be exactly solved when
+considering more complex constraints on the space of sequences such as imposing the equality or the difference
+between two sequences symbols si and sj . Generalizations of this problem to other types of constraints are discussed
+in Sect. 5.
+
+3
+
+The model
+
+The problem when trying to enforce a constraint c := (i, ci ) is that imposing such a constraint on time index i “twists”
+the conditional probability distributions p(st |s<t ) for t < i. However, the direct computation of p(st |s<t , si = ci )
+(using Bayes rule when only p(st |s<t ) is known) is computationally expensive.
+The idea to overcome this issue is to introduce a neural network in order to summarize the set of constraints C. To
+this end, we introduce an additional token NC (No Constraint) to A indicating that no positional constraint is set at a
+given position. By doing this, we can rewrite the set C as a sequence c = (c1 , . . . , cN ) where ci ∈ A ∪ {NC}. We
+then introduce a RNN called Constraint-RNN in order to summarize the sequence of all constraints. This RNN goes
+backward (from cN to c1 ) and all its outputs are used to condition a second RNN called Token-RNN.
+This architecture, called Anticipation-RNN since the Token-RNN is conditioned on what may come next, is depicted in Fig. 1. We notated by (o1 , . . . , oN ) the output sequence of the Constraint-RNN (for notational simplicity, we
+reversed the sequence numbering: the first output of the Constraint-RNN is oN in our notation). The aim of the output
+vector ot is to summarize all information about constraints from time t up to the end of the sequence. This vector is
+then concatenated to the input st−1 of the Token-RNN at time index t whose aim is to predict st .
+Our approach differs from the approaches using Markov models in the sense that we directly take into our conditional probability distributions rather than trying to sample sequences in Sconstrained using punconstrained : we want our
+probabilistic model to be able to directly enforce hard constraints.
+The Anticipation-RNN thus takes as an input both a sequence of tokens (s0 , . . . , sN −1 ) and a sequence of constraints (c1 , . . . , cN ) and has to predict the shifted sequence (s1 , . . . , sN ). The only requirement here is that the
+constraints have to be coherent with the sequence: ci = si if ci 6= NC. Since we want our model to be able to deal with
+any positional constraints, we consider the dataset of couples of token-sequences and constraint-sequences Dconstraint
+such that
+
+Dconstraint := (s, m(s)) , ∀s ∈ D, ∀m ∈ {0, 1}N ,
+(7)
+
+3
+
+D4 __ E4 __ A4 __ __ __ G4 __ F#4 __ E4 __ __ __
+Figure 2: Melodico-rhythmic encoding of the first bar of the melody of Fig. 3a.
+
+(a)
+
+(b)
+
+(c)
+
+Figure 3: Examples of generated sequences in the style of the soprano parts of the J.S. Bach chorales. All examples
+are subject to the same set of positional constraints indicated using green notes.
+where {0, 1}N is the set of all binary masks: the sequence of constraints m(s) is then defined as the sequence
+(c1 , . . . , cN ) where ci = si if mi = 1 and ci = NC otherwise.
+The sampling procedure is fast since it only needs two RNN passes on the sequence.
+
+4
+
+Experimental results
+
+We evaluated our architecture on the dataset of the melodies from the four-part chorale harmonizations by J.S. Bach.
+This dataset is available in the music21 Python package [6] and we extracted the soprano parts from all 402 chorales.
+In order to encode these monophonic sequences, we used the melodico-rhythmic encoding described in [9]. The advantage with this encoding is that it allows to encode a monophonic musical sequence using only one sequence of
+tokens. This consists in adding an additional token “ ” which indicates that the current note is held. Furthermore,
+we do not use the traditional MIDI pitch encoding but used the real note names: among other benefits, this allows to
+generate music sheets which are immediately readable and understandable by a musician and with no spelling mistakes. Time is quantized using a sixteenth note as the smallest subdivision (each beat is divided into four equal parts).
+An example of an encoded melody using this encoding is displayed in Fig. 2. We also perform data augmentation by
+transposing all sequences in all possible keys as long as the transposed sequence lies within the original voice range.
+We used a 2-layer stacked LSTM [11] for both the Constraint-RNN and the Token-RNN using the PyTorch [1]
+deep learning framework and added a 20% dropout on the input of the Token-RNN. Sequences are padded with START
+and END symbols.
+Fig. 3 shows examples of the enforcement and the propagation of the constraints: even if generation is done from
+left to right, the model is able to generate compelling musical phrases while enforcing the constraints. In particular,
+we see that the model is able to “anticipate” the moment when it has to “go” from a low-pitched note to a high-pitched
+one and vice versa. The use of the melodico-rhythmic encoding allows to only impose that a note should be played at
+a given time, without specifying its rhythm. It is interesting to note that such a wide melodic contour (going from a
+D4 to a D5 and then going back to a D4 in only two bars) is unusual for a chorale melody. Nonetheless, the proposed
+model is able to generate a convincing Bach-like chorale melody.
+We now check how the constraints propagate backwards in time and how the constrained model deviates from
+the unconstrained model. For this, we compare the constrained model pconstrained on the same set of constraints as in
+Fig. 3 with its unconstrained counterpart punconstrained . The latter is obtained by conditioning the model of Fig. 1 on
+4
+
+beat index
+(a) Constrained case: p = pconstrained
+
+beat index
+(b) Unconstrained case: p = punconstrained
+
+Figure 4: Plot of p(st |s<t ) as a function of t during the generation of the melody displayed in Fig. 3a in the constrained
+and unconstrained cases.
+
+5
+
+beat index
+
+Figure 5: Difference between pconstrained (st |s<t ) and punconstrained (st |s<t ) as a function of t during the generation of the
+melody displayed in Fig. 3a.
+a sequence of constraints in the special case where no constraint is set: the sequence of constraints is (NC, . . . , NC).
+Figure 4 shows the evolution of pconstrained (st |s<t ) and punconstrained (st |s<t ) during the generation of the example in
+Fig. 3a. It is interesting to note that the conditional probability distributions returned by pconstrained (st |s<t ) are more
+concentrated on specific values than the ones returned by punconstrained (st |s<t ). The concentration of the all probability
+mass of pconstrained (st |s<t ) on constrained notes confirms, on this specific example, that the proposed architecture has
+learned to enforce hard positional constraints. This assertion is experimentally verified on all constrained sequences
+we generated.
+We also display in Fig. 5 the difference between the two distributions of Fig. 4 for each time step. This highlights
+the fact that the probability mass distribution of pconstrained is “shifted upwards” when the next positional constraint is
+higher than the current note, and “downwards” in the opposite case.
+We can quantify how the probability distributions pconstrained (st |s<t ) differ from punconstrained (st |s<t ) by computing
+how dissimilar they are. In Fig. 6 we plot the evolution of the square root of their divergence [2]:
+D(pconstrained (st |s<t )||punconstrained (st |s<t ))
+
+(8)
+
+for different divergences. The divergences [13] we considered are:
+ 
+P
+• the Kullback-Leibler divergence DKL (p||q) = i pi log pqii ,
+• the reversed Kullback-Leibler divergence Dreversed KL (p||q) = DKL (q||p),
+• the Jeffreys divergence DJeffreys (p||q) = DKL (p||q) + DKL (q||p),
+• the (symmetric) Jensen-Shannon divergence DJS (p||q) = 21 DKL (p||m) + 12 DKL (q||m), where m =
+
+p+q
+2 .
+
+This plot indicates how the constraints are propagated backwards in time. The oscillation between high values of the
+divergences and the zero value is due to the encoding we chose as well as to the singularity of the musical data we
+6
+
+KL
+
+Reversed KL
+
+Jeﬀreys
+
+Jensen-Shannon
+
+beat index
+
+Figure 6: Square root of the divergence D(punconstrained (st |si<t )||pconstrained (st |si<t )) for the Kullback-Leibler, reversed
+Kullback-Leibler, Jeffreys and Jensen-Shannon divergences during the left-to-right generation of the example shown
+in Fig. 3a. The highest peaks correspond to the user-defined constraints (particularly clear when using the reversed
+Kullback-Leibler divergence) while the smaller ones demonstrate how the constraints tweaked the probability distributions in comparison with the unconstrained model.
+
+Figure 7: Point plot of pconstrained (s) (y-axis) versus punconstrained (s) (x-axis) on a set of 10000 generated (using
+pconstrained ) sequences of length 96 (6 bars). The set of constraints is the one used in for the generations in Fig. 3.
+A logarithmic scale is used. The identity map is displayed in blue and the linear regression of the data points in green.
+The lines are closed to being parallel indicating the proportionality between the two distributions, as desired.
+
+7
+
+considered. As can be seen in Fig. 4, the “ ” symbol concentrates most of the probability mass one time out of two
+since the soprano parts in Bach chorales are mostly composed of half notes, quarter notes and eighth notes. This
+is independent of the presence or absence of constraints so the constrained and unconstrained models make similar
+predictions on these time steps.
+We now evaluate that the sampling using pconstrained fulfills the requirements (5) and (6). For a given set of constraints C, we generated 10000 sequences and verified that the requirement (5) is fulfilled for all of these sequences
+(all constraints are enforced). In order to check the fulfillment of the requirement (6), we plot for each sequence s its
+probability in the constrained model pconstrained (s) (defined as in Eq. (1)) as a function of punconstrained (s) in logarithmic
+space. The resulting plot is shown in Fig. 7. The translation in logarithmic space indicates the proportionality between
+the two distributions as desired.
+
+5
+
+Conclusion
+
+We presented the Anticipation-RNN, a simple but efficient way to generate sequences in a learned style while enforcing
+positional constraints. This method is general and can be used to improve many existing RNN-based generative
+models. Contrary to other approaches, we teach the model to learn to enforce hard constraints at training time. We
+believe that this approach is a first step towards the generation of musical sequences subjected to more complex
+constraints.
+The constrained generation procedure is fast since it requires only 2N RNN calls, where N is the length of the
+generated sequence; as it does not require extensive computational resources and provides an interesting user-machine
+interaction, we think that this architecture paves the way to the development of creative real-time composition software.
+We also think that this fast sampling could be used jointly with MCMC methods in order to provide fast initializations.
+Future work will aim at studying how to improve the training of the model by carefully choosing the amount of
+masked notes (similarly to what is addressed in [8]), handling other types of constraints (imposing the rhythm of the
+sequences, enforcing the equality between two notes or introducing soft constraints) and developing responsive user
+interfaces so that the possibilities offered by this architecture can be used by a wide audience.
+
+References
+[1] Pytorch. https://github.com/pytorch/pytorch, 2016.
+[2] S.-i. Amari and H. Nagaoka. Methods of information geometry, volume 191. American Mathematical Soc.,
+2007.
+[3] Y. Balmer, T. Lacôte, and C. B. Murray. Messiaen the borrower: Recomposing debussy through the deforming
+prism. Journal of the American Musicological Society, 69(3):699–791, 2016.
+[4] N. Boulanger-lewandowski, Y. Bengio, and P. Vincent. Modeling temporal dependencies in high-dimensional sequences: Application to polyphonic music generation and transcription. In Proceedings of the 29th International
+Conference on Machine Learning (ICML-12), pages 1159–1166, 2012.
+[5] F. Colombo, A. Seeholzer, and W. Gerstner. Deep artificial composer: A creative neural network model for
+automated melody generation. In Computational Intelligence in Music, Sound, Art and Design: 6th International
+Conference, EvoMUSART 2017, Amsterdam, The Netherlands, April 19–21, 2017, Proceedings, pages 81–96,
+Cham, 2017. Springer International Publishing.
+[6] M. S. Cuthbert and C. Ariza. music21: A toolkit for computer-aided musicology and symbolic music data.
+International Society for Music Information Retrieval, 2010.
+[7] I. Goodfellow, Y. Bengio, and A. Courville.
+deeplearningbook.org.
+
+Deep Learning.
+
+8
+
+MIT Press, 2016.
+
+http://www.
+
+[8] A. Graves, M. G. Bellemare, J. Menick, R. Munos, and K. Kavukcuoglu. Automated curriculum learning for
+neural networks. arXiv preprint arXiv:1704.03003, 2017.
+[9] G. Hadjeres, F. Pachet, and F. Nielsen. DeepBach: a steerable model for Bach chorales generation. In Proceedings of the 34th International Conference on Machine Learning, ICML 2017, Sydney, NSW, Australia, 6-11
+August 2017, pages 1362–1371, 2017.
+[10] G. Hadjeres, J. Sakellariou, and F. Pachet. Style imitation and chord invention in polyphonic music with exponential families. arXiv preprint arXiv:1609.05152, 2016.
+[11] S. Hochreiter and J. Schmidhuber. Long short-term memory. Neural computation, 9(8):1735–1780, 1997.
+[12] F. Liang. BachBot: Automatic composition in the style of Bach chorales.
+[13] F. Nielsen and S. Boltz. The Burbea-Rao and Bhattacharyya centroids. IEEE Transactions on Information
+Theory, 57(8):5455–5466, 2011.
+[14] F. Pachet and P. Roy. Imitative leadsheet generation with user constraints. In Proceedings of the Twenty-first
+European Conference on Artificial Intelligence, pages 1077–1078. IOS Press, 2014.
+[15] A. Papadopoulos and P. Roy. Exact sampling for regular and markov constraints with belief propagation. Constraint Programming, CP, pages 1–11, 2015.
+[16] J. Sakellariou, F. Tria, V. Loreto, and F. Pachet. Maximum entropy models capture melodic styles. Scientific
+Reports, 7(1):9172, 2017.
+[17] B. L. Sturm, J. F. Santos, O. Ben-Tal, and I. Korshunova. Music transcription modelling and composition using
+deep learning, Apr. 2016. arXiv:1604.08723v1.
+
+9
+
+

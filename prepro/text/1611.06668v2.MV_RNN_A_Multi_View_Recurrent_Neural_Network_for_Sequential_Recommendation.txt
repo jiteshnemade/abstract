@@ -1,0 +1,3866 @@
+JOURNAL OF LATEX CLASS FILES, VOL. 14, NO. 8, AUGUST 2015
+
+1
+
+MV-RNN: A Multi-View Recurrent Neural
+Network for Sequential Recommendation
+
+arXiv:1611.06668v2 [cs.IR] 20 Nov 2018
+
+Qiang Cui, Shu Wu, Member, IEEE, Qiang Liu, Wen Zhong, and Liang Wang, Senior Member, IEEE
+Abstract—Sequential recommendation is a fundamental task for network applications, and it usually suffers from the item cold start
+problem due to the insufficiency of user feedbacks. There are currently three kinds of popular approaches which are respectively based
+on matrix factorization (MF) of collaborative filtering, Markov chain (MC), and recurrent neural network (RNN). Although widely used,
+they have some limitations. MF based methods could not capture dynamic user’s interest. The strong Markov assumption greatly limits
+the performance of MC based methods. RNN based methods are still in the early stage of incorporating additional information. Based
+on these basic models, many methods with additional information only validate incorporating one modality in a separate way. In this
+work, to make the sequential recommendation and deal with the item cold start problem, we propose a Multi-View Rrecurrent Neural
+Network (MV-RNN) model. Given the latent feature, MV-RNN can alleviate the item cold start problem by incorporating visual and
+textual information. First, At the input of MV-RNN, three different combinations of multi-view features are studied, like concatenation,
+fusion by addition and fusion by reconstructing the original multi-modal data. MV-RNN applies the recurrent structure to dynamically
+capture the user’s interest. Second, we design a separate structure and a united structure on the hidden state of MV-RNN to explore a
+more effective way to handle multi-view features. Experiments on two real-world datasets show that MV-RNN can effectively generate
+the personalized ranking list, tackle the missing modalities problem and significantly alleviate the item cold start problem.
+Index Terms—multi-view, sequential recommendation, recurrent neural network, cold start
+
+F
+
+1
+
+INTRODUCTION
+
+R
+
+ECENTLY , with the development of Internet, applications
+with sequential information have become numerous and multilateral, such as web page recommendation and click prediction.
+Based on sequential recommendation methods, these applications
+could predict a user’s following behaviors to improve user experience. Taking online shopping as an example, after a user buys
+an item, the application would predict a list of items that the user
+might buy in the near future. Further, we can consider the purchase
+behaviors as a sequence in the time order. Due to sparse user
+feedbacks, sequential recommendation usually encounters the item
+cold start problem. Thus, our task here concentrates on the sequential recommendation based on user historical implicit feedback
+and alleviating the item cold start problem. As shown in Figure
+1, we observe that a user will look at corresponding images and
+text descriptions before he or she buys items. Intuitively, we can
+alleviate the item cold start problem by modeling additional multimodal information like images and text descriptions. Besides,
+we try to find a more effective way of incorporating additional
+information into sequence modeling.
+As for the recommendation, collaborative filtering methods are
+widely used. Matrix Factorization (MF) methods [1–3] become the
+first choice, and learn latent representations of users and items.
+In order to alleviate the cold start problem, multiple additional
+information can be adopted, such as attribute information [4, 5],
+
+•
+•
+
+•
+
+Accepted as a regular paper of TKDE.
+Qiang Cui, Shu Wu, Qiang Liu and Liang Wang are with the Center for
+Research on Intelligent Perception and Computing (CRIPAC), National
+Laboratory of Pattern Recognition (NLPR), Institute of Automation, Chinese Academy of Sciences (CASIA) and University of Chinese Academy of
+Sciences (UCAS), Beijing, 100190, China.
+E-mail: cuiqiang2013@ia.ac.cn,
+{shu.wu, qiang.liu, wangliang}@nlpr.ia.ac.cn.
+Wen Zhong is with the University of Southern California.
+E-mail: wenzhong@usc.edu
+
+text [6], images [7, 8], and so on. Although these methods can
+utilize different types of features, they usually capture the user’s
+static interest and have much difficulty in capturing sequential
+information. Long-term interest should be weakened while shortterm interest should become prominent relatively [9].
+On the other hand, Markov Chain (MC) methods [9, 10]
+are widely studied for sequential recommendation by learning
+the transition matrix. They predict the next behavior based on
+recent behaviors as the transition matrix gives the probability
+among different states. However, MC methods could not well
+build the user’s long-term interest due to the Markov assumption.
+They usually consider recent behaviors and ignore the longterm interest. Besides, after constructing the real world dataset
+of sequential scenarios like shopping and clicking, the transition
+probability among different states is established. The additional
+information no longer has any effect on this probability.
+Recently, Recurrent Neural Network (RNN) methods have
+shown great achievements in machine translation [11], sequential
+click prediction [12], location prediction [13], next basket recommendation [14], multi-behavioral sequential prediction [15], and
+so on. Besides, long short-term memory [16] and gated recurrent
+unit [17] are developed because of the gradient vanishing and
+explosion problem. They can hold the long-term dependency and
+have been applied to many tasks [18–20]. These RNN methods
+[13–15] are more promising than factorizing personalized markov
+chains [10] and other conventional MC methods.
+The existing sequential recommendation methods have difficulty in alleviating the problem of item cold start. A good
+choice is to apply RNN and incorporate additional multi-modal
+features, like images and text descriptions. Recently, the parallel
+RNNs model (p-RNNs) [21] incorporates additional information
+for session-based recommendation. The p-RNNs model deals with
+multi-source data by separate subnets which are trained one by
+one. It builds multiple user’s interests based on different views
+
+JOURNAL OF LATEX CLASS FILES, VOL. 14, NO. 8, AUGUST 2015
+
+2
+
+Image
+
+20140605
+
+20140628
+
+20140711
+
+20140710
+
+User
+
+Sequential
+Recommendation
+
+Text
+Description
+
+One Teaspoon
+Women's Donnies
+Shorts
+
+American Apparel
+
+Steve Madden
+
+Women's Ponte
+
+Women's Ecentric
+
+Sleeveless Skater
+Dress
+
+Slip-On Fashion
+Sneake
+
+Rebecca Minkoff
+Mini MAC
+Convertible
+Cross-Body Handbag
+
+Fig. 1. Diagram of a user’s purchase sequence. A user buys different items at different time. We make use of the image and text description
+associated with each item to build the sequential recommendation model. The goal is to recommend items a user would buy in the near future, and
+alleviate item cold start by incorporating multiple additional information into sequence modeling.
+
+and combines the results at the end of each subset together. This
+way may not well leverage the advantage of multi-view data. We
+need to consider how to more effectively incorporate additional
+information to model sequential behaviors.
+In view of the above analysis, we propose a model called
+Multi-View Recurrent Neural Network (MV-RNN) for sequential
+recommendation and alleviating the item cold start problem. First,
+we gain visual and textual features from images and text descriptions respectively. These multi-modal features are complementary
+to understand the item and user’s interest. A latent vector is defined
+for each item to represent the indirectly observable representation.
+These multi-view features are used as the input of MV-RNN,
+and three different combinations are explored. Feature concatenation and fusion naturally come to mind. More importantly,
+we introduce a multi-modal fusion model, called multi-modal
+Marginalized Denoising AutoEncoder (3mDAE). This model can
+help to learn more robust features and handle items with missing
+modalities. Next, we design a separate structure and a united
+structure for MV-RNN to explore an effective way to handle
+multi-view features. One applies multiple RNN units separately
+at every input time, and multiple hidden states of these units are
+concatenated together at the same time. The other employs a single
+RNN unit to deal with the multi-view features at once to learn
+a united hidden state. The MV-RNN model adopts the recurrent
+structure to capture dynamic changes in user’s interest. Finally, we
+employ the Bayesian personalized ranking framework [2] and the
+backpropagation through time algorithm [22] to learn parameters.
+The main contributions are listed as follows:
+•
+
+•
+
+•
+
+We design a representation of item with multi-view features. These features comprise of indirectly observable
+(latent) feature and directly observable (e.g., visual and
+textual) feature. Three combinations of multi-view features are developed, especially our 3mDAE.
+To explore a more effective way to handle multi-view
+inputs, MV-RNN applies a separate structure and a united
+structure. Compared to dealing with each view separately,
+handling multi-view features by a united structure can
+better leverage the advantage of different views.
+Experiments on two large real-world datasets reveal that
+
+MV-RNN is effective and outperforms the state-of-the-art
+methods.
+The rest of the paper is organized as follows. Section 2
+reviews previous work on sequential recommendation, cold start,
+and multi-modal representation learning. MV-RNN is detailly
+introduced in Section 3 from the perspective of input, hidden state,
+and output. In Section 4, we conduct extensive experiments. At
+last, we conclude the paper in Section 5.
+
+2
+
+R ELATED W ORK
+
+In this section, we review several related works including collaborative filtering, Markov chain based methods, recurrent neural
+networks, and multi-modal representation learning.
+2.1
+
+Collaborative Filtering
+
+There are two main methods of Collaborative Filtering (CF):
+neighborhood models and latent factor models [23]. Neighborhood
+models have practical benefits, but they usually focus on a small
+subset of items or users. Latent factor models have the global
+perspective, and thus they tend to be more accurate. Recently,
+Matrix Factorization (MF) models belonging to latent factor models become fundamental because of its scalability and accuracy.
+MF absorbs rich additional information to alleviate the cold start
+problem, like item’s attribute or user’s demographics [4, 5, 24].
+Text such as reviews is used along with the development of online
+searching [25]. Zhao et al. extend MF by combining visual data
+like posters and still frames of a movie to understand the movie
+and user’s interest [8]. However, none of these methods could
+reflect the changes in user’s interest over time.
+In recent years, pairwise methods become the state-of-the-art
+for implicit feedback [7]. These methods can directly optimize the
+ranking of feedbacks and assume positive items are preferable than
+negative items. Rendle et al. [2] propose a Bayesian Personalized
+Ranking (BPR) framework to maximize the difference of user’s
+preferences between positive and negative items. Recently, BPR is
+extended to combine more information like users’ social relations
+[26]. Other information like visual signals is accommodated by
+VBPR [7], which applies visual features of product images to
+
+JOURNAL OF LATEX CLASS FILES, VOL. 14, NO. 8, AUGUST 2015
+
+discover user’s visual interest and better understand items. Similar
+to MF methods, they only learn general tastes of users.
+2.2
+
+Markov Chain Based Methods
+
+In addition to conventional CF methods, sequential methods are
+popular for the recommendation and they mostly rely on Markov
+Chains (MC). Rendle et al. [10] make a combination of MF and
+MC to learn both general taste and current effect for the nextbasket recommendation. Chen et al. [9] build a Markov model
+integrated with the forgetting mechanism to weaken long-term
+interest and highlight short-term interest for item recommendation.
+However, the Markov assumption hinders learning the long-term
+dependency because it assumes the next state only related to the
+last state. The high/variable-order MC models can make the next
+state related to multiple previous states, which results in a high
+computational cost. This problem can be solved by only considering the state-to-state probability with balancing parameters, which
+ignores the set-to-state probability [9, 27]. It is difficult for MC
+methods to model the long-term dependency.
+On the other hand, there are few Markov models involving
+multiple features. Chen et al. [28, 29] propose a two-view latent
+subspace Markov network to do image retrieval, annotation and
+so on. Their model is more like multi-view data fusion and is
+not suitable for sequential recommendation. MC is based on the
+probability among different states. In the sequential scenario, this
+probability is independent of the additional content information.
+2.3
+
+Recurrent Neural Networks
+
+Recently, recurrent neural networks become more and more powerful. Owing to its recurrent structure, RNN can better extract
+the temporal dependencies. RNN based sequential click prediction
+[12] gains the state-of-the-art performance. Yu et al. [14] take the
+representation of a basket acquired by pooling operation as the
+input of RNN, which is most effective for next basket recommendation. Liu et al. [13] incorporate time-specific and distancespecific transition matrices into RNN to predict next location. Liu
+et al. [15] combine RNN and the Log-BiLinear model [30] to make
+multi-behavioral prediction. Compared with traditional sequential
+methods, RNN is more promising.
+Due to the gradient vanishing and explosion problem [31, 32],
+standard RNN fails to hold the long-term dependency. Lots of
+work have been done to alleviate this problem, and the gated activation function achieves a success, like long short-term memory
+(LSTM) [16] and gated recurrent unit (GRU) [17]. Sutskever et
+al. [18] apply a multilayered LSTM to encode the input sequence
+and another LSTM to decode the target sequence in translation
+task. Their work also demonstrates LSTM can easily handle long
+sentences. Chung et al. [19] propose gated feedback RNNs to
+investigate the character-level language modeling. Bengio’s work
+finds that GRU/LSTM are both certainly better than the basic RNN
+and GRU is comparable to LSTM on sequence modeling [33].
+Recently, RNN is developed to model multi-view features.
+Hidasi et al. introduce the basic RNN model to do the sessionbased recommendation task [20], then develop the p-RNNs model
+to incorporate rich features [21]. The p-RNNs model builds
+subnets for each view separately. This is similar to the latent
+interest and visual interest in VBPR [7]. Two RNNs are used
+to make video recommendation by using the image and make
+product recommendation by using text description. Compared
+with the basic RNN model with only ID feature, the performance
+
+3
+
+improvement of p-RNNs is not significant. Cao et al. model multiview features collected by the mobile phone to predict the mood
+score [34]. Obviously, there are large differences between features
+in their work, and they apply the late fusion to explore interactions.
+2.4
+
+Multi-Modal Representation Learning
+
+There are several main multi-modal representation learning methods: probabilistic graphical models, kernel-based methods and
+neural networks [35]. It is often intractable and complicated
+to obtain exact inference for probabilistic models. Because of
+the eigenvalue problem, kernel-based methods occupy a lot of
+memory and time. On the contrary, neural networks are tractable
+to handle the high-dimensional data. Recently, due to the success
+of Deep Neural Networks (DNNs), traditional methods tend to
+combine deep structures.
+For methods based on DNNs, two main training strategies
+are widely used: Canonical Correlation Analysis (CCA) and
+AutoEncoder (AE) [36]. CCA based methods can make the two
+modalities maximally correlated. Recently, Deep CCA is proposed
+[37] but it needs a large minibatch to optimize [38]. Based on
+CCA and AE, a deep canonically correlated autoencoder model
+is proposed [36] for feature learning. The constraint conditions
+would be too complicated if CCA based methods are used in our
+work. Accordingly, AE based methods would be promising.
+AE based methods are very powerful to learn compact representations. AE could reproduce the input signal as far as possible
+and find the principal component. Vincent et al. design the
+denoising AE (dAE) by setting some input data to zero in a
+probabilistic manner [39]. After that, Vincent et al. design the
+stacked denoising AE (sDAE) and find that a single matrix is
+enough to do the encoding and decoding steps [40]. Ngiam et
+al. introduce the bimodal deep denoising autoencoder [41]. In
+this way, the hidden layer could learn the shared representation
+from different modalities. Later, Chen et al. [42] propose the
+marginalized denoising AE (mDAE) model, which finishes off
+the nonlinear transfer function and learns a linear transfer matrix.
+Furthermore, Wang et al. [43] propose a coupled mDAE model
+to deal with cross-domain learning problems. We introduce a
+3mDAE model to generate multi-modal fusion representation.
+
+3
+
+P ROPOSED MV-RNN M ODEL
+
+In this section, we propose a Multi-View Recurrent Neural Network (MV-RNN) model. We first formulate the problem. Next, we
+explore 3 strategies to combine multi-view features at the input
+to represent the item. Then we investigate 2 structures to model
+multi-view features at the hidden state to build user representation.
+Finally, all the variants of MV-RNN can be trained with the
+Bayesian Personalized Ranking (BPR) framework and the Back
+Propagation Through Time (BPTT) algorithm.
+3.1
+
+Problem Formulation
+
+In order to simplify the problem formulation of sequential recommendation, we take purchase histories of online shopping for
+instance. Let U = {u1 , ..., u|U | } and I = {i1 , ...i|I| } represent
+the sets of users and items respectively. Use I u = (iu1 , ..., iu|I u | )
+to denote the items that the user u has purchased in chronological
+order, and the t-th item iut ∈ I . Additionally, an image and a text
+description are available for each item i ∈ I . Given each user’s
+history I u , our goal is to recommend a list of items that a user
+may purchase. The notation is listed in Table 1 for clarity.
+
+JOURNAL OF LATEX CLASS FILES, VOL. 14, NO. 8, AUGUST 2015
+
+4
+t 1
+xˆupq
+
+1
+xˆupq
+
+BPR
+0
+
+BPR
+
+1
+
+h
+
+h
+LSTM
+
+W
+
+t
+xˆupq
+
+U
+
+W
+
+ft
+
+BPR
+t
+
+t1
+
+
+
+xt
+
+h
+LSTM
+
+h
+LSTM
+
+W
+
+U
+
+gt
+
+
+f1
+1
+
+g
+
+1
+x
+
+i
+E
+
+im1
+
+i1
+
+ET
+VT
+
+V
+
+f̂ 1
+
+ĝ
+
+1
+
+t1
+x
+
+i
+
+imt1
+
+i t1
+
+xt
+
+ft
+
+gt
+
+t
+x
+
+i
+E
+V
+
+E
+V
+
+it
+
+ift
+
+igt
+
+(1) Concatenation
+
+U
+
+(3) 3mDAE
+x1
+
+ixt
+
+imt
+
+it
+
+ET
+
+VT
+
+(2) Fusion
+xt
+
+fˆ t
+
+ft
+
+gˆ t
+
+gt
+
+ixt
+E
+
+it
+
+imt
+
+V
+
+Fig. 2. Diagram of the MV-RNN model. The multi-view input consists of latent feature and additional visual and textual features. Concatenation,
+Fusion and 3mDAE are three kinds of combinations of multi-view features. The hidden state captures dynamic changes in the user’s interest.
+
+Sequential recommendation usually encounters the cold start problem as feedbacks are too sparse to learn fine representations of
+users and items. Modeling multi-view features is an effective
+way to alleviate this issue. These features are usually obtained
+from different data sources, and have different numerical ranges
+as well as different dimensions. Therefore, the raw features need
+be normalized to a same range to obtain x, f and g, and should
+better be embedded to d-dimensional vectors to obtain ix , if and
+ig . None of them is sequence data and they are aligned with each
+other by the item ID.
+
+TABLE 1
+Notation.
+Notation
+
+Explanation
+
+U , I, Iu
+Pu, Vu, T u
+p, q
+x̂tupq
+f, g
+E, V
+if , ig
+ix , im
+d, df , dg
+hx , hm
+U, W , b
+
+set of users, set of items, sequence of user u
+sequences of training, validation and test of user u
+positive item, negative item
+difference of preference of u towards p and q at the t-th time
+high-dimensional visual and textual features of an item
+embedding matrices for f , g
+low-dimensional visual and textual features of an item
+latent feature, multi-modal fusion feature built by if and ig
+dimensions of ix , f , g
+latent and multi-modal fusion features of a user
+transition matrices and bias for recurrent neural network
+
+3.2
+
+Representation of Item with Multi-View Features
+
+Representation of item is used as the input of our MV-RNN model.
+Three different combinations of multi-view features are shown in
+Figure 2, and details are as follows.
+3.2.1
+
+Multi-View Features
+
+There are two basic types of multi-view features of an item:
+indirectly observable view and directly observable view. The former view is latent feature, which is widely-used in recommender
+systems. The latent feature of an item is defined by a vector:
+
+ix = x,
+
+i x ∈ Rd
+
+(1)
+
+The latter view refers to the additional multi-modal information
+that is presented externally, like image, text description, category
+label, video, and so on. They can provide very important information for the item. For example, image can directly show the color,
+text description can provide the clothing size.
+The multi-modal features consist of visual and textual features
+(f and g) in our work. They are obtained by GoogLeNet [44]
+and GloVe [45] weighted by TF-IDF respectively. The two kinds
+of features are 1024-dimensional and 100-dimensional vectors
+respectively. Due to the difference of f and g, we learn two
+linear embedding matrices E and V to transform the original
+high-dimensional features to embedded low-dimensional visual
+and textual features (if and ig ):
+
+if = Ef ,
+
+i f ∈ Rd
+
+(2)
+
+ig = V g,
+
+i g ∈ Rd
+
+(3)
+
+3.2.2 Feature Concatenation
+The most natural method to combine multi-view features is concatenation. Intuitively, the item representation is i = [ix ; if ; ig ].
+The i is a 3d-dimensional vector, and its dimension will increase
+with the number of features. The capacity and complexity of this
+method will also increase subsequently.
+3.2.3 Feature Fusion
+Fusion can be directly established by the addition operation
+without nonlinear transformation:
+
+im = if + ig ,
+
+i m ∈ Rd
+
+(4)
+
+Please note that features with similar contents are suitable for
+fusion. Therefore, if and ig are fused as the multi-modal fusion
+feature im , and this process can make the model more concise.
+Benefiting from linear embedding and linear transformation, im
+can hold all the information from f and g. Then we obtain item
+representation i = [ix ; im ] by concatenation.
+Although concatenation and fusion are easy to utilize, they
+still have three issues. First, both concatenation and fusion do not
+have an explicit objective which is able to explore correlations
+across modalities [41]. Second, they are unhandy to use in such
+a situation where items in the test set have missing modalities
+[41]. Third, no matter the combination of if , ig is concatenation
+or fusion, useful information is entered into the model as well as
+noise. Therefore, more robust structures and parameters (E, V )
+need to be learned.
+3.2.4 Multi-Modal Marginalized Denoising AutoEncoder
+We introduce a new fusion method to combine the multi-modal
+information to learn fusion feature. This method can go further to
+leverage the advantage of different modalities, learn more robust
+features and tackle the missing modalities problem.
+
+JOURNAL OF LATEX CLASS FILES, VOL. 14, NO. 8, AUGUST 2015
+
+
+
+cxt1
+
+
+
+cxt cmt 1
+
+5
+
+
+
+
+
+cmt
+
+tanh
+
+
+
+fxt
+
+
+
+zxt
+
+
+
+gxt
+oxt
+tanh 
+
+
+
+
+
+
+
+
+
+fmt
+
+
+
+zmt
+
+
+
+gmt
+omt
+tanh 
+
+
+
+
+
+hxt hmt 1
+
+hmt
+imt multi-modal fusion feature
+
+latent feature
+
+(a) Separate Structure
+
+ct
+
+tanh
+
+tanh
+
+hxt1
+ixt
+
+c t1
+
+ft
+
+
+
+
+
+zt
+
+gt
+ot
+tanh 
+
+
+
+ht1
+
+ht
+
+ ixt ; imt 
+
+united feature
+
+(b) Unified Structure
+
+Fig. 3. Diagram of hidden state structures of the MV-RNN model. We devise a separate structure and a united structure. The two structures handle
+the multi-view input features at the input by multiple RNN units and by one RNN unit each time respectively.
+
+This method is based on the mDAE model [42]. It learns
+a linear mapping M and minimizes the reconstruction loss
+l(t, M t̃), where t̃ is the corrupted version of original feature t.
+However, mDAE has no hidden layer. Later, the coupled mDAE
+[43] modifies the original mDAE with two mappings in a linear
+way l(t, M T M t̃). M t̃ and M T M t̃ represent the encoding
+and decoding processes respectively. Based on these works, we
+introduce a multi-modal mDAE model, called 3mDAE, to learn
+fusion feature. Details are as follows.
+Encoder-Decoder. The encoding process is represented by Eqs.
+2 and 3, and the corresponding hidden layer is built by Eq. 4.
+In the decoding process, we need to reconstruct the multi-modal
+input features. The mapping matrix in decoding process is just the
+transpose of the mapping matrix in encoding process [40].
+
+f̂ = E T im
+
+(5)
+
+ĝ = V T im
+
+In our introduced 3mDAE model, we omit bias term and apply
+original features f and g instead of corrupted version as input.
+The denoising operation is discussed in Section 4.3. The final
+representation of an item is also i = [ix ; im ].
+Objective Function. The mDAE model minimizes the overall
+quadratic reconstruction loss for one modality [43]:
+m
+1 X
+ti − M T M t̃i
+Θ∗ = argmin
+Θ
+2m i=1
+
+2
+
+,
+
+(6)
+
+where m is the number of samples. We extend this to form the
+objective function of 3mDAE:
+!
+m
+2
+1 X kfi − f̂ i k2
+kgi − ĝ i k
+∗
+Θ = argmin
++
+, (7)
+Θ
+2m i=1
+|df |
+|dg |
+The df and dg are the original dimensions of visual and textual
+features respectively, where |df | = 1024 and |dg | = 100 in our
+work. They are used as balance factors.
+3.3
+
+Modeling of Multi-View Features on Hidden State
+
+User representation is expressed by the hidden state of our MVRNN model. Two different ways are explored to model the multiview features built at the input. In detail, Figures 3(a) and 3(b)
+reveal the separate and united hidden state structures respectively.
+Specifically, the illustration is based on ix and im .
+3.3.1
+
+Long Short-Term Memory
+
+Conventional RNN suffers from the gradient vanishing and explosion problem, so that it fails to learn long-term dependencies
+
+[31, 32]. Gated activation function is proposed to solve this issue.
+We chose the widely-used LSTM [16] and it is denoted by
+
+
+f t = σ U 1 xt + W 1 ht−1 + b1 ,
+
+
+z t = σ U 2 xt + W 2 ht−1 + b2 ,
+
+
+g t = tanh U 3 xt + W 3 ht−1 + b3 ,
+(8)
+ct = f t ct−1 + z t g t
+
+
+ot = σ U 4 xt + W 4 ht−1 + b4 ,
+
+ht = ot tanh ct
+where means element-wise product between two variables, t is
+the time step, xt ∈ Rd is the input feature. Transition matrices
+U 1∼4 ∈ Rd×d transfer the current input. Recurrent connections
+W 1∼4 ∈ Rd×d delivers the sequential information. b1∼4 ∈ Rd
+are bias terms. The f t , z t , g t , ct , ot , ht are the f orget gate,
+input gate, update gate, cell, output gate and the hidden
+state, respectively. In our work, we apply a Lstm(·) function to
+substitute the original formulas in Equation 8:
+
+
+ht = Lstm U xt , W ht−1 , b ,
+ht ∈ Rd ,
+(9)
+where U is a set of four matrices U 1∼4 , and so do the W , b.
+3.3.2 Separate Multi-View RNN
+A natural way to handle multi-view features is to apply separate
+RNN units. Each unit is used for each kind of feature. In this stage,
+our MV-RNN is a two-unit model, as shown in Figure 3(a).
+We apply one RNN unit to model the latent feature and
+apply another RNN unit to model the multi-modal fusion feature.
+Formulation is defined by:
+
+
+htx = Lstm U x itx , W x ht−1
+,
+b
+,
+htx ∈ Rd , (10a)
+x
+x
+
+
+htm = Lstm U m itm , W m ht−1
+htm ∈ Rd , (10b)
+m , bm ,
+where htx and htm are defined as a user’s latent interest and multimodal fusion interest at the t-th input. U x is a set of four matrices:
+U x1∼4 ∈ Rd×d . Similarly, W x , bx , U m , W m and bm are sets
+of three matrices or vectors, where subscripts x and m represent
+the latent modeling and multi-modal modeling.
+Multi-view user representation is the concatenation of hidden
+states from the two RNN units. They are linked together at every
+time step in our work.
+
+
+ht = htx ; htm ,
+ht ∈ R2d ,
+(11)
+where ht is the user’s general interest. But it may not be able
+to leverage the connection between multi-view features, as we
+
+JOURNAL OF LATEX CLASS FILES, VOL. 14, NO. 8, AUGUST 2015
+
+6
+
+model them in two RNN units separately and build discrete user’s
+interests. Thus we tend to develop a single RNN unit to handle
+multi-view features simultaneously.
+
+TABLE 2
+Datasets. We list the numbers of users, items, feedbacks and sparsity
+of each dataset respectively.
+(a) Datasets (5-core) used throughout the experiment.
+
+3.3.3 United Multi-View RNN
+We incorporate the multi-modal fusion feature into one RNN unit
+together with the latent feature. In such situation, our MV-RNN
+is a one-unit model, as shown in Figure 3(b). This structure can
+capture the relation between multi-view features and construct the
+united user’s interest, which promotes the model to have more
+promising performance.
+ 
+
+
+ht = Lstm U itx ; itm , W ht−1 , b ,
+ht ∈ R2d (12)
+where ht is the complete user’s interest, not a simple combination
+of a user’s different interests in Eq. 11. We apply
+U
+
+ one factor
+consisting of U 1∼4 ∈ R2d×2d because we have itx ; itm ∈ R2d ,
+and so do the W , b.
+Via the 3mDAE model and the united structure, we finally
+model the item’s multiple (latent, visual and textual) features and
+the user’s interest in the same feature space. Our MV-RNN model
+benefits from this united viewpoint.
+3.4
+
+Model Learning
+
+After discussing the input and hidden state of the MV-RNN model,
+we introduce the training procedure on output. No matter what
+kind of combinations of features at input or structures of hidden
+state, the BPR [2] framework is always suitable. BPR is a powerful
+pairwise method for implicit feedback, and it has been widely
+used in many works [7, 13–15, 20, 46]. Besides, as a 3mDAE
+model is introduced, we need to carefully consider the multimodal reconstruction loss. A united objective function needs to
+be constructed. The description is also based on ix and im .
+The training set S is made by (u, p, q) triples, where u
+represents the user, p and q denote the positive and negative items
+respectively. Item p is selected from a user’s purchase history I u ,
+while item q is randomly chosen from the rest items (I \ I u ). A
+negative item is regenerated for each positive item in each epoch.
+
+S = {(u, p, q)|u ∈ U ∧ p ∈ I u ∧ q ∈ I \ I u }
+
+users
+
+items
+
+feedbacks
+
+sparsity
+
+1,003,331
+38,840
+
+343,134
+22,586
+
+12,613,815
+272,949
+
+99.996%
+99.969%
+
+(b) Sub-datesets for the controlled study in Section 4.3.2.
+dataset
+Taobao (10-core)
+Taobao (15-core)
+Taobao (20-core)
+
+users
+
+items
+
+feedbacks
+
+sparsity
+
+478,391
+89,634
+3,536
+
+145,867
+34,903
+1,843
+
+7,558,233
+1,912,708
+124,453
+
+99.989%
+99.939%
+98.090%
+
+the preference of BPR and the reconstruction loss of our 3mDAE
+model. The final objective function is defined as
+
+Θ∗ = argmin
+Θ
+
+
+− ln σ(x̂upq )
+ 
+r 
+X 
+ + a kfp − f̂ p k2 + kfq − f̂ q k2  λΘ
+ 2|df |
++
+kΘk2
+
+
+
+
+2
+
+
+ra
+2
+2
+(u,p,q)∈S
++
+gp − ĝ p + gq − ĝ q
+2|dg |
+(16)
+where Θ denotes a set of parameters Θ = {X, E, V , U , W , b}.
+X is the set of all items’ latent features. U , W and b are the sets
+of the matrices or vectors represented in previous equations. λΘ >
+0 is the regularization parameter. Please note that λev is introduced
+to regularize embedding matrices E and V . Then, MV-RNN can
+be learned by the mini-batch gradient descent and parameters are
+updated by classical BPTT [22].
+After the training, we obtain the fixed representations of
+Θ. Then X, E and V are reused to obtain each item’s final
+representation. We recalculate each user’s sequential hidden states,
+and the last hidden state denotes a user’s final representation.
+
+(13)
+
+Given the training set, we calculate the difference of user’s
+preferences between positive and negative items on output at every
+time step. At the t-th time step, it can be computed by
+
+x̂tupq = x̂tup − x̂tuq
+
+T  t+1
+= ht
+ip − it+1
+q
+
+dataset
+Taobao
+Amazon
+
+(14)
+
+where it+1
+and it+1
+p
+qh represent
+i positive hand negative
+i inputs ret+1
+t+1 t+1
+t+1
+t+1 t+1
+spectively: ip = ixp ; imp , iq = ixq ; imq .
+The objective function combines BPR and our 3mDAE by a
+minimal form. The MV-RNN can simultaneously model these two
+kinds of losses. BPR maximizes the following formula:
+X
+λΘ
+kΘk2
+(15)
+Θ∗ = argmax
+ln σ(x̂upq ) −
+Θ
+2
+(u,p,q)∈S
+
+It is transformed to the minimal form in our work. Next, 3mDAE
+loss represented in Eq. 7 is extended along with the BPR. Because
+we compute preference at every output using positive and negative
+items, we need to minimize all the visual and textual encoderdecoder losses. Last, we introduce a multiplicator ra to leverage
+
+4
+
+E XPERIMENTAL R ESULTS AND A NALYSIS
+
+In this section, we conduct experiments on two real-world datasets.
+First, experimental settings are introduced. Then a hyperparameter
+optimization is performed. Next, we make a comparison between
+MV-RNN and baselines, and a denoising experiment is conducted
+for our 3mDAE. The last subsection is cold start analysis on items.
+4.1
+4.1.1
+
+Experimental Settings
+Datasets
+
+Experiments are conducted on two datasets collected from
+Taobao1 and Amazon2 . The basic statistics are listed in Table
+2. Both datasets have massive sequential implicit feedbacks, and
+each item contains an image and a text description. We apply the
+filtering strategy called k -core [10, 14, 46]. Each user purchases
+at least k items and each item is bought by at least k users. We
+set k =5 and also hold users with no more than 100 items, because
+users with very long sequences (|I u | > 100) may scalp items.
+1. https://tianchi.shuju.aliyun.com/datalab/dataSet.htm?id=13
+2. http://jmcauley.ucsd.edu/data/amazon
+
+JOURNAL OF LATEX CLASS FILES, VOL. 14, NO. 8, AUGUST 2015
+
+7
+
+TABLE 3
+The best parameters acquired on the validation set for all methods.
+
+dataset
+
+•
+
+•
+
+parameter
+
+BPR
+
+VBPR
+
+GRU/LSTM
+
+p-RNN
+
+based on GRU/LSTM
+
+based on GRU
+
+based on GRU/LSTM
+
+Con.
+
+Fus.
+
+3mDAE-1U
+
+3mDAE-2U
+
+3mDAE-1U
+
+3mDAE-2U
+
+Taobao
+
+λΘ
+λev
+ra
+
+0.0
+-
+
+0.0
+0.00001
+-
+
+0.0001
+-
+
+0.0001
+-
+
+0.0001
+0.0
+-
+
+0.0001
+0.0
+-
+
+0.0001
+0.0
+0.0001
+
+0.0001
+0.0
+0.001
+
+0.0001
+0.0
+0.00001
+
+0.0001
+0.0
+0.00001
+
+Amazon
+
+λΘ
+λev
+ra
+
+0.0001
+-
+
+0.0001
+0.0001
+-
+
+0.001
+-
+
+0.001
+-
+
+0.001
+0.0
+-
+
+0.001
+0.0
+-
+
+0.001
+0.0
+0.0001
+
+0.001
+0.00001
+0.0001
+
+0.001
+0.00001
+0.001
+
+0.001
+0.00001
+0.001
+
+Taobao is a dataset for clothing matching competition on
+TianChi3 platform. We use user historical data and item
+features (image, text) to make the sequential recommendation. Its time span is from 14-Jun-2014 to 15-Jun-2015.
+Amazon contains many reviews and product metadata
+[47, 48]. We use one large category Clothing, Shoes
+and Jewelry located in the second half of the website.
+We acquire the sequential implicit feedback from review
+histories where the ratings range from 1 to 5, obtain the
+images and text data from product metadata. The original
+time span is between 29-Sep-2000 and 23-Jul-2014. As
+feedbacks in previous years are too sparse, we only keep
+feedbacks within the most recent two years.
+
+4.1.2 Multi-Modal Features
+Multi-modal features are obtained by using the existing methods.
+They are normalized to the same range by min-max normalization.
+Then, they are used as the input features (f and g).
+The visual feature is obtained by the GoogLeNet [44] implemented by BVLC Caffe deep learning framework [49]. This
+network has 22 layers and has been pre-trained on 1.2M ImageNet ILSVRC2014 images [50]. We apply the output of layer
+pool5/7x7 s1 to obtain 1024-dimensional visual features. They
+are all positive and are normalized to range [0, 0.5].
+To generate the textual features of items, a text description
+of each item is collected firstly. On Taobao, we directly use item
+titles which have already been segmented and disordered by the
+data provider. On Amazon, we combine each item’s category and
+title as its text data. Then we adopt the GloVe model [45] weighted
+by TF-IDF [51] to obtain each word’s feature and weight. Finally,
+the weighted feature for each item is computed to obtain 100dimensional textual features. Their values are in the vicinity of
+zero and are normalized to range [−0.5, 0.5].
+4.1.3 Evaluation Metrics
+Performance is evaluated on test set by Recall, Mean Average
+Precision (MAP) [52] and Normalized Discounted Cumulative
+Gain (NDCG) [46]. The former one is an evaluation of unranked
+retrieval sets, while the latter two reflect the order of items. Here
+we consider top-k (e.g., k =20, 30) recommendations. Besides,
+the Area Under the ROC Curve (AUC) [2, 7] is introduced to
+evaluate the overall performance.
+Data is divided by time. We use feedbacks in first 60% of
+the time for training, 20% for validation and the rest 20% for test.
+Same as p-RNNs, hyperparameters are optimized on the validation
+set, and all models are retrained on the full training set (training
+and validation sets) before obtaining final results on the test set.
+3. https://tianchi.shuju.aliyun.com/
+
+4.1.4
+
+Comparisons
+
+We compare MV-RNN with several comparative baselines:
+•
+•
+•
+
+•
+
+•
+
+•
+
+Random: Items are randomly ranked for all users. The
+AUC of this method is 0.5 [2].
+POP: This baseline recommends the most popular items
+in the training set for each user u.
+BPR: This method refers to the BPR-MF for implicit
+feedback [2]. It optimizes the difference of user’s preferences for positive and negative items. The corresponding
+pairwise training procedure has been applied to many
+sequential tasks [13–15, 20].
+VBPR: Introduced in [7], this is an extended method with
+visual features based on BPR. It firstly incorporates visual
+information to build the user’s interest.
+LSTM: This sequential baseline trained with BPR is
+developed for next basket recommendation [14]. Instead
+of basic RNN, LSTM is used in our work. Both BPR and
+LSTM only model the latent feature.
+p-RNN: The p-RNNs is a feature-rich model for sessionbased recommendation [21]. It has 3 structures and 4 training strategies. According to its experiments, we choose the
+best variant ’Parallel (res)’.
+
+We design 3 combinations of input and 2 structures for the
+hidden state. There are 4 variants implemented as MV-RNN-Con.,
+MV-RNN-Fus., MV-RNN-3mDAE-1U and MV-RNN-3mDAE2U. The former 3 variants are built by the united structure, while
+the last one has the separate structure. The prefix ‘MV-RNN-’
+can be omitted, and the 4 variants can be abbreviated as Con.,
+Fus., 3mDAE-1U and 3mDAE-2U respectively. The Con. has
+the highest dimension of hidden state (h ∈ R3d ), while the rest
+has the same dimension (h ∈ R2d ). Additionally, we need to
+initialize parameters Θ to the same range, e.g., uniform distribution [−0.5, 0.5]. The initial hidden state h0 of each sequence is
+always zero. The learning rate is fixed at α = 0.1 for all methods.
+Besides, the mini-batch size for training is set as 4 and users with
+similar lengths are grouped into one batch. This length-adjustment
+can greatly speed up training [53]. Complete codes for all models
+are written by using Theano and are available on GitHub4 . All
+experimental results are also listed on this website.
+4.2
+4.2.1
+
+Optimization on Validation Set
+Regularization Parameter
+
+The best parameters for regularization are listed in Table 3. They
+are chosen by the evaluations of all the metrics on validation set
+under the dimension d = 20.
+4. https://github.com/cuiqiang1990/MV-RNN
+
+JOURNAL OF LATEX CLASS FILES, VOL. 14, NO. 8, AUGUST 2015
+
+8
+
+TABLE 4
+The performance difference of our MV-RNN on validation set between using different baselines (GRU, LSTM).
+Based on GRU
+dataset
+
+Based on LSTM
+
+@30 (%)
+
+method
+
+AUC
+
+Recall
+
+MAP
+
+NDCG
+
+Taobao
+
+GRU
+Con.
+Fus.
+3mDAE-1U
+3mDAE-2U
+
+1.141
+1.410
+1.360
+1.362
+1.186
+
+0.283
+0.372
+0.362
+0.334
+0.338
+
+0.622
+0.786
+0.762
+0.735
+0.690
+
+0.608
+0.679
+0.680
+0.675
+0.675
+
+Amazon
+
+GRU
+Con.
+Fus.
+3mDAE-1U
+3mDAE-2U
+
+1.494
+2.210
+2.091
+2.237
+2.104
+
+0.249
+0.421
+0.418
+0.410
+0.401
+
+0.657
+1.012
+0.962
+1.013
+0.955
+
+0.577
+0.687
+0.687
+0.688
+0.687
+
+POP
+
+BPR
+
+VBPR
+
+LSTM
+
+p-RNN
+
+0.45
+
+1.5
+
+@30 (%)
+
+method
+
+MAP
+
+NDCG
+
+LSTM
+Con.
+Fus.
+3mDAE-1U
+3mDAE-2U
+
+1.124
+1.372
+1.309
+1.349
+1.196
+
+0.287
+0.358
+0.332
+0.342
+0.353
+
+0.603
+0.761
+0.718
+0.738
+0.709
+
+0.610
+0.685
+0.678
+0.678
+0.676
+
+LSTM
+Con.
+Fus.
+3mDAE-1U
+3mDAE-2U
+
+1.604
+2.250
+2.248
+2.237
+2.283
+
+0.305
+0.433
+0.415
+0.430
+0.425
+
+0.717
+1.049
+0.998
+1.038
+1.035
+
+0.583
+0.685
+0.687
+0.685
+0.690
+
+Con.
+
+Fus.
+
+3mDAE-1U
+
+0.9
+
+1.4
+
+0.4
+
+0.8
+
+0.3
+
+0.6
+
+0.2
+
+0.4
+
+AUC
+
+Recall
+
+3mDAE-2U
+
+70
+
+0.7
+
+0.65
+1.2
+0.6
+
+1
+
+1.4
+
+0.8
+
+0.4
+
+0.8
+
+0.6
+
+0.1
+10
+
+15
+
+20
+
+25
+
+0.2
+10
+
+dimension
+
+1.3
+
+15
+
+20
+
+25
+
+0.5
+10
+
+dimension
+
+15
+
+20
+
+25
+
+10
+
+dimension
+
+15
+
+20
+
+dimension
+
+0.5
+
+2
+
+0.4
+
+1.2
+0.7
+
+0.7
+
+1
+
+0.65
+
+62
+
+0.8
+0.3
+
+0.3
+
+1.1
+
+0.2
+
+0.5
+20
+
+25
+
+0.55
+
+0.4
+
+0.1
+15
+
+dimension
+
+1
+
+0.6
+0.6
+
+1
+
+10
+
+25
+
+64
+
+2.5
+
+1.5
+
+66
+
+(a) Taobao
+
+0.35
+
+1.2
+
+68
+
+0.55
+
+10
+
+15
+
+20
+
+25
+
+0.6
+0.2
+10
+
+dimension
+
+60
+
+0.5
+15
+
+20
+
+25
+
+dimension
+
+10
+
+15
+
+20
+
+25
+
+dimension
+
+0.25
+58
+
+(b) Amazon
+
+Fig. 4. Recall@30, MAP@30, NDCG@30 and AUC performances on validation set with varied dimensions of latent feature d = [10, 15, 20, 25].
+
+0.9
+
+0.5
+0.2
+
+In this optimization process, λΘ is firstly selected based
+on basic methods (BPR, GRU and LSTM), then λev , ra are
+chosen by grid search. The ranges of these three parameters are λΘ , λev ∈ [0.001, 0.0001, 0.00001, 0.0] and ra ∈
+0.15
+[0.001, 0.0001, 0.00001]. With
+the reduction of data size from
+Taobao to Amazon, the best λΘ , λev , ra almost all get bigger.
+
+0.8
+
+0.7
+
+0.6
+10
+
+4.2.2 Baseline Selection
+Although several studies explore
+the difference between GRU
+0.1
+15
+20
+25
+15
+20
+25
+and
+LSTM
+[19, 33],
+few people10do comparisons
+for sequential
+dimension
+dimension
+recommendation. This part aims for completeness. Shown in Table
+4, the result is the performance by using the best parameters
+obtained in Section 4.2.1. Please note that all values of Recall,
+MAP and NDCG in Tables 4, 5, 6, 7, 8 and Figure 4 are
+represented in percentage.
+Obviously, the performance of MV-RNN based on LSTM is
+better than that based on GRU in most cases, except the Con.
+and Fus. based on LSTM on Taobao. Although LSTM has more
+parameters, it also has the better model capacity. As a long as the
+model size is not significantly bigger, we should always consider
+the model with the best architecture. Therefore, in all the following
+experiments, we consider LSTM as the baseline instead of GRU
+and our MV-RNN is based on LSTM.
+
+56
+
+4.2.3
+
+Dimension Analysis
+54
+
+The
+0.4 dimension analysis is investigated in Figure 4. We illustrate
+the performances of top-30 and AUC on the validation set. The
+dimensions are set as d = [10, 15, 20, 25]. 52
+With the increasing of dimension, performances of top-30
+metrics have similar trends with each other on both datasets. BPR
+0.3
+50
+and VBPR
+tend15to get worse.
+They
+10
+20
+25 have similar10trends as15well as 20
+absolute values. Itdimension
+is difficult to tell the difference between dimension
+VBPR
+and BPR on Recall, MAP, and NDCG, especially on Taobao. The
+p-RNN model is not sensitive to dimension. The LSTM and MVRNN models obtain better performance with the increasing of
+dimension on Taobao, while they almost do not change with the
+dimension on Amazon. On the other hand, AUCs of all models
+are much stable with different dimensions. VBPR has obviously
+better performance than BPR on both datasets. The 4 variants of
+MV-RNN are nearly coincident with each other. The AUC is not
+sensitive to the dimension.
+Generally, it is obvious that LSTM is a very strong baseline.
+Apparently, our MV-RNN model is the best. The optimal dimension is chosen as d = 20 and it is applied to other experiments.
+
+25
+
+JOURNAL OF LATEX CLASS FILES, VOL. 14, NO. 8, AUGUST 2015
+
+9
+
+TABLE 5
+Evaluation of different methods on the test set with the dimension of latent vector d = 20. We generate top-20 and 30 items for each user.
+Because of the structure of concatenation, the hidden state dimension of Con. is much larger than the others.
+Taobao
+p
+
+method
+
+Amazon
+
+@20 (%)
+
+@30 (%)
+
+AUC
+
+Recall
+
+MAP
+
+NDCG
+
+Recall
+
+MAP
+
+NDCG
+
+@20 (%)
+
+p
+
+@30 (%)
+
+AUC
+
+Recall
+
+MAP
+
+NDCG
+
+Recall
+
+MAP
+
+NDCG
+
+Random
+POP
+BPR
+VBPR
+LSTM
+p-RNN
+
+-
+
+0.004
+0.113
+0.191
+0.196
+0.666
+0.537
+
+0.001
+0.016
+0.038
+0.042
+0.162
+0.149
+
+0.002
+0.051
+0.101
+0.106
+0.386
+0.335
+
+0.006
+0.218
+0.274
+0.283
+0.884
+0.688
+
+0.001
+0.020
+0.041
+0.045
+0.171
+0.156
+
+0.003
+0.085
+0.127
+0.131
+0.453
+0.382
+
+0.500
+0.441
+0.573
+0.577
+0.567
+0.553
+
+-
+
+0.083
+1.418
+0.641
+0.700
+1.443
+1.484
+
+0.016
+0.299
+0.168
+0.181
+0.283
+0.301
+
+0.040
+0.697
+0.340
+0.368
+0.671
+0.708
+
+0.137
+1.993
+0.812
+0.922
+1.982
+1.939
+
+0.018
+0.321
+0.176
+0.190
+0.301
+0.320
+
+0.056
+0.847
+0.390
+0.423
+0.820
+0.831
+
+0.500
+0.553
+0.511
+0.584
+0.608
+0.609
+
+Con.
+Fus.
+
+-
+
+0.863
+0.808
+
+0.212
+0.212
+
+0.502
+0.481
+
+1.164
+1.082
+
+0.224
+0.223
+
+0.592
+0.559
+
+0.690
+0.690
+
+-
+
+2.113
+2.157
+
+0.522
+0.508
+
+1.092
+1.096
+
+2.827
+2.867
+
+0.554
+0.538
+
+1.294
+1.285
+
+0.723
+0.722
+
+3mDAE-1U
+
+0.0
+0.2
+0.3
+0.4
+
+0.849
+0.802
+0.881
+0.807
+
+0.213
+0.205
+0.228
+0.219
+
+0.499
+0.472
+0.523
+0.488
+
+1.140
+1.075
+1.174
+1.075
+
+0.225
+0.216
+0.240
+0.230
+
+0.586
+0.555
+0.612
+0.570
+
+0.680
+0.687
+0.680
+0.679
+
+0.0
+0.1
+0.2
+0.3
+
+2.190
+2.243
+2.211
+2.217
+
+0.517
+0.541
+0.529
+0.521
+
+1.116
+1.149
+1.136
+1.117
+
+2.869
+2.995
+2.892
+2.968
+
+0.549
+0.570
+0.558
+0.552
+
+1.309
+1.352
+1.322
+1.317
+
+0.722
+0.722
+0.720
+0.721
+
+3mDAE-2U
+
+0.0
+0.2
+0.3
+0.4
+
+0.676
+0.750
+0.760
+0.792
+
+0.208
+0.234
+0.235
+0.243
+
+0.440
+0.491
+0.494
+0.514
+
+0.892
+0.971
+1.001
+1.029
+
+0.217
+0.243
+0.246
+0.253
+
+0.506
+0.558
+0.568
+0.586
+
+0.685
+0.683
+0.677
+0.681
+
+0.0
+0.1
+0.2
+0.3
+
+2.227
+2.227
+2.162
+2.134
+
+0.524
+0.528
+0.517
+0.512
+
+1.108
+1.128
+1.107
+1.104
+
+2.856
+2.883
+2.906
+2.838
+
+0.550
+0.555
+0.544
+0.544
+
+1.286
+1.301
+1.292
+1.305
+
+0.721
+0.720
+0.722
+0.720
+
+TABLE 6
+Results of the controlled study in Section 4.3.2.
+
+dataset
+
+4.3
+
+@30 (%)
+
+method
+
+AUC
+
+Recall
+
+MAP
+
+NDCG
+
+Taobao (10-core)
+
+LSTM
+Con.
+
+1.366
+1.635
+
+0.305
+0.365
+
+0.794
+0.946
+
+0.603
+0.689
+
+Taobao (15-core)
+
+LSTM
+Con.
+
+2.343
+2.801
+
+0.752
+0.868
+
+1.742
+2.040
+
+0.591
+0.678
+
+Taobao (20-core)
+
+LSTM
+Con.
+
+4.681
+5.449
+
+13.795
+16.701
+
+16.651
+19.118
+
+0.536
+0.623
+
+Analysis of Experimental Results
+
+Table 5 illustrates all performances on two datasets with four
+evaluation metrics. Recall, MAP and NDCG focus on local performance, while AUC reflects global performance.
+4.3.1
+
+Performance Comparison
+
+From a global perspective, additional multi-modal information of
+items (e.g, image and text description) is indeed beneficial. VBPR
+beats BPR. MV-RNN outperforms LSTM model. Our MV-RNN
+can effectively model the additional information. For example, the
+Con. has almost more than 30% and more than 40% improvements
+over LSTM on Taobao and Amazon respectively with respect to
+Recall, MAP and NDCG. Its improvements of AUC over LSTM
+are both around 20% on two datasets. As for the rest 3 variants
+which have hidden states of the same length, 3mDAE-1U performs
+best. In a perspective of statics and dynamics, although both
+trained by the BPR framework to maximize the difference of user’s
+preferences towards positive and negative items, LSTM beats BPR
+by a large margin. The recurrent structure of LSTM can capture
+sequential information which is helpful for the recommendation.
+3mDAE and Denoising. In this part, we analyze the four variants of MV-RNN and focus on the 3mDAE. The Con. almost
+always beats the Fus. but not too much. The highest hidden
+state dimension of Con. improves its capacity. This phenomenon
+also shows that feature addition has no great damage to multimodal modeling. Then, we embody the advantage of 3mDAE and
+
+introduce a training setting called denoising . It can help to learn
+more robust features and acquire the best performance.
+The denoising AE is first proposed for image classification on
+the MNIST database. It can make features more robust and avoid
+learning the identity function by using corrupted input. Identity
+function means just mapping the original input to its copy, which
+happens in the encoding process in AE (e.g., f → Ef ). It is easy
+to obtain a denoising AE just by a stochastic corruption operation
+on input. The original corruption mechanism randomly sets some
+of an input feature to zero with probability 0 6 p < 1. While in
+our experiment, we make feature itself corrupted.
+This denoising is conducted for 3mDAE. In this setting, we
+make some multi-modal data corrupted in the encoding process
+and still reconstruct both modalities in the decoding step. Training
+3mDAE still requires all the data in Table 2(a). The corruption levels are set as p = [0.0, 0.2, 0.3, 0.4] and p = [0.0, 0.1, 0.2, 0.3]
+for Taobao and Amazon respectively. If p = 0.0, the input data in
+the encoding process is complete. The results are still obtained on
+the original test set where all items have all features. Results are
+shown in eight rows at the bottom of the Table 5.
+Obviously, performance can become better than the original
+(p = 0%) by denoising , especially the Recall, MAP and NDCG.
+More importantly, 3mDAE-1U performs best. It is able to be better
+than Con., although Con. has the highest hidden state dimension.
+When we randomly reset some features to zero in the encoding
+process, the noise in the whole input data is reduced. However,
+by reconstructing both modalities in the decoding step, the fusion
+feature of our 3mDAE can still keep the useful information in
+both modalities. Our 3mDAE can acquire more robust features.
+The best corruption levels for 3mDAE-1U/2U are p = 0.3/0.4
+and p = 0.1/0.1 on two datasets respectively.
+The 3mDAE-1U/2U are a one-unit model with the united
+structure and a two-unit model with the separate structure respectively. In Table 5, the one-unit model outperforms the two-unit
+model. A united inner structure can better leverage the advantage
+of multi-view features. The separate structure may be not able to
+well model the connection between different views.
+p-RNN vs. MV-RNN. The session-based p-RNN model also
+incorporates additional features, but it is comparable to LSTM.
+
+JOURNAL OF LATEX CLASS FILES, VOL. 14, NO. 8, AUGUST 2015
+
+10
+
+TABLE 7
+A setting called missing is introduced and measured on an artificial test set, where some items’ multi-modal features are missing (deleted). This
+setting aims to study the ability of MV-RNN to handle missing modalities.
+missing - Taobao
+
+MV-RNN
+
+@20 (%)
+
+p
+
+missing - Amazon
+
+@30 (%)
+
+AUC
+
+Recall
+
+MAP
+
+NDCG
+
+Recall
+
+MAP
+
+NDCG
+
+@20 (%)
+
+p
+
+@30 (%)
+
+AUC
+
+Recall
+
+MAP
+
+NDCG
+
+Recall
+
+MAP
+
+NDCG
+
+Con.
+Fus.
+
+-
+
+0.784
+0.748
+
+0.189
+0.187
+
+0.453
+0.439
+
+1.042
+0.986
+
+0.199
+0.197
+
+0.531
+0.511
+
+0.665
+0.649
+
+-
+
+1.903
+1.775
+
+0.448
+0.423
+
+0.946
+0.913
+
+2.537
+2.265
+
+0.473
+0.444
+
+1.118
+1.054
+
+0.692
+0.696
+
+3mDAE-1U
+
+0.0
+0.2
+0.3
+0.4
+
+0.732
+0.743
+0.832
+0.746
+
+0.199
+0.181
+0.216
+0.191
+
+0.447
+0.427
+0.496
+0.440
+
+0.975
+0.999
+1.102
+1.000
+
+0.209
+0.191
+0.228
+0.202
+
+0.521
+0.504
+0.578
+0.517
+
+0.653
+0.679
+0.671
+0.666
+
+0.0
+0.1
+0.2
+0.3
+
+1.823
+2.059
+2.003
+2.001
+
+0.430
+0.491
+0.488
+0.470
+
+0.924
+1.040
+1.028
+0.995
+
+2.431
+2.696
+2.561
+2.645
+
+0.457
+0.517
+0.510
+0.498
+
+1.101
+1.217
+1.176
+1.171
+
+0.691
+0.703
+0.702
+0.705
+
+3mDAE-2U
+
+0.0
+0.2
+0.3
+0.4
+
+0.605
+0.643
+0.676
+0.701
+
+0.181
+0.180
+0.194
+0.201
+
+0.388
+0.400
+0.424
+0.441
+
+0.791
+0.851
+0.897
+0.920
+
+0.188
+0.189
+0.204
+0.210
+
+0.444
+0.464
+0.492
+0.508
+
+0.652
+0.673
+0.670
+0.674
+
+0.0
+0.1
+0.2
+0.3
+
+1.779
+1.964
+1.858
+1.827
+
+0.392
+0.452
+0.482
+0.496
+
+0.864
+0.979
+0.986
+1.003
+
+2.414
+2.624
+2.476
+2.435
+
+0.414
+0.479
+0.506
+0.522
+
+1.042
+1.163
+1.145
+1.171
+
+0.688
+0.704
+0.702
+0.704
+
+If we carefully examine the results of p-RNN in its original
+paper [21], we find that most results of p-RNN are also close
+to the basic model (‘ID only’ in their paper). The reason is
+varied as p-RNN is substantially different from our MV-RNN.
+The first one is feature normalization. Multi-view features must
+be normalized to the same range, but only visual features are
+normalized in their work. Next, different from our strategy in
+Eq. 14, p-RNN uses output weight matrix to compute the user’s
+scores on items. This matrix improves the capacity of a model
+but increases the learning difficulty, especially for the modeling
+of visual and textual features. We experimented with using this
+matrix on our Con., but its performance is very close to that of
+LSTM. Then, different subnets within p-RNN are trained one by
+one, which can not well construct the connection among multiview features.
+4.3.2 A Controlled Study
+In Table 5, the metrics (Recall, MAP and NDCG) seem to be low,
+especially on Taobao. Therefore, we conduct a controlled study to
+explore the factors that influence the metrics.
+Reducing the number of items (search space) may be helpful.
+We extract three sub-datasets from Taobao by increasing the
+filtering strategy as [10, 15, 20]-core. The statistics are shown in
+Table 2(b). In this way, the search space is greatly reduced. Then,
+we perform experiments by using LSTM and Con.. Accordingly,
+we need to re-select the best parameters and the results are shown
+in Table 6. With the increasing of k , the three metrics get bigger.
+Metrics of Taobao (20-core) are obviously bigger than that of the
+other datasts. This may be because the sparsity of Taobao (20core) is clearly small. At the same time, our method Con. is always
+better than LSTM, which shows the effectiveness of our MV-RNN.
+Therefore, although the absolute values on Taobao are small, they
+are related to the dataset itself (e.g., sparsity).
+In summary, our MV-RNN model is better than the others.
+MV-RNN can well model multi-view features and achieves the
+best and stable performance in different situations. The denoising
+of 3mDAE is a good setting to improve performance. Besides,
+special strategies used in p-RNN are not necessary for handling
+multi-view features. Feature concatenation is natural but very
+useful. A united structure with simultaneous training strategy is
+easy to use and is better than the separate subnets built for each
+view in p-RNN. These conclusions of joint learning are also
+confirmed by the previous works, like a multi-view model for
+cross-domain user modeling [54].
+
+4.4
+
+Analysis of Missing Modalities in Test Set
+
+Multi-modal methods usually hold an assumption that all modalities are available. However, in practice, certain modality is often
+missing, like an item without the visual feature. In such case, our
+3mDAE is theoretically better than the concatenation and fusion.
+To verify this, we introduce a setting of test set called missing .
+First, we artificially modify the test set. We set one-third of items
+without visual features, one-third without textual features, and the
+last one-third with all the multi-modal features. Then, the training
+procedure also applies the denoising , and the only difference
+between Sections 4.3 and 4.4 is that missing here is evaluated on
+our artificial test set. The result is shown in Table 7.
+Experimental results indicate that our 3mDAE is very promising for tackling missing modalities problem. Both 3mDAE-1U/2U
+perform very well and 3mDAE-1U is more successful. For example, 3mDAE-1U under p = 0.3 increases by about 10 percent
+with respect to Con. on Recall, MAP and NDCG on Taobao.
+This improvement acquired by 3mDAE-1U under p = 0.1 on
+Amazon is about 9 percent. Besides, 3mDAE-1U/2U also have
+some increases on AUC over Con. and Fus.. Our 3mDAE is greatly
+better than others in this missing setting and it can effectively
+handle the items with missing modalities.
+4.5
+
+Analysis of Cold Start
+
+We investigate the performance of MV-RNN on cold start items
+in the test set. These items usually account for a large proportion
+and cold start is an intractable problem in practical recommender
+systems. Previous works like VBPR [7] usually only consider cold
+start items and neglect the rest. While in our work, we expand
+this general setting because the rest items may produce a large
+volume of feedbacks. Two new experimental settings are designed,
+Recall@30 and AUC are applied to test the performance, as shown
+in Table 8. Furthermore, we compute the improvement to analyze
+the effect of multi-modal information on cold start items. The
+improvements are shown in Table 9 and Figure 5.
+4.5.1
+
+Subsets of Test Set
+
+According to each item’s support number in the test set, we divide
+items into three subsets: cold-start (6 4), active (> 5) and
+whole (test set). Numbers of items of each subset are listed in
+Table 8(a). The cold start items account for 40.5% and 81.4% on
+Taobao and Amazon respectively.
+
+JOURNAL OF LATEX CLASS FILES, VOL. 14, NO. 8, AUGUST 2015
+
+11
+
+TABLE 8
+Cold start performance on two datasets under the evaluation of Recall@30 and AUC with dimension of latent feature d = 20.
+(a) Numbers of items in each subset and each bin of the test set. Numbers of feedbacks are also counted.
+subsets of test set
+
+dataset
+
+bins of test set
+
+cold-start
+
+active
+
+[1, 2]
+
+[3, 4]
+
+[5, 6]
+
+[7, 8]
+
+[9, 10]
+
+[11, 12]
+
+[13, 14]
+
+[15, 16]
+
+[17, 18]
+
+[19, ]
+
+Taobao
+
+items
+feedbacks
+
+72,273
+152,623
+
+106,001
+2,918,957
+
+46,919
+64,363
+
+25,354
+88,260
+
+24,807
+135,031
+
+16,776
+124,920
+
+11,286
+106,703
+
+8,170
+93,649
+
+5,958
+80,135
+
+4,648
+71,916
+
+3,626
+63,380
+
+30,730
+2,243,223
+
+Amazon
+
+items
+feedbacks
+
+12,399
+24,122
+
+2,826
+24,054
+
+8,970
+12,548
+
+3,429
+11,574
+
+1,422
+7,662
+
+525
+3,885
+
+340
+3,203
+
+184
+2,100
+
+98
+1,312
+
+64
+990
+
+49
+855
+
+144
+4,047
+
+(b) Evaluation of cold start performance on Taobao. The interval is the accumulation of several bins.
+eva.
+
+method
+
+subsets of test set (%)
+
+p
+
+intervals of test set (%)
+
+cold-start
+
+active
+
+whole
+
+[1, 2]
+
+[1, 4]
+
+[1, 6]
+
+[1, 8]
+
+[1, 10]
+
+[1, 12]
+
+[1, 14]
+
+[1, 16]
+
+[1, 18]
+
+all
+
+Recall
+@30
+
+LSTM
+Con.
+Fus.
+3mDAE-1U
+3mDAE-2U
+
+0.3
+0.4
+
+0.184
+0.153
+0.144
+0.269
+0.621
+
+0.920
+1.216
+1.131
+1.221
+1.050
+
+0.884
+1.164
+1.082
+1.174
+1.029
+
+0.242
+0.173
+0.174
+0.362
+0.839
+
+0.184
+0.153
+0.144
+0.269
+0.621
+
+0.133
+0.114
+0.109
+0.195
+0.437
+
+0.115
+0.101
+0.105
+0.171
+0.378
+
+0.106
+0.098
+0.103
+0.165
+0.354
+
+0.103
+0.098
+0.103
+0.160
+0.340
+
+0.100
+0.097
+0.106
+0.157
+0.333
+
+0.098
+0.097
+0.105
+0.157
+0.328
+
+0.100
+0.097
+0.109
+0.158
+0.324
+
+0.884
+1.164
+1.082
+1.174
+1.029
+
+AUC
+
+LSTM
+Con.
+Fus.
+3mDAE-1U
+3mDAE-2U
+
+0.3
+0.4
+
+0.608
+0.659
+0.714
+0.651
+0.649
+
+0.565
+0.691
+0.688
+0.681
+0.683
+
+0.567
+0.690
+0.690
+0.680
+0.681
+
+0.657
+0.681
+0.742
+0.676
+0.671
+
+0.608
+0.659
+0.714
+0.651
+0.649
+
+0.519
+0.631
+0.652
+0.614
+0.620
+
+0.487
+0.623
+0.631
+0.603
+0.611
+
+0.473
+0.620
+0.622
+0.600
+0.607
+
+0.467
+0.620
+0.618
+0.600
+0.606
+
+0.463
+0.619
+0.616
+0.600
+0.606
+
+0.462
+0.621
+0.616
+0.601
+0.607
+
+0.462
+0.621
+0.616
+0.603
+0.608
+
+0.567
+0.690
+0.690
+0.680
+0.681
+
+(c) Evaluation of cold start performance on Amazon. The interval is the accumulation of several bins.
+eva.
+
+method
+
+Recall
+@30
+
+AUC
+
+p
+
+subsets of test set (%)
+
+intervals of test set (%)
+
+cold-start
+
+active
+
+whole
+
+[1, 2]
+
+[1, 4]
+
+[1, 6]
+
+[1, 8]
+
+[1, 10]
+
+[1, 12]
+
+[1, 14]
+
+[1, 16]
+
+[1, 18]
+
+all
+
+LSTM
+Con.
+Fus.
+3mDAE-1U
+3mDAE-2U
+
+0.1
+0.1
+
+0.000
+0.398
+0.328
+0.623
+0.319
+
+3.970
+5.263
+5.413
+5.675
+5.454
+
+1.982
+2.827
+2.867
+2.995
+2.883
+
+0.000
+0.215
+0.215
+0.207
+0.199
+
+0.000
+0.398
+0.328
+0.323
+0.319
+
+0.000
+0.538
+0.463
+0.434
+0.450
+
+0.003
+0.676
+0.558
+0.547
+0.552
+
+0.033
+0.826
+0.702
+0.692
+0.705
+
+0.034
+0.996
+0.876
+0.869
+0.874
+
+0.066
+1.135
+1.017
+1.038
+1.034
+
+0.074
+1.192
+1.114
+1.144
+1.149
+
+0.165
+1.398
+1.276
+1.337
+1.335
+
+1.982
+2.827
+2.867
+2.995
+2.883
+
+LSTM
+Con.
+Fus.
+3mDAE-1U
+3mDAE-2U
+
+0.1
+0.1
+
+0.496
+0.660
+0.667
+0.656
+0.658
+
+0.721
+0.787
+0.777
+0.788
+0.783
+
+0.608
+0.723
+0.722
+0.722
+0.720
+
+0.471
+0.647
+0.654
+0.640
+0.645
+
+0.496
+0.660
+0.667
+0.656
+0.658
+
+0.514
+0.669
+0.676
+0.667
+0.666
+
+0.531
+0.678
+0.683
+0.677
+0.675
+
+0.549
+0.688
+0.691
+0.687
+0.685
+
+0.561
+0.696
+0.697
+0.694
+0.692
+
+0.569
+0.700
+0.701
+0.698
+0.697
+
+0.576
+0.703
+0.704
+0.702
+0.700
+
+0.582
+0.707
+0.707
+0.705
+0.703
+
+0.608
+0.723
+0.722
+0.722
+0.720
+
+TABLE 9
+Based on the cold start performance in Table 8, we compute improvements (%) on each subset. The best corruption levels p for our
+3mDAE-1U/2U is the same as in Table 8, and we omit the p in this table. The cold refers to the cold-start.
+
+method
+
+Taobao - Recall@30
+cold
+
+Con. vs. LSTM
+Fus. vs. LSTM
+3mDAE-1U vs. LSTM
+3mDAE-2U vs. LSTM
+
+-16.73
+-22.05
+45.90
+237.05
+
+active
+
+32.20
+22.87
+32.68
+14.14
+
+whole
+
+21.70
+22.41
+32.82
+16.46
+
+Taobao - AUC
+cold
+
+8.33
+17.41
+6.98
+6.67
+
+active
+
+22.42
+21.88
+20.65
+20.88
+
+Amazon - Recall@30
+
+Amazon - AUC
+
+whole
+
+cold
+
+active
+
+whole
+
+cold
+
+active
+
+whole
+
+21.67
+21.64
+19.92
+20.13
+
+4
+
+32.57
+36.34
+42.93
+37.38
+
+42.62
+44.61
+51.10
+45.45
+
+33.12
+34.55
+32.31
+32.63
+
+9.07
+7.76
+9.23
+8.53
+
+18.88
+18.69
+18.65
+18.36
+
+3×10
+3×104
+3×104
+3×104
+
+From the perspective of basic performance, as shown in Tables
+8(b) and 8(c), the best values are scattered in four variants. It is
+difficult to draw a consistent conclusion.
+
+improvements of MV-RNN are over 10% on active. MV-RNN
+not only has a significant improvement on cold start items but also
+has a sufficient improvement on active items.
+
+As for the improvement shown in Table 9, most improvements
+on cold-start are higher than those on whole, and are much
+higher than those on active. Comparatively, the basic model like
+LSTM has difficulty in predicting cold start items, while it is
+easier to obtain good performance on active items. Thus on the
+contrast, it is easy to design a model to substantially enhance the
+performance on cold-start, while it is more difficult to acquire
+obvious improvement on active. Under such situation, our MVRNN still performs very well on active. For example, most
+
+In Table 9, there are some surprising improvements about
+Recall@30 on Amazon. We specify the improvement of MV-RNN
+over LSTM as 3 × 104 %, because the performance of LSTM
+on cold-start is zero. This poor performance of LSTM can be
+explained from the perspective of probability. When we train a
+sequence, we practically apply LSTM to model a joint probability
+p(x1 , · · ·, xt ), where xi represents an item. When we predict
+n items in corresponding test sequence, we actually predict a
+conditional probability p(xt+1 , · · ·, xt+n |x1 , · · ·, xt ). Because the
+
+JOURNAL OF LATEX CLASS FILES, VOL. 14, NO. 8, AUGUST 2015
+Con. vs. GRU
+
+12
+
+Fus. vs. GRU
+
+3mDAE-1U vs. GRU
+
+250
+
+3mDAE-2U vs. GRU
+
+35
+
+40
+
+200
+30
+150
+100
+
+20
+
+50
+
+30
+
+10
+0
+-50
+
+0
+[1, 2]
+
+[1, 4]
+
+[1, 6]
+
+[1, 8]
+
+[1, 10]
+
+[1, 12]
+
+[1, 14]
+
+[1, 16]
+
+[1, 18]
+
+all
+
+[1, 2]
+
+[1, 4]
+
+[1, 6]
+
+[1, 8]
+
+interval
+
+[1, 12]
+
+[1, 14]
+
+[1, 16]
+
+[1, 18]
+
+all
+
+[1, 14]
+
+[1, 16]
+
+[1, 18]
+
+all
+
+interval
+
+(a) Taobao
+10
+
+[1, 10]
+
+5
+
+25
+40
+35
+
+104
+
+30
+103
+
+20
+
+25
+102
+
+101
+
+20
+15
+[1, 2]
+
+[1, 4]
+
+[1, 6]
+
+[1, 8]
+
+[1, 10]
+
+[1, 12]
+
+[1, 14]
+
+[1, 16]
+
+[1, 18]
+
+all
+
+[1, 2]
+
+[1, 4]
+
+interval
+
+[1, 6]
+
+[1, 8]
+
+[1, 10]
+
+[1, 12]
+
+interval
+
+15
+
+(b) Amazon
+Fig. 5. Based on the cold start performance in Table 8, we calculate improvements (%) on each interval. The best corruption levels p for our
+3mDAE-1U/2U is the same as in Table 8, and we omit the p in this figure.
+
+81.4% cold start items and the corresponding 50.1% feedbacks on
+Amazon result in limited interactions among users and items, both
+probabilities are very small. Therefore, it is very hard to make
+accurate recommendation under Recall@30 on Amazon. After
+we incorporate the additional content information, 4 variants of
+MV-RNN have performances of 0.398%, 0.328%, 0.623% and
+0.319% respectively. The absolute values are small, but we obtain
+very large but reasonable improvements. This strange and extreme
+phenomenon exactly reflects the great power of additional content
+information and the powerful modeling capability of MV-RNN.
+4]
+
+[1, 6] 4.5.2
+[1, 8] Intervals
+[1, 10] of
+[1,Test
+12] Set
+[1, 14]
+
+[1, 16]
+
+[1, 18]
+
+all
+
+According to interval
+the support number of each item in the test set, we
+divide items into ten bins (e.g., [1, 2], [3, 4], [5, 6]). For example,
+bin [1, 2] has the items that appear for 1 or 2 times. Numbers of
+items in each bin are listed in Table 8(a). In order to alleviate the
+fluctuation of performance on each bin, performance is recorded
+on cumulative bins (e.g., [1, 4]) which are called intervals.
+When the bin number increases, performance becomes better,
+as seen from Tables 8(b) and 8(c). That is because it is easier to
+predict frequent items. On Taobao, there is a strange phenomenon.
+Performance decreases first on a few bins in the front and then
+increases. As the decrement is not significant, we can still think
+the performance is growing. Then we mainly focus on the analysis
+of improvements. For better representation, improvements are
+illustrated by curves in Figure 5.
+These growth curves do not always have the same change on
+two datasets. On Taobao, curves tend to be flat. On Amazon, as
+the bin has a larger proportion of cold start items (seeing from
+the right side of a figure to its left side), the improvement almost
+becomes larger. This indicates that multi-modal information is indeed beneficial to relieve cold start. In other words, when the cold
+
+start problem gets
+10 worse on small bins with a bigger proportion of
+cold start items, multi-modal information can significantly relieve
+this problem. Because cold start items have few interactions with
+users, directly related multi-modal information would effectively
+represent the item’s characteristics and the user’s interest.
+AUC is much
+5 more stable than Recall@30. We consider the
+difference of user’s preferences towards positive and negative
+items in AUC, and the BPR training process exactly maximizes
+this difference. For Recall@30 curves, there is a large difference
+between Taobao and Amazon. These curves on Taobao are separate from each other, but they almost come together in the last
+0
+interval all. Perhaps
+because[1,
+of 4]the small
+proportion
+of[1,feedbacks
+[1, 2]
+[1, 6]
+[1, 8]
+10] [1, 12]
+on the interval [1, 18] (27.0%), there would be some fluctuations
+interval
+in the performance of each model. These curves on Amazon have
+an obvious increasing law when the bin number gets smaller.
+For AUC curves, the situation is much better. On Taobao, most
+improvements are stable. For example, improvements of MV-RNN
+are around 30%. On Amazon, the smaller the bin number, the
+larger the improvement.
+These curves, especially those on Amazon, can greatly support
+the following conclusion. Multi-modal information can significantly relieve the item cold start problem. Besides, the worse the
+cold start, the more powerful the multi-modal information.
+4.5.3
+
+Visualization of Learned Features
+
+In this part, we make the visualization of learned features
+by similarity retrieval to investigate whether they are correlated or complementary. There are five different input features
+ix , if , ig , im , [ix ; im ] represented in Eqs. 1, 2, 3, 4. Given a query
+item, we select top-5 most similar items based on the Euclidean
+distance for each kind of feature. The features are acquired by
+3mDAE-1U under p = 0.3 and the results are shown in Figure 6.
+
+[1, 14]
+
+JOURNAL OF LATEX CLASS FILES, VOL. 14, NO. 8, AUGUST 2015
+
+query
+
+feature
+
+top-5 similar items
+
+ix
+
+if
+
+13
+
+image and text description could indeed significantly alleviate the
+item cold start problem.
+In the future, we would investigate the item detection and
+segmentation in images. The items in images often have a large
+proportion of unrelated background, especially in the Taobao
+dataset. We would like to obtain the more accurate item representation. These can motivate the model to improve performance.
+
+ig
+
+R EFERENCES
+im
+
+ ix ; im 
+
+[1]
+[2]
+[3]
+
+Fig. 6. Visualization of similarity retrieval based on the Euclidean distance. Features are acquired by 3mDAE-1U under p = 0.3 on Taobao.
+
+Obviously, the similar items under different kinds of features
+vary greatly, and the multi-view (latent, visual, textual) features
+are complementary to each other. (1) For the latent feature ix ,
+the similar items are greatly different from each other as ix are
+just learned by the feedback. If the latent features of two items
+are similar, probably because they were both purchased by many
+people. (2) Whether it is item itself or the background in the image,
+the top-5 items based on the visual feature if are very similar
+in appearance. However, the second and the forth items in this
+line obviously belong to other categories. The visual feature is
+powerful but can not reflect the intrinsic characteristics of items,
+like material of clothes. (3) On the other hand, the textual feature
+ig is acquired by the item description. It can truly reflect what the
+product is and can ignore the effect of the background in an image,
+but it is not intuitive to show the color, shape, etc. (4) The fusion
+feature im is a combination of if and ig . It mainly integrates
+the external and intrinsic characteristics of the item, such as the
+style and material of clothes. However, such characteristics can
+not generate precise recommendation because there is no one-toone match between each characteristic and each item. (5) The
+final item feature [ix ; im ] fuses ix , if , ig . It can fully reflect the
+characteristics of an item and help to understand the user’s overall
+interest. In summary, multi-view features ix , if , ig used in our
+work are complementary.
+
+5
+
+CONCLUSION
+
+In this work, we have proposed a novel multi-view recurrent model
+(MV-RNN) for sequential recommendation and alleviating the
+item cold start problem. First, we construct comprehensive item
+representation with latent, visual and textual features by three
+different combinations. A 3mDAE model is introduced to build
+the fusion feature based on visual and textual features. Then the
+user’s interest is captured by the recurrent structure. We devise two
+types of inner structures to handle multi-view features. Next, we
+design a united objective function to combine the preference loss
+of BPR and the reconstruction loss of our 3mDAE. Experiments
+validate the state-of-the-art performance of MV-RNN. The fusion
+feature of 3mDAE helps to learn more robust features and tackle
+the missing modalities problem. Experiments confirm that a united
+inner structure can better leverage the advantage of multi-view
+features than a separate one. The multi-modal information like the
+
+references
+[4]
+[5]
+[6]
+[7]
+[8]
+[9]
+[10]
+[11]
+[12]
+[13]
+[14]
+[15]
+[16]
+[17]
+
+[18]
+[19]
+[20]
+[21]
+[22]
+[23]
+[24]
+[25]
+
+Y. Koren, R. Bell, C. Volinsky et al., “Matrix factorization techniques for
+recommender systems,” Computer, vol. 42, no. 8, pp. 30–37, 2009.
+S. Rendle, C. Freudenthaler, Z. Gantner, and L. Schmidt-Thieme, “Bpr:
+Bayesian personalized ranking from implicit feedback,” in UAI, 2009,
+pp. 452–461.
+R. Salakhutdinov and A. Mnih, “Probabilistic matrix factorization,” in
+NIPS, vol. 20, 2011, pp. 1–8.
+Z. Lu, W. Pan, E. W. Xiang, Q. Yang, L. Zhao, and E. Zhong, “Selective
+transfer learning for cross domain recommendation.” in SDM. SIAM,
+2013, pp. 641–649.
+L. Zhao, S. J. Pan, E. W. Xiang, E. Zhong, Z. Lu, and Q. Yang, “Active
+transfer learning for cross-system recommendation.” in AAAI. Citeseer,
+2013.
+Y. Bao, H. Fang, and J. Zhang, “Topicmf: Simultaneously exploiting
+ratings and reviews for recommendation.” in AAAI, 2014, pp. 2–8.
+R. He and J. McAuley, “Vbpr: visual bayesian personalized ranking from
+implicit feedback,” in AAAI, 2016.
+L. Zhao, Z. Lu, S. J. Pan, Q. Yang, W. Xu, Y. Lee, B. Gao, S. Ma,
+A. Zhang, S. Mondal et al., “Matrix factorization+ for movie recommendation,” IJCAI 2016, New York City, USA, p. 1, 2016.
+J. Chen, C. Wang, and J. Wang, “A personalized interest-forgetting
+Markov model for recommendations.” in AAAI, 2015, pp. 16–22.
+S. Rendle, C. Freudenthaler, and L. Schmidt-Thieme, “Factorizing personalized Markov chains for next-basket recommendation,” in WWW.
+ACM, 2010, pp. 811–820.
+M. Auli, M. Galley, C. Quirk, and G. Zweig, “Joint language and
+translation modeling with recurrent neural networks.” in EMNLP, vol. 3,
+no. 8, 2013, p. 0.
+Y. Zhang, H. Dai, C. Xu, J. Feng, T. Wang, J. Bian, B. Wang, and T.Y. Liu, “Sequential click prediction for sponsored search with recurrent
+neural networks,” in AAAI, 2014, pp. 1369–1376.
+Q. Liu, S. Wu, L. Wang, and T. Tan, “Predicting the next location: A
+recurrent model with spatial and temporal contexts,” in AAAI, 2016.
+F. Yu, Q. Liu, S. Wu, L. Wang, and T. Tan, “A dynamic recurrent model
+for next basket recommendation,” in SIGIR. ACM, 2016, pp. 729–732.
+Q. Liu, S. Wu, and L. Wang, “Multi-behavioral sequential prediction
+with recurrent log-bilinear model,” TKDE, vol. 29, no. 6, pp. 1254–1267,
+2017.
+S. Hochreiter and J. Schmidhuber, “Long short-term memory,” Neural
+Computation, vol. 9, no. 8, p. 1735, 1997.
+K. Cho, B. V. Merrienboer, C. Gulcehre, D. Bahdanau, F. Bougares,
+H. Schwenk, and Y. Bengio, “Learning phrase representations using rnn
+encoder-decoder for statistical machine translation,” Computer Science,
+2014.
+I. Sutskever, O. Vinyals, and Q. V. Le, “Sequence to sequence learning
+with neural networks,” in NIPS, 2014, pp. 3104–3112.
+J. Chung, C. Gülçehre, K. Cho, and Y. Bengio, “Gated feedback recurrent
+neural networks.” in ICML, 2015, pp. 2067–2075.
+B. Hidasi, A. Karatzoglou, L. Baltrunas, and D. Tikk, “Sessionbased recommendations with recurrent neural networks,” arXiv preprint
+arXiv:1511.06939, 2015.
+B. Hidasi, M. Quadrana, A. Karatzoglou, and D. Tikk, “Parallel recurrent
+neural network architectures for feature-rich session-based recommendations,” in RecSys. ACM, 2016, pp. 241–248.
+P. J. Werbos, “Backpropagation through time: what it does and how to
+do it,” Proceedings of the IEEE, vol. 78, no. 10, pp. 1550–1560, 1990.
+Y. Koren and R. Bell, “Advances in collaborative filtering,” in Recommender systems handbook. Springer, 2015, pp. 77–118.
+J.-D. Zhang, C.-Y. Chow, and J. Xu, “Enabling kernel-based attributeaware matrix factorization for rating prediction,” TKDE, vol. 29, no. 4,
+pp. 798–812, 2017.
+A. Levi, O. Mokryn, C. Diot, and N. Taft, “Finding a needle in a
+haystack of reviews: cold start context-based hotel recommender system,”
+in RecSys. ACM, 2012, pp. 115–122.
+
+JOURNAL OF LATEX CLASS FILES, VOL. 14, NO. 8, AUGUST 2015
+
+[26] T. Zhao, J. McAuley, and I. King, “Leveraging social connections
+to improve personalized ranking for collaborative filtering,” in CIKM.
+ACM, 2014, pp. 261–270.
+[27] A. E. Raftery, “A model for high-order markov chains,” Journal of the
+Royal Statistical Society, vol. 47, no. 3, pp. 528–539, 1985.
+[28] N. Chen, J. Zhu, and E. P. Xing, “Predictive subspace learning for multiview data: a large margin approach,” in NIPS, 2011, pp. 361–369.
+[29] N. Chen, J. Zhu, F. Sun, and E. P. Xing, “Large-margin predictive latent
+subspace learning for multiview data analysis,” TPAMI, vol. 34, no. 12,
+pp. 2365–2378, 2012.
+[30] A. Mnih and G. Hinton, “Three new graphical models for statistical
+language modelling,” in ICML. ACM, 2007, pp. 641–648.
+[31] S. Hochreiter, “The vanishing gradient problem during learning recurrent
+neural nets and problem solutions,” IJUFKS, vol. 6, no. 02, pp. 107–116,
+1998.
+[32] R. Pascanu, T. Mikolov, and Y. Bengio, “On the difficulty of training
+recurrent neural networks,” in ICML, 2013, pp. 1310–1318.
+[33] J. Chung, C. Gulcehre, K. Cho, and Y. Bengio, “Empirical evaluation of
+gated recurrent neural networks on sequence modeling,” arXiv preprint
+arXiv:1412.3555, 2014.
+[34] B. Cao, L. Zheng, C. Zhang, P. S. Yu, A. Piscitello, J. Zulueta, O. Ajilore,
+K. Ryan, and A. D. Leow, “Deepmood: Modeling mobile phone typing
+dynamics for mood detection,” in Proceedings of the 23rd ACM SIGKDD
+International Conference on Knowledge Discovery and Data Mining.
+ACM, 2017, pp. 747–755.
+[35] Y. Li, M. Yang, and Z. Zhang, “Multi-view representation learning:
+A survey from shallow methods to deep methods,” arXiv preprint
+arXiv:1610.01206, 2016.
+[36] W. Wang, R. Arora, K. Livescu, and J. A. Bilmes, “On deep multi-view
+representation learning.” in ICML, 2015, pp. 1083–1092.
+[37] G. Andrew, R. Arora, J. A. Bilmes, and K. Livescu, “Deep canonical
+correlation analysis.” in ICML (3), 2013, pp. 1247–1255.
+[38] W. Wang, R. Arora, K. Livescu, and J. A. Bilmes, “Unsupervised learning
+of acoustic features via deep canonical correlation analysis,” in ICASSP,
+2015 IEEE International Conference on. IEEE, 2015, pp. 4590–4594.
+[39] P. Vincent, H. Larochelle, Y. Bengio, and P.-A. Manzagol, “Extracting
+and composing robust features with denoising autoencoders,” in ICML.
+ACM, 2008, pp. 1096–1103.
+[40] P. Vincent, H. Larochelle, I. Lajoie, Y. Bengio, and P. A. Manzagol,
+“Stacked denoising autoencoders: Learning useful representations in a
+deep network with a local denoising criterion,” JMLR, vol. 11, no. 12,
+pp. 3371–3408, 2010.
+[41] J. Ngiam, A. Khosla, M. Kim, J. Nam, H. Lee, and A. Y. Ng, “Multimodal
+deep learning,” in ICML, 2011, pp. 689–696.
+[42] M. Chen, Z. Xu, K. Weinberger, and S. Fei, “Marginalized denoising
+autoencoders for domain adaptation,” Computer Science, 2012.
+[43] S. Wang, Z. Ding, and Y. Fu, “Coupled marginalized auto-encoders for
+cross-domain multi-view learning,” in IJCAI, 2016.
+[44] C. Szegedy, W. Liu, Y. Jia, P. Sermanet, S. Reed, D. Anguelov, D. Erhan,
+V. Vanhoucke, and A. Rabinovich, “Going deeper with convolutions,” in
+CVPR, 2015, pp. 1–9.
+[45] J. Pennington, R. Socher, and C. D. Manning, “Glove: Global vectors for
+word representation.” in EMNLP, vol. 14, 2014, pp. 1532–43.
+[46] P. Wang, J. Guo, Y. Lan, J. Xu, S. Wan, and X. Cheng, “Learning
+hierarchical representation model for next basket recommendation,” in
+SIGIR. ACM, 2015, pp. 403–412.
+[47] J. McAuley, C. Targett, Q. Shi, and A. van den Hengel, “Image-based
+recommendations on styles and substitutes,” in SIGIR. ACM, 2015, pp.
+43–52.
+[48] J. McAuley, R. Pandey, and J. Leskovec, “Inferring networks of substitutable and complementary products,” in SIGKDD. ACM, 2015, pp.
+785–794.
+[49] Y. Jia, E. Shelhamer, J. Donahue, S. Karayev, J. Long, R. Girshick,
+S. Guadarrama, and T. Darrell, “Caffe: Convolutional architecture for
+fast feature embedding,” in MM. ACM, 2014, pp. 675–678.
+[50] O. Russakovsky, J. Deng, H. Su, J. Krause, S. Satheesh, S. Ma, Z. Huang,
+A. Karpathy, A. Khosla, M. Bernstein et al., “Imagenet large scale visual
+recognition challenge,” IJCV, vol. 115, no. 3, pp. 211–252, 2015.
+[51] G. Salton and C. Buckley, “Term-weighting approaches in automatic text
+retrieval,” Information Processing & Management, vol. 24, no. 5, pp.
+513–523, 1988.
+[52] C. D. Manning, P. Raghavan, and H. Schütze, Introduction to information
+retrieval. Cambridge University Press, 2008.
+[53] Z. Yang, D. Yang, C. Dyer, X. He, A. J. Smola, and E. H. Hovy,
+“Hierarchical attention networks for document classification.” in HLTNAACL, 2016, pp. 1480–1489.
+[54] A. M. Elkahky, Y. Song, and X. He, “A multi-view deep learning ap-
+
+14
+
+proach for cross domain user modeling in recommendation systems,” in
+WWW. International World Wide Web Conferences Steering Committee,
+2015, pp. 278–288.
+
+Qiang Cui received his B.S. degree from Shandong University, China, in 2013. He is currently
+working toward the Ph.D. degree in Center for
+Research on Intelligent Perception and Computing (CRIPAC) at National Laboratory of Pattern Recognition (NLPR), Institute of Automation, Chinese Academy of Sciences (CASIA),
+Beijing, China. His research interests include
+data mining, machine learning, recommender
+systems and information retrieval.
+
+Shu Wu received his B.S. degree from Hunan
+University, China, in 2004, M.S. degree from Xiamen University, China, in 2007, and his Ph.D.
+degree from University of Sherbrooke, Quebec,
+Canada. He is an Associate Professor in Center for Research on Intelligent Perception and
+Computing (CRIPAC). He has published more
+than 20 papers in the areas of data mining and
+information retrieval at international journals and
+conferences, such as IEEE TKDE, IEEE THMS,
+AAAI, ICDM, SIGIR, and CIKM.
+
+Qiang Liu received his B.S. degree in electronic
+science from Yanshan University, China, in 2013.
+He is currently working toward the Ph.D. degree
+in Center for Research on Intelligent Perception
+and Computing (CRIPAC). His research interests include machine learning, data mining, user
+modeling and information credibility evaluation.
+He has published several papers in the areas of
+data mining and information retrieval at international journals and conferences, such as IEEE
+TKDE, AAAI, SIGIR, CIKM, and ICDM.
+
+Wen Zhong received his B.S. degree in software
+engineering from Shandong University, China in
+2015. He is currently working toward the M.S.
+degree in computer science at University of
+Southern California, United States. His research
+interests include machine learning and natural
+language processing.
+
+JOURNAL OF LATEX CLASS FILES, VOL. 14, NO. 8, AUGUST 2015
+
+Liang Wang received both the BEng and MEng
+degrees from Anhui University in 1997 and 2000,
+respectively, and the Ph.D. degree from the Institute of Automation, Chinese Academy of Sciences (CASIA) in 2004. Currently, he is a full
+professor of the Hundred Talents Program at the
+National Lab of Pattern Recognition, CASIA. His
+major research interests include machine learning, pattern recognition, and computer vision. He
+has widely published in highly ranked international journals such as IEEE TPAMI and IEEE
+TIP and leading international conferences such as CVPR, ICCV, and
+ICDM. He is a senior member of the IEEE and an IAPR Fellow.
+
+15
+
+

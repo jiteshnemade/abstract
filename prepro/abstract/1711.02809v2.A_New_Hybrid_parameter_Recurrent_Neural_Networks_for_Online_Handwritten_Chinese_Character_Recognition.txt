@@ -1,0 +1,27 @@
+
+the recurrent neural network (rnn) is appropriate for dealing
+with temporal sequences. in this paper, we present a deep rnn
+with new features and apply it for online handwritten chinese
+character recognition. compared with the existing rnn models, three innovations are involved in the proposed system.
+first, a new hidden layer function for rnn is proposed for
+learning temporal information better. we call it memory pool
+unit (mpu). the proposed mpu has a simple architecture.
+second, a new rnn architecture with hybrid parameter is
+presented, in order to increasing the expression capacity of
+rnn. the proposed hybrid-parameter rnn has parameter
+changes when calculating the iteration at temporal dimension.
+third, we make a adaptation that all the outputs of each layer
+are stacked as the output of network. stacked hidden layer
+states combine all the hidden layer states for increasing the expression capacity. experiments are carried out on the iahccucas2016 dataset and the casia-olhwdb1.1 dataset. the
+experimental results show that the hybrid-parameter rnn obtain a better recognition performance with higher efficiency
+(fewer parameters and faster speed). and the proposed memory pool unit is proved to be a simple hidden layer function
+and obtains a competitive recognition results.
+
+despite the tremendous advances and successful applications, there still remain big challenges, particularly, the
+hidden layer function and network structure. the hidden
+layer function of rnns is an important subject and needs
+to be explored in depth. compared with gru, lstm has a
+more clear and reasonable workflow but more complex structure. compared with lstm, gru has a simpler structure but
+slightly unclear workflow. therefore, researchers need to explore whether there are other methods for avoiding vanishing
+gradient problem, rather than always apply the existing methods. in-air hidden written is a new kind of human-computer
+

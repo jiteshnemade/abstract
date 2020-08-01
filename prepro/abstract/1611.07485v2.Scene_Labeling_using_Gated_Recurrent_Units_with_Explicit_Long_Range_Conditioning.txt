@@ -1,0 +1,24 @@
+
+recurrent neural network (rnn), as a powerful contextual dependency modeling framework, has been widely applied to scene labeling problems. however, this work shows
+that directly applying traditional rnn architectures, which
+unfolds a 2d lattice grid into a sequence, is not sufficient
+to model structure dependencies in images due to the “impact vanishing” problem. first, we give an empirical analysis about the “impact vanishing” problem. then, a new
+rnn unit named recurrent neural network with explicit
+long range conditioning (rnn-elc) is designed to alleviate
+this problem. a novel neural network architecture is built
+for scene labeling tasks where one of the variants of the
+new rnn unit, gated recurrent unit with explicit longrange conditioning (gru-elc), is used to model multi
+scale contextual dependencies in images. we validate the
+use of gru-elc units with state-of-the-art performance on
+three standard scene labeling datasets. comprehensive experiments demonstrate that the new gru-elc unit benefits
+scene labeling problem a lot as it can encode longer contextual dependencies in images more effectively than traditional rnn units.
+
+figure 1: cnns have challenges in dealing with local textures in images as shown in the second row. with the help of
+gated recurrent units, the model can make globally better
+prediction. however, grus still struggle in modeling fine
+structures in images due to the “impact vanishing” problem.
+our gru-elc units can effectively model multi scale contextual dependencies in images and thus successfully preserve local details in predictions, such as the windows and
+doors (even not annotated in ground truth) in first row, and
+the trees and mountains in the second and third row.
+
+1. 

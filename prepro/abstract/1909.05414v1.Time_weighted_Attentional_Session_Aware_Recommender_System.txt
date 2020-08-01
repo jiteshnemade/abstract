@@ -1,0 +1,29 @@
+
+session-based recurrent neural networks (rnns) are gaining increasing popularity for recommendation task, due to the high autocorrelation of user’s behavior on the latest session and the effectiveness of rnn to capture the sequence order information. however,
+most existing session-based rnn recommender systems still solely
+focus on the short-term interactions within a single session and
+completely discard all the other long-term data across different
+sessions. while traditional collaborative filtering (cf) methods
+have many advanced research works on exploring long-term dependency, which show great value to be explored and exploited in
+deep learning models. therefore, in this paper, we propose asars,
+a novel framework that effectively imports the temporal dynamics
+methodology in cf into session-based rnn system in dl, such
+that the temporal info can act as scalable weights by a parallel
+attentional network. specifically, we first conduct an extensive data
+analysis to show the distribution and importance of such temporal
+interactions data both within sessions and across sessions. and
+then, our asars framework promotes two novel models: (1) an
+inter-session temporal dynamic model that captures the long-term
+user interaction for rnn recommender system. we integrate the
+time changes in session rnn and add user preferences as model
+drifting; and (2) a novel triangle parallel attention network that enhances the original rnn model by incorporating time information.
+such triangle parallel network is also specially designed for realizing data argumentation in sequence-to-scalar rnn architecture,
+and thus it can be trained very efficiently. our extensive experiments on four real datasets from different domains demonstrate the
+effectiveness and large improvement of asars for personalized
+recommendation.
+
+keywords
+recommender system, session-based rnn, time-weighted attention, short-term and long-term profile
+
+1
+

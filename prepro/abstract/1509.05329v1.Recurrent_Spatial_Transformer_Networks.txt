@@ -1,0 +1,36 @@
+
+we integrate the recently proposed spatial transformer network (spn) (jaderberg & simonyan,
+2015) into a recurrent neural network (rnn) to
+form an rnn-spn model. we use the rnnspn to classify digits in cluttered mnist sequences. the proposed model achieves a single
+digit error of 1.5% compared to 2.9% for a convolutional networks and 2.0% for convolutional
+networks with spn layers. the spn outputs a
+zoomed, rotated and skewed version of the input
+image. we investigate different down-sampling
+factors (ratio of pixel in input and output) for
+the spn and show that the rnn-spn model is
+able to down-sample the input images without deteriorating performance. the down-sampling in
+rnn-spn can be thought of as adaptive downsampling that minimizes the information loss in
+the regions of interest. we attribute the superior
+performance of the rnn-spn to the fact that it
+can attend to a sequence of regions of interest.
+
+convolutional network is used to predict a sequence of digits. because the predictions are made with n independent
+softmax layers at the top of the network, the spn layers
+must find the box containing the entire sequence. a better
+model would sequentially produce the targets by locating
+and zoom in on each individual element before each prediction. in this paper we combine the spn network with a
+recurrent neural network (rnn) to create a recurrent spn
+(rnn-spn) that sequentially zooms in on each element.
+this is illustrated in figure 1 panel b). in the spn-rnn
+a rnn network produces inputs for the spn at each timestep. using these inputs the spn produces a transformed
+version of the input image which is then used for classification. by running the recursion for multiple steps and
+conditioning each transformation on the previous time-step
+the rnn-spn model can sequentially attend to the part of
+the image containing each elements of interest and only use
+the relevant information for classification. because these
+regions are generally small we experiment with forcing the
+rnn-spn to down-sample the image which can thought of
+as adaptive down-sampling thus keeps the resolution of the
+regions of interest (nearly) constant.
+
+1. 

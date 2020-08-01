@@ -1,0 +1,21 @@
+this paper presents a new algorithm, evolutionary
+exploration of augmenting memory models (examm), which
+is capable of evolving recurrent neural networks (rnns) using a
+wide variety of memory structures, such as ∆-rnn, gru, lstm,
+mgu and ugrnn cells. examm evolved rnns to perform
+prediction of large-scale, real world time series data from the
+aviation and power industries. these data sets consist of very long
+time series (thousands of readings), each with a large number of
+potentially correlated and dependent parameters. four different
+parameters were selected for prediction and examm runs were
+performed using each memory cell type alone, each cell type
+and simple neurons, and with all possible memory cell types
+and simple neurons. evolved rnn performance was measured
+using repeated k-fold cross validation, resulting in 2420 examm
+runs which evolved 4, 840, 000 rnns in ∼24, 200 cpu hours
+on a high performance computing cluster. generalization of the
+evolved rnns was examined statistically, providing interesting
+findings that can help refine the rnn memory cell design as
+well as inform future neuro-evolution algorithms development.
+
+i. 

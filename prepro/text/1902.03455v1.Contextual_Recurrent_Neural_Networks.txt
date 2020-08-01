@@ -1,0 +1,313 @@
+Contextual Recurrent Neural Networks
+Sam Wenke, Jim Fleming
+{sam, jim}@fomoro.com
+
+arXiv:1902.03455v1 [cs.LG] 9 Feb 2019
+
+January 2019
+Abstract
+There is an implicit assumption that by unfolding recurrent neural networks (RNN) in finite
+time, the misspecification of choosing a zero value for the initial hidden state is mitigated by later
+time steps. This assumption has been shown to work in practice and alternative initialization
+may be suggested but often overlooked. In this paper, we propose a method of parameterizing
+the initial hidden state of an RNN. The resulting architecture, referred to as a Contextual RNN,
+can be trained end-to-end. The performance on an associative retrieval task is found to improve
+by conditioning the RNN initial hidden state on contextual information from the input sequence.
+Furthermore, we propose a novel method of conditionally generating sequences using the hidden
+state parameterization of Contextual RNN.
+
+1
+
+Introduction
+
+The initialization method of the hidden state of recurrent neural networks (RNN) is typically defaulted to a constant value, most commonly equal to zero. This is due to RNNs having the characteristic of accumulating information over time, producing outputs as a function of the hidden state
+and input at each time step. Interestingly, by choosing an arbitrary constant value for the initialization of the hidden state the RNN will learn to correct for discrepancies in the output credited to
+the initial value. In this paper, we show that the rate of the initial hidden state correction can be
+improved by learning a value conditioned on contextual information related to the task.
+Regardless, RNNs have been successfully applied to many hard generalization tasks such as
+natural language processing [1] and reinforcement learning [2][3]. Many successful works that use
+RNNs rely on the underlying dynamics, capacity, and generalization of the hidden state, such as the
+use of long short-term memory (LSTM) [4] and fast weights (FW) [3] units. While many successes
+have been achieved with constant zero initialization of the hidden state, further gains may be found
+by learning and conditioning the initialization of the hidden state.1
+
+1.1
+
+Preliminaries
+
+1.1.1
+
+Recurrent Neural Networks
+
+A recurrent neural network (RNN) is a neural network that consists of a hidden state h which
+operates on a variable length sequence x = {x1 , ..., xT }. At each time step t, the hidden state ht of
+the RNN is updated by
+ht = f (ht−1 , xt ),
+
+(1)
+
+where f is a non-linear activation function (such as a LSTM unit). The RNNs mentioned in this
+paper are optimized by stochastic gradient descent.
+1 Code
+
+for this paper is publicly available at https://github.com/fomorians/contextual_rnn
+
+1
+
+The specification of the hidden state h0 to a constant value is attributed to an RNNs ability to
+accumulate information over time. In other words, the RNN learns to eliminate the impact of a
+misspecification in the initialization on the outputs.
+1.1.2
+
+Related Works
+
+One of the difficulties with finite unfolding in time is the proper initialization of the initial hidden
+state h0 . Fixing the hidden state to zero is a common choice; this has been shown to force the RNN
+to focus on the input sequence regardless of the initial choice of the hidden state, forcing the error
+in the initialization to diminish over time and training [5]. Zimmermann et al. [5] proposed a noise
+term (proportional to the back-propagated error) added to the initial hidden state to regularize and
+stabilize the dynamics of the RNN. As an alternative to an adaptive noise term, we propose that
+conditioning an initial hidden state distribution (using a reparameterization trick [6]) on contextual
+information related to the task can provide a better foundation for end-to-end handling of the
+underlying instabilities.
+This contextual information can be (but is not limited to) an encoded summary of an input
+sequence [7, 8], a coarse image with multiple objects [9], or the first element of the input sequence.
+Ba et al. [9] feed a down-sampled input image through a contextual network to initialize the hidden
+state of an RNN and potentially provide sensible hints on where attention should be directed.
+Building on the ideas from this work and other similar sources, Contextual RNN provide a general
+framework for learning the initial hidden state on a variety of forms of contextual information.
+RNN Encoder-Decoder [7] architectures use different initial hidden state initialization in the
+encoder and decoder RNN. Cho et al. [7] and Bahdanau et al. [8] initialize the hidden state of the
+encoder henc
+= 0 and the decoder hdec
+= tanh(Whdec henc
+0
+0
+T ). By using the final hidden state of the
+encode
+, the decoder is conditioned on contextual information representing a summary of the
+encoder hT
+input sequence. These works provided the foundations for the successful seq2seq framework using
+RNN. In the spirit of the initialization of the decoder RNN, Contextual RNN proposes a potential
+alternative initialization for the encoder RNN as opposed to using a zero value.
+More recent work uses attention mechanisms applied to the hidden state of RNN in various ways
+[3, 8]. These methods attempt to increase both the long- and short-term memory capacities and
+handle very different time scales and alignments of sequential data. Bahdanau et al. [8] use a nondec
+dec
+linear context function q applied to the hidden states over time (q({hdec
+1 , h2 , ...hT })) to model
+longer sequences and jointly learn alignments for language translation. Contrary to the decoder
+context used by this work, the FW formulation from Ba et al. [3] forces the RNN to iteratively
+attend to the recent past by a scalar product between the current hidden state ht and the previous
+hidden states ht−1 . In light of the successes of the attention mechanism applied to the hidden states
+formulated by the FW RNN, Contextual RNN can be used to initialize the hidden state and improve
+upon the convergence speed on the associative retrieval task introduced by [3].
+
+1.2
+
+Our Contributions
+
+In this paper, we propose a method of parameterizing the initial hidden state of an RNN. The
+resulting architecture, referred to as a Contextual RNN, can be trained end-to-end. A neural network
+called the context network produces the initial hidden state of an RNN and is capable of improving
+the performance on multiple tasks. Initially, we qualitatively demonstrate that Contextual RNN
+improves convergence speed on an associative retrieval task compared to the vanilla FW. Next, we
+describe a novel method to generate sequences by sampling hidden states conditioned on a regression
+quantity. Finally, we compare and summarize the results and generated samples trained on 1-D linear
+cosine decay.
+
+2
+
+2
+
+Methods
+
+We explore the use of contextual information taken from the input sequence to improve on the
+generalization of missing sequential key-value pairs. Furthermore, we propose a novel method of
+generating sequential data given contextual information in the form of classification labels or regression quantities.
+
+2.1
+
+Contextual Recurrent Neural Networks
+
+We formally define a Contextual RNN as an RNN with a learned initial hidden state conditioned on
+contextual information. Using Eq. 4, we outline various ways to initialize the initial hidden state,
+
+h0 = constant,
+
+(2a)
+
+h0 = variable,
+
+(2b)
+
+h0 = g(context),
+
+(2c)
+
+where h0 can hold a constant value (most commonly h0 = 0), a variable, or a neural network g.
+When the initialization (2a) is chosen, the error of the specification is inherently ignored and
+the RNN is expected to overcome this error by accumulating information over time and training.
+Alternatively, we can choose the initialization (2b), a free parameter, to allow back-propagation to
+automatically correct for the error in the specification of the initial value over training. Although,
+this method does not scale well beyond online gradient descent (in this context, this means the batch
+size is 1). Therefore, to promote the feasibility of this method with modern training approaches, the
+variable can be tiled (and noise can optionally be added to the copies of the variable) in order to
+be compatible with batches of data. Finally, the initialization (2c) credits the specification error to
+contextual information through a neural network g. When defining g as a contextual neural network,
+this method has several advantages and is the foundation of the Contextual RNN.
+
+2.2
+2.2.1
+
+Experiments
+Associative Retrieval Task
+
+Figure 1: The Contextual RNN used in the associative retrieval task.
+The associative retrieval task (ART) [3] tests the ability of an RNN to store and retrieve temporary memories. After generating a sequence of K character-digit pairs from the alphabet {a, b, c, ...z}
+without replacement, one of the K different characters is selected at random as the query and the
+network must predict the target digit. In the input sequence, the query is presented directly after
+2 ?? characters. For example, the network is presented the input sequence c9k8j3f1??k, a query
+3
+
+Figure 2: Comparison of the validation log likelihood (left) and accuracy (right) on the associative
+retrieval task. The performance of the baseline zero is improved by using a learned context state.
+character for the sequence could be k and the corresponding target digit would be 8.2 A training
+set was used consisting of 100,000 samples, along with a validation set consisting of 20,000 samples.
+We demonstrate the use of a single layer as the context network g with a shared character
+embedding ψ(x0 ) that is conditioned on the first character in the input sequence (see Figure 1). The
+models share the same architecture as in Ba et al. [3], using a character embedding and a FW RNN
+with 50 hidden units. All the models were trained using batches of size 128 and the Adam optimizer
+[10] with a learning rate of 0.001 for 200 epochs.
+From Figure 2, we see that the Contextual RNN form of the FW model (learned: 2c) significantly
+outperforms the vanilla FW from Ba et al. [3] that use initialization methods (zero: 2a) and (free:
+2b), without any fine-tuning.
+2.2.2
+
+Linear Cosine Decay Task
+
+Figure 3: The Contextual RNN used in the linear cosine decay task.
+The linear cosine decay (LCD) task tests the ability of an RNN to interpolate and generalize to
+missing regression quantities. LCD3 is defined as
+"
+#
+ 1 + cos( 2T πt ) 
+tf − t
+tf
+x(t) = x(0) α +
++β ,
+(3)
+tf
+2
+2 The
+3 Our
+
+set of all other possibilities for this sequence are {{c, 9}, {j, 3}, {f, 1}}
+implementation of LCD uses the tensorflow.train.linear cosine decay [11, 12].
+
+4
+
+Figure 4: Example of an LCD task where the
+constants are α = 0 and β = 0.001, the period
+T = 4.0, the total decay time tf = 100, and the
+initial value x(0) = 4.0.
+
+Figure 5: Comparison of the validation squared
+error on the linear cosine decay task. The
+learned-distribution model is trained and evaluated using 3 random seeds.
+
+where t is the current time, tf is the total decay time, T is the period, alpha and beta are constants,
+and x(0) is the initial value. An example of a generated LCD sequence is shown in Figure 4.
+In our experiments, the initial value is sampled from a uniform distribution x(0) ∼ U(2, 4),
+α = 0 and β = 0.001. Training and validation sets are created using corresponding period sets,
+Ttrain and Tvalidation . For each period T in Ttrain = {0.5, 1.5, 2.5, 3.5, 4.5}, we sample 1000 LCD
+sequences x of length tf = 25 to create the the training set. We do the same for each period T
+in Tvalidation = {1.0, 2.0, 3.0, 4.0}, sampling 500 LCD sequences x of length tf = 25 to create the
+validation set. The model is trained to produce the next input in the sequence by predicting the
+change in input δxt = xt − xt−1 at each time step; δxt is added to the previous input to produce
+the next input xt = δxt + xt−1 . All values are scaled to be in the range [−1, 1].
+We demonstrate the use of the context network g with a hidden layer (with 50 units) that is
+conditioned on the initial value x0 and period T (see Figure 3). The output of g is used as the
+mean µ of a re-parameterized Normal distribution [6] with a free variable for the scale σ, as in the
+equation
+h0 ∼ N (g(x0 , T ), sof tplus(σ))
+
+(4)
+
+By conditioning a distribution on the initial value and period of the input sequence, we can implicitly
+generate a distribution of possible trajectories given the learned uncertainty under the initial hidden
+state given the data.
+We chose to compare the zero initial hidden state (h0 = 0) RNN and the Contexual RNN. In
+order to properly compare the zero initial hidden state with the Contextual RNN, we append the
+period to each time step in the input sequences ({{x0 , T }, {x1 , T }, ...{xt , T }}). Each model has a
+128 unit LSTM followed by a final layer with a single unit corresponding to the output δxt . All
+the models were trained using batches of size 128 and the Adam optimizer [10] with a learning rate
+of 0.0002 for 65 epochs. The results on the validation set of during training are shown in Figure
+5. After each epoch, we sampled 10 initial hidden states for a single example of each period in the
+validation set and show the results in Figure 6.
+
+5
+
+Figure 6: Generated samples of periods T = 2.0 (left) and T = 3.0 (right) from the Contextual RNN
+trained on the linear cosine decay task for 65 epochs.
+
+3
+
+Conclusion
+
+Conventional methods initialize the hidden state of RNN to zero regardless of the task. Other
+methods introduce contextual information to both introduce new frameworks for solving variable
+length sequence problems [7, 8] and allowing RNN to summarize the input sequence [9]. This paper
+provides a simple method of producing meaningful initial hidden states that are shown to improve
+performance on a range of tasks and introduces a novel generative model for sequences. These
+contributions explore the use of contextual information to improve generalization of RNN.
+
+4
+
+Acknowledgments
+
+We would like to thank Dan Saunders, Andrew Wang, Mike Qiu, Eddie Costantini and Danielle
+Swank at Fomoro for their constructive feedback on this report.
+
+References
+[1] Zhilin Yang, Zihang Dai, Ruslan Salakhutdinov, and William W. Cohen. Breaking the softmax
+bottleneck: A high-rank rnn language model. CoRR, abs/1711.03953, 2017.
+[2] Lasse Espeholt, Hubert Soyer, Rémi Munos, Karen Simonyan, Volodymyr Mnih, Tom Ward,
+Yotam Doron, Vlad Firoiu, Tim Harley, Iain Dunning, Shane Legg, and Koray Kavukcuoglu.
+Impala: Scalable distributed deep-rl with importance weighted actor-learner architectures. In
+ICML, 2018.
+[3] Jimmy Ba, Geoffrey E. Hinton, Volodymyr Mnih, Joel Z. Leibo, and Catalin Ionescu. Using
+fast weights to attend to the recent past. In NIPS, 2016.
+[4] Sepp Hochreiter and Jürgen Schmidhuber. Long short-term memory. Neural Computation,
+9:1735–1780, 1997.
+[5] Hans Zimmermann, Ralph Grothmann, Anton Schäfer, and Christoph Tietz. Modeling large
+dynamical systems with dynamical consistent neural networks. New Directions in Statistical
+Signal Processing: From Systems to Brain, 01 2005.
+
+6
+
+[6] Diederik P. Kingma and Max Welling. Auto-encoding variational bayes. CoRR, abs/1312.6114,
+2013.
+[7] Kyunghyun Cho, Bart van Merrienboer, Çaglar Gülçehre, Fethi Bougares, Holger Schwenk,
+and Yoshua Bengio. Learning phrase representations using RNN encoder-decoder for statistical
+machine translation. CoRR, abs/1406.1078, 2014.
+[8] Dzmitry Bahdanau, Kyunghyun Cho, and Yoshua Bengio. Neural machine translation by jointly
+learning to align and translate. CoRR, abs/1409.0473, 2014.
+[9] Jimmy Ba, Volodymyr Mnih, and Koray Kavukcuoglu. Multiple object recognition with visual
+attention. CoRR, abs/1412.7755, 2014.
+[10] Diederik P. Kingma and Jimmy Ba. Adam: A method for stochastic optimization. CoRR,
+abs/1412.6980, 2014.
+[11] Martı́n Abadi, Ashish Agarwal, Paul Barham, Eugene Brevdo, Zhifeng Chen, Craig Citro,
+Greg S. Corrado, Andy Davis, Jeffrey Dean, Matthieu Devin, Sanjay Ghemawat, Ian Goodfellow, Andrew Harp, Geoffrey Irving, Michael Isard, Yangqing Jia, Rafal Jozefowicz, Lukasz
+Kaiser, Manjunath Kudlur, Josh Levenberg, Dandelion Mané, Rajat Monga, Sherry Moore,
+Derek Murray, Chris Olah, Mike Schuster, Jonathon Shlens, Benoit Steiner, Ilya Sutskever,
+Kunal Talwar, Paul Tucker, Vincent Vanhoucke, Vijay Vasudevan, Fernanda Viégas, Oriol
+Vinyals, Pete Warden, Martin Wattenberg, Martin Wicke, Yuan Yu, and Xiaoqiang Zheng.
+TensorFlow: Large-scale machine learning on heterogeneous systems, 2015. Software available
+from tensorflow.org.
+[12] Ilya Loshchilov and Frank Hutter. SGDR: stochastic gradient descent with restarts. CoRR,
+abs/1608.03983, 2016.
+
+7
+
+

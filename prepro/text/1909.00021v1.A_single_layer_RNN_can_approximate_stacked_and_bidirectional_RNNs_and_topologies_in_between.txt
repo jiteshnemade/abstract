@@ -1,0 +1,2175 @@
+arXiv:1909.00021v1 [cs.LG] 30 Aug 2019
+
+A single-layer RNN can approximate stacked and
+bidirectional RNNs, and topologies in between
+
+Javier S. Turek†
+javier.turek@intel.com
+
+Shailee Jain∗
+shailee@cs.utexas.edu
+
+Mihai Capotă†
+mihai.capota@intel.com
+
+Theodore L. Willke†
+ted.willke@intel.com
+
+Alexander G. Huth∗#
+huth@cs.utexas.edu
+
+†
+
+∗
+
+Brain-Inspired Computing Lab, Intel Labs
+Department of Computer Science, The University of Texas at Austin
+#
+Deptartment of Neuroscience, The University of Texas at Austin
+
+Abstract
+To enhance the expressiveness and representational capacity of recurrent neural
+networks (RNN), a large body of work has emerged exploring stacked architectures with additional topological modifications like shortcut connections or bidirectionality. However, choosing the best network for a particular problem requires
+a combinatorial search over architectures and their hyperparameters. In this work,
+we show that a single-layer RNN can perfectly mimic an arbitrarily deep stacked
+RNN under specific constraints on its weight matrix and a delay between input and
+output. This obviates the need to manually select hyperparameters like the number
+of layers. Additionally, we show that weakening weight constraints while keeping the delay gives rise to partial acausality in the single-layer RNN, much like a
+bidirectional network. Synthetic experiments confirm that the delayed RNN can
+mimic bidirectional networks in perfectly solving some acausal tasks, outperforming them in others. Finally, we show that in a challenging language processing
+task, the delayed RNN performs within 0.3% of the accuracy of the bidirectional
+network while reducing computational costs.
+
+1 Introduction
+Recurrent neural networks (RNN) have successfully been used for sequential tasks like language
+modeling [31], machine translation [32], and speech recognition [5]. They approximate complex,
+non-linear temporal relationships by maintaining and updating an internal state for every input element. However, they face several challenges while modeling long-term dependencies, motivating
+work on variant architectures.
+Firstly, due to the long credit assignment paths in RNNs, the gradients might vanish or explode [11].
+This has led to gated variants like the Long Short-term Memory (LSTM) [18] that can retain information over long timescales. Secondly, it is well known that deeper networks can more efficiently
+approximate a broader range of functions [10, 12]. While RNNs are deep in time, they are limited in
+the number of non-linearities applied to recent inputs. To increase depth, there has been extensive
+work on stacking RNNs into multiple layers [9, 28]. In vanilla stacked RNNs, each layer applies a
+non-linearity and passes information to the next layer, while also maintaining a recurrent connection
+to itself. To effectively propagate gradients across the hierarchy, skip or shortcut connections can be
+c The University of Texas at Austin and Intel Corporation. Preprint. Under review.
+
+used [14, 27]. Alternatives like recurrent highway networks [34] introduce non-linearities between
+timesteps through “micro-ticks" [15]. Pascanu et al. increase depth by adding feedforward layers
+between state-to-state transitions [23]. Gated feedback networks [13] allow for layer-to-layer interactions between adjacent timesteps. All these variants thus introduce topological modifications to
+retain information over longer timescales and model hierarchical temporal dependencies.
+Another development is the bidirectional RNN (Bi-RNN) [29, 16]. While RNNs are inherently
+causal, Bi-RNNs model acausal interactions by processing sequences in both forward and backward
+directions. They achieve state-of-the-art performance on tasks like Parts-of-Speech tagging [26]
+and sentiment analysis [8], suggesting that several natural language processing (NLP) tasks greatly
+benefit from combining temporal information in both directions.
+Architectural variants of RNNs are highly effective for different sequential processing tasks. However, the number of possibilities necessitates a combinatorial search over architectures and their
+hyperparameters like number of layers or representation size, as well as painstaking hyperparameter
+tuning. Exploring all options is difficult and expensive. In this paper, we simplify this exploration by
+firstly showing that any stacked RNN is, in fact, equivalent to a single-layer RNN with specific constraints on the recurrent weights and outputs.This equivalence trivializes the search among stacked
+RNN architectures, as equivalent solutions can be learned in a single layer. The second aim of this
+paper is to show that a flattened RNN can approximate a Bi-RNN by removing constraints on the
+recurrent weights. While this approximation carries some error, this method is capable of yielding
+similar solutions at potentially much lower computational cost.
+
+2 Background
+Given a sequential input {xt }t=1...T , xt ∈ Rd , a single-layer RNN is defined by:
+
+
+ĥt = f Ŵx xt + Ŵh ĥt−1 + b̂h ;
+
+
+
+ŷt = g Ŵo ĥt + b̂o ,
+
+(1)
+
+where f (·) and g (·) are element-wise activation function such as tanh and softmax, ĥt ∈ Rn is
+the hidden state at timestep t with n units, and ŷt ∈ Rm is the network output. Learned parameters
+include input weights Ŵx , recurrent weights Ŵh , bias term b̂h , output weights Ŵo , and bias term
+b̂o . The initial hidden state is denoted ĥ0 .
+Stacked recurrent units are typically used to provide depth in RNNs [9, 28]. Based on (1), a stacked
+RNN with k layers is given by:
+
+
+(1)
+(1) (1)
+= f Wx(1) xt + Wh ht−1 + bh
+
+
+(i)
+(i−1)
+(i) (i)
+(i)
+ht = f Wx(i) ht
++ Wh ht−1 + bh , i = 2, . . . , k
+
+
+(k)
+yt = g Wo ht + bo ,
+(1)
+
+ht
+
+(2)
+(3)
+(4)
+
+where the activation function and parameterization follow the single-layer RNN. Separate weights
+(i)
+(i)
+(i)
+and bias terms for each layer i are given by Wx , Wh , and bh . The hidden state for this layer at
+(k)
+(i)
+(1)
+timestep t is ht . The stacked RNN has initial hidden state vectors h0 . . . h0 corresponding to
+the k layers. The hat operator is used for vectors and matrices in the single-layer RNN, while those
+without are for the stacked RNN.
+
+3 A stacked RNN is equivalent to a single-layer RNN
+The mathematical structure of a stacked RNN is similar to a single-layer RNN with the addition of
+between-layer connections that add depth. Here we show that any stacked RNN can be flattened
+into a single-layer RNN that produces the exact same sequence of hidden states and outputs, albeit
+with some time delay. To illustrate this, we rewrite the parameters of a single-layer RNN using the
+2
+
+weights and bias terms of the stacked RNN from Equations (2)-(4):
+
+ (1)
+Wh
+0
+···
+0
+
+ (2)
+(2)
+ (1) 
+
+Wx Wh
+ (1) 
+
+
+Wx
+.
+..
+..
+..
+bh
+
+.. 
+ 0 
+.
+.
+.
+
+ 0
+
+
+
+.
+ , b̂h =  .  , Ŵx =  . 
+Ŵh = 
+,
+..
+..
+.
+
+ ..
+(i)
+(i)
+ .. 
+.
+. Wx Wh
+
+ .
+(k)
+
+
+bh
+0
+
+
+..
+..
+.
+.
+
+0 
+(k)
+(k)
+0
+···
+0 Wx Wh
+Ŵo = [0 · · · 0 Wo ] , b̂o = bo ,
+
+(5)
+
+(6)
+
+where Ŵx ∈ Rkn×d are the input weights, Ŵh ∈ Rkn×kn the recurrent weights, b̂h ∈ Rkn the
+biases, Ŵo ∈ Rm×kn the output weights, and b̂o ∈ Rm the output biases.
+Intuitively, one can see from Eq. (5) that each layer in the stacked RNN is converted into a group
+of units in the flattened RNN. The block bidiagonal structure of the recurrent weight matrix Ŵh
+makes the hidden state act as a buffer, where each group of units only receives input from itself and
+the previous group. Information processed through this buffering mechanism eventually arrives at
+the output after k − 1 timesteps. It is important to note that the flattened RNN performs the same
+computations as the stacked version by trading depth in layers for depth in time.
+Next, we define the following notation: for a vector v ∈ Rkn with k blocks, the subvector v{i} ∈ Rn
+refers to its ith block following the partition from Equation (5). We now prove that a single-layer
+RNN parametrized by Eq. (5)-(6) is exactly equivalent to the stacked RNN in Eqs. (2)-(4). The
+proof easily extends to more complex recurrent cells such as LSTMs and GRUs.
+Theorem 1. Given an input sequence {xt }t=1...T and a stacked RNN with k layers defined by
+(i)
+Equations (2)-(4) with activation functions f (·) and g (·), and initial states {h0 }i=1...k , the single(i)
+{i}
+layer RNN defined by Equations (5)-(6) and initialized with ĥ0 such that ĥi−1 = h0 , ∀i = 1 . . . k,
+produces the same output sequence but delayed by k − 1 timesteps, i.e., ŷt+k−1 = yt for all
+t = 1 . . . T . Further, the sequence of hidden states at each layer i are equivalent with delay i − 1,
+(i)
+{i}
+i.e., ĥt+i−1 = ht for all 1 ≤ i ≤ k and t ≥ 1.
+Proof. The proof is included in Section 1 of the supplementary material.
+
+
+
+Theorem 1 makes an assumption that ĥ0 in the single-layer RNN can be initialized such that it
+(i)
+{i}
+achieves ĥi−1 = h0 for all blocks. Lemma 1 below implies that initialization for the flattened
+RNN can always be computed from the stacked RNN. The intuition behind it is that we can compute
+(i)
+{i}
+{i}
+recursively from ĥi−1 = h0 to ĥ0 for block i, while “inverting” the activation function effect in
+the process. All commonly used activation functions are surjective, thus it is enough to know the
+right-inverse of the activation function f (·) (see proof of Lemma). For example, when f (·) is the
+ReLU, the right-inverse is the identity function r (d) = d.
+Lemma 1. Let f : R → D be a surjective activation function that maps elements in R to elements
+(i)
+in interval D. Also, let h0 ∈ Dn for i = 1 . . . k be the hidden state initialization for a stacked RNN
+with k layers as defined in (2)-(3). Then, there exists an initial hidden state vector ĥ0 ∈ Rkn for a
+(i)
+{i}
+single-layer network in Equation (5) such that ĥi−1 = h0 ∀i = 1 . . . k.
+Proof. The proof is included in Section 2 of the supplementary material.
+
+
+
+From this theorem we see that there are two notable differences between a generic single-layer
+RNN and a flattened k-layer stacked RNN. First, the output of the flattened RNN is delayed by k − 1
+timepoints. Second, the flattened RNN has a specific sparsity structure in its weight matrices that
+is not present in the generic RNN. This second difference is merely a matter of model parameters,
+which are learned from data in any case. In the following sections we will explore whether singlelayer RNNs trained with delayed output can learn equivalently complex functions as stacked RNNs.
+3
+
+(a)
+
+(b)
+
+Figure 1: A stacked RNN is equivalent to a single-layer RNN under the given weight constraints.
+The flattened RNN produces the same representations as the stacked network, albeit with a time
+delay. (a) Stacked RNN with k = 4 layers where connections show the different weight parameters.
+(b) Weights of the flattened RNN that are equivalent to connections in the stacked RNN.
+3.1 The weight matrices
+Suppose one takes a flattened RNN as in Eq. (5) and adds non-zero elements to regions not populated
+by weights from the equivalent stacked RNN. These non-zero weights do not correspond to existing
+connections in the stacked RNN. So what do they correspond to?
+To explore this question we illustrate a 4-layer stacked RNN in Figure 1 (a). Here solid arrows show
+the standard stacked RNN connections. The flattened RNN weight matrices Ŵh , Ŵx , and Ŵo are
+shown in Figure 1 (b), where the color of each block matches the corresponding arrow in Figure 1 (a).
+Blocks on the main diagonal of Ŵh connect groups of units to themselves recurrently, while blocks
+on the subdiagonal correspond to connections between layers in the stacked RNN. More generally,
+(j)
+(i)
+block (i, j) in Ŵh corresponds to a connection from ht to ht+j−i+1 in the stacked RNN. Thus,
+blocks in the lower triangle (i.e. i > j + 1) correspond to connections that point backwards in time,
+and from a lower layer to a higher layer. For example, the orange block (3, 1) in Figure 1 (b) (and
+the dashed orange lines in Figure 1 (a)) connects layer 1 at time t to layer 3 at time t − 1. In a
+later section we will test whether this type of connection can be exploited to mimic some aspects
+of a Bi-RNN. Conversely, blocks in the upper triangle (i.e. j > i) point forward in time and from a
+higher layer to a lower layer. For example, the red block (3, 4) in Figure 1 (b) (and the dashed red
+lines in Figure 1 (a)) connects layer 4 at time t to layer 3 at time t + 2.
+Which possible connections in a stacked RNN cannot be represented in the flattened RNN? First,
+the flattened RNN cannot emulate connections that go backwards in time from a higher layer to a
+lower layer. However, such connections introduce loops and thus are also impossible in stacked
+RNNs. Second, the flattened RNN cannot emulate connections that go forward in time from a lower
+layer to a higher layer. However, such connections would merely serve as “shortcuts”, and donâĂŹt
+facilitate additional non-linear transformations to the input.
+Thus we see that adding weights to empty regions in the flattened RNN can mimic the behavior
+of many stacked recurrent architectures that have previously been proposed. Among others, it can
+approximate the IndRNN [20], td-RNN [33], skip-connections [14], and all-to-all layer networks
+[13]. Simply removing the constraints on Ŵh during training will enable a single-layer RNN to
+learn the necessary stacked architecture. However, unlike an ordinary RNN, this requires the output
+to be delayed based on the desired stacking depth. Further, while the single-layer network has the
+same total number of units as the corresponding stacked RNN, relaxing constraints on Ŵh would
+mean that the single-layer would have many more parameters.
+3.2 The delay in the output
+Flattening a stacked RNN introduces a delay of k−1 timesteps between the input at timestep t and its
+respective output at timestep t + k − 1. This delay plays the role of the k non-linear transformations
+4
+
+d-RNN (d+1 layer Number of
+non-linearities
+stacked RNN)
+Bi-RNN
+RNN
+max(1-Δt,
+1+Δt)
+d+1
+d+1-Δt
+
+1
+
+Bi-RNN has more
+Timestep relative to
+current input (Δt) d-RNN has more non-linearities
+non-linearities
+
+Figure 2: Number of non-linearities that can be applied to past and future sequence elements with
+respect to current input (∆t=0). The d-RNN only sees d steps into the future.
+
+that the stacked RNN computes for each timepoint. That is, non-linearities are achieved in the
+temporal direction instead of across layers. The idea of increasing the number of temporal nonlinearities has been previously explored as micro-steps [34, 15], where additional timesteps are
+inserted between each pair of elements in both the input and output sequences. For a sequence
+of length T , the computational effort of micro-step models grows with the delay d proportionally
+to O (dT ). In contrast, temporal depth in a flattened RNN is obtained by applying the delay as
+in Theorem 1. This allows the model to maintain k non-linear transformations between input and
+output, but to have a computational complexity that only grows proportionally to O (d + T ).
+
+3.3 Approximating bidirectional RNNs
+When sparsity constraints on the weight matrices are removed, a flattened RNN gains the ability to
+peek at future inputs. A similar idea was used in the past as a baseline for bidirectional recurrent
+neural networks (Bi-RNNs) [29, 16]. These papers showed that Bi-RNNs were superior to delayed
+RNNs for relatively simple problems, but it is not clear that this comparison holds true for problems
+that require more non-linear solutions. If a recurrent network can compute the output for time
+t by exploiting future input elements, what conditions are necessary to approximate its Bi-RNN
+counterpart? Moreover, can the delayed-output RNN obtain the same results? And, given these
+conditions, is there a benefit to use the delayed-output RNN instead of the Bi-RNN?
+To answer these questions we first focus on the functional richness and the influence of each element
+in the sequence. Figure 2 shows the number of non-linear transformations that each network can
+apply to any input element before computing the output at timestep t0 . The generic RNN processes
+only past inputs (t ≤ t0 ), and the number of non-linearities decreases for inputs closer to timestep
+t0 , reaching 1 at t = t0 . The Bi-RNN has identical behavior for causal inputs but is augmented
+symmetrically for acausal inputs by the inclusion of a backward RNN. In contrast, the delayedoutput RNN (d-RNN) has a similar behavior for the causal inputs but with a higher number of
+non-linearities. This trend continues for the first d acausal inputs with a decreasing number of nonlinearities until the number reaches zero at t = t0 + d + 1.
+In order for a d-RNN to have at least as many non-linearities as a Bi-RNN for every element in
+a sequence, it needs a delay that is twice the sequence length. However, long delays have the
+disadvantage of increasing the memory requirements on the network. On the other hand, a d-RNN
+can beat a Bi-RNN when the needed acausal information is limited to only a few future elements
+or when the non-linear influence of these nearby inputs on the learned function is higher than the
+remaining ones in the sequence.
+Interestingly, using the d-RNN with low delay values to approximate a Bi-RNN has additional benefits. One advantage is in computational cost: for a sequence of length T , the cost to compute a
+forward-pass for the d-RNN is T + d, while for the Bi-RNN the cost is 2T . Thus, in practice it
+is possible to trade-off small performance degradations for computationally cheaper networks. Beyond the computational costs, d-RNNs can also be used in applications where it is critical to output
+values in (near) realtime [6, 17].
+5
+
+1.0
+Accuracy
+
+0.9
+
+d-LSTM val
+d-LSTM test
+Max Performance
+LSTM
+BiLSTM
+
+0.8
+0.7
+0.6
+
+0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20
+Delay d
+
+Figure 3: Comparison of different delay values for a d-LSTM network for reversing a sequence.
+LSTM and Bi-LSTM networks are shown for reference. The network is capable of achieving the
+expected statistical bound. The d-LSTM with highest delay is capable of solving the task as good as
+the Bi-LSTM.
+
+4 Experiments
+We test the capabilities of the d-RNN in three experiments designed to shed more light on the
+relationships between d-RNNs, RNNs, and Bi-RNNs. For this purpose, the RNN implementation
+is switched to LSTMs, which avoid vanishing gradients and are better able to retain information
+across delays. The delayed LSTM networks are denoted as d-LSTMs. To train each d-LSTM, the
+input sequences are padded at the end with zero-vectors and loss is computed by ignoring the first
+“delay” timesteps. All models are trained using the Adam optimization algorithm [19] with learning
+rate 1e-3, β1 = 0.9, and β2 = 0.999. During training, the gradients are clipped [24] at 1.0 to avoid
+explosions. Experiments were implemented using PyTorch 1.1.0 [25].
+
+4.1 Experiment 1: sequence reversal
+First, we propose a simple test to illustrate how the d-LSTM can interpolate between a regular LSTM
+and Bi-LSTM. In this test we require the recurrent architectures to output a sequence in reverse order
+while reading it, i.e. yt = xT −t+1 for t = 1, .., T . Solving this task perfectly is only possible when
+a network has acausal access to the sequence. Moreover, depending on how many acausal elements
+a network accesses, it is possible to analytically calculate the expected maximum performance that
+the network can achieve. Given a sequence of length T with elements from a vocabulary {1, ..., V },
+a causal network such as the regular LSTM can output the second half of the elements correctly and
+guess those in the first half with probability 1/V . When a network has access to d acausal elements it
+can start outputting correct elements before
+point, and can achieve an expected
+  reaching
+ 1 the halfway
+
+1
+true positive rate (TPR) of 21 1 + V1 + d+1
+2
+T 1 − V . We generate data sequences of length
+T = 20 by uniformly sampling integer values between 1 and V = 4. The training set consists
+of 10,000 sequences, the validation set 2,000, and test set 2,000. Output sequences are the input
+sequences reversed. Values in the input sequences are fed as one-hot vector representations. All
+networks output via a linear layer with a softmax function that converts to a vector of V probabilities
+to which cross-entropy loss is applied. The LSTM and d-LSTM networks have 100 hidden units,
+while the Bi-LSTM has 70 in each direction in order to keep the total number of parameters constant.
+We use batches of 100 sequences and train for 1,000 epochs with early stopping after 10 epochs and
+∆ =1e-3.
+Figure 3 shows accuracy on this task as a function of the applied delay. The LSTM network does not
+use acausal information and is unable to reverse more than half of the input sequence. Conversely,
+the Bi-LSTM has full access to every element in the sequence, and can perfectly solve the task.
+For the d-LSTM network, performance increases as we increase the delay in the output, reaching
+the same level as the Bi-LSTM once the network has access to the entire sequence before being
+required to produce any output (delay 19). This experiment shows that, for a simple linear task, the
+d-LSTM can “interpolate” between LSTM and Bi-LSTM by choosing a delay that ranges from zero
+to the length of the input sequence.
+6
+
+0.0
+−0.8
+
+6
+
+−1.6
+
+4
+
+−2.4
+
+2
+
+−3.2
+
+0
+
+−4.0
+
+0.1
+0.2
+0.3
+0.4
+0.5
+0.6
+0.7
+0.8
+0.9
+1.0
+1.5
+2.0
+2.5
+3.0
+3.5
+4.0
+4.5
+5.0
+0.1
+0.2
+0.3
+0.4
+0.5
+0.6
+0.7
+0.8
+0.9
+1.0
+1.5
+2.0
+2.5
+3.0
+3.5
+4.0
+4.5
+5.0
+0.1
+0.2
+0.3
+0.4
+0.5
+0.6
+0.7
+0.8
+0.9
+1.0
+1.5
+2.0
+2.5
+3.0
+3.5
+4.0
+4.5
+5.0
+0.1
+0.2
+0.3
+0.4
+0.5
+0.6
+0.7
+0.8
+0.9
+1.0
+1.5
+2.0
+2.5
+3.0
+3.5
+4.0
+4.5
+5.0
+
+8
+
+log10 MSE
+
+Filter Acausality a
+
+10
+
+Scale γ
+
+(a) LSTM
+
+(b) Bi-LSTM
+
+(c) d-LSTM (d=5)
+
+(d) d-LSTM (d=10)
+
+Figure 4: Error maps for the sine function experiment with different degrees of non-linearity (horizontal axis) and amounts of acausality of the filter (vertical axis). Tested architectures: (a) LSTM,
+(b) Bi-LSTM, (c) d-LSTM with delay=5, and (d) d-LSTM with delay=10. Dark blue regions depict
+perfect filtering (low error), transitioning to yellow regions with high error.
+
+4.2 Experiment 2: evaluating network capabilities
+The first experiment showed how a d-LSTM with sufficient delay can mimic a Bi-LSTM. In the next
+experiment we aim at comparing how well d-LSTM, LSTM, and Bi-LSTM networks approximate
+functions with varying degrees of non-linearity and acausality.
+Drawing
+Pa inspiration from [29], we require each recurrent network to learn the function yt =
+sin(γ j=−c+1 wj+c xt+j ). The parameter γ scales the argument of the sine function and thus
+controls the degree of non-linearity in the function: for small γ the function is roughly linear, while
+for large γ the function is highly non-linear. Scalars a ≥ 0 (acausal) and c ≥ 0 (causal) control the
+length of the causal and acausal portions of the linear filter w that is applied to the input x.
+We generate datasets with different combinations of γ ∈ [0.1, . . . , 5.0] and a ∈ [0, . . . , 10], choosing c such that a + c = 20. For each combination, we generate a filter w with 20 elements drawn
+uniformly in [0.0, 1.0), and random input sequences with T = 50 elements drawn from a uniform
+distribution [0.0, 1.0). In total, there are 10,000 generated sequences for training, 2,000 for validation, and 2,000 for testing with each set of parameter values. The output is computed following the
+previous formula and with zero padding for the borders. We generate 5 repetitions of each dataset
+with different filters w and inputs x.
+We train LSTM, d-LSTM with delays 5 and 10, and Bi-LSTM networks to minimize mean squared
+error (MSE). The LSTM and d-LSTM have 100 hidden units and the Bi-LSTM has 70 per network,
+matching the numbers of parameters. A linear layer after the recurrent layer outputs a single value
+per timestep. Model are trained in batches of 100 sequences for 1,000 epochs. Training is stopped
+if the validation MSE falls below 1e-5. Training is repeated five times for each (γ, a) value.
+Figure 4 shows the average test MSE for each model as a function of γ (degree of input non-linearity)
+and a (acausality). LSTM performance (Fig. 4 (a)) is poor everywhere except where the filter is
+purely causal. Surprisingly, the network performs quite well even when the amount of non-linearity
+(γ) is quite high. The reason for this seems to be that temporal depth enables the LSTM to approximate this function well. Bi-LSTM performance (Fig. 4 (b)) follows a similar trend for the causal
+case (a = 0) as the forward LSTM, but also has good performance for acausal filters (a > 0) when
+the function is nearly linear (γ is small). As the non-linearity of the function increases, however,
+Bi-LSTM performance suffers. This occurs because the Bi-LSTM needs to approximate a highly
+non-linear function with a linear combination of its forward and backward outputs, which cannot be
+done with small error. Improving performance would require stacked Bi-LSTM layers.
+In contrast, d-LSTM networks have excellent performance for both non-linear and acausal functions.
+The d-LSTM with delay 5 (Fig. 4 (c)) shows a clear switch in performance from acausality a = 5
+to 6. This perfectly matches by the limit of acausal elements that the network has access to. For the
+d-LSTM with delay 10 (Fig. 4 (d)), the network performs well for acausality values a up to 10.
+An interesting outcome of this experiment is the better performance observed for the d-LSTM over
+the Bi-LSTM. This shows that the d-LSTM can be a better fit than a Bi-LSTM for the right task.
+Furthermore, the d-LSTM network seems to approximate the functionality of a stacked Bi-LSTM by
+approximating highly non-linear functions. In practice, this could be a great benefit for applications
+7
+
+Table 1: Parts-of-Speech performance for German (DE), English (EN), and French (FR) languages.
+The models are composed of two subnetworks at character-level and word-level. Best bidirectional
+network and best forward-only network are marked in bold for each language.
+Lang.
+Char-level network
+Word-level network
+Validation Accuracy Test Accuracy
+DE
+
+EN
+
+FR
+
+LSTM
+d-LSTM delay=1
+d-LSTM delay=1
+Bi-LSTM
+
+LSTM
+d-LSTM delay=1
+Bi-LSTM
+Bi-LSTM
+
+92.05 ± 0.16
+93.48 ± 0.31
+93.93 ± 0.06
+93.88 ± 0.13
+
+91.58 ± 0.11
+92.87 ± 0.24
+93.39 ± 0.18
+93.15 ± 0.08
+
+LSTM
+d-LSTM delay=1
+d-LSTM delay=1
+Bi-LSTM
+
+LSTM
+d-LSTM delay=1
+Bi-LSTM
+Bi-LSTM
+
+92.05 ± 0.13
+94.57 ± 0.08
+94.94 ± 0.07
+94.85 ± 0.05
+
+92.14 ± 0.10
+94.57 ± 0.14
+94.95 ± 0.06
+94.84 ± 0.08
+
+LSTM
+d-LSTM with delay=1
+d-LSTM with delay=1
+Bi-LSTM
+
+LSTM
+d-LSTM with delay=1
+Bi-LSTM
+Bi-LSTM
+
+96.67 ± 0.07
+97.49 ± 0.04
+97.67 ± 0.07
+97.63 ± 0.06
+
+96.10 ± 0.11
+97.04 ± 0.13
+97.23 ± 0.12
+97.22 ± 0.11
+
+where there is no need to treat the whole sequence. Moreover, this could be impossible in other cases,
+such as streamed data. In such cases, the d-LSTM would shine over bidirectional architectures. On
+the other hand, we expect the Bi-LSTM to perform better when the acausality needs for the task are
+longer than the delay, i.e., a > d.
+4.3 Experiment 3: real-world part-of-speech tagging
+In the previous experiments, we show that d-LSTM is capable of approximating and even outperforming a Bi-LSTM in some cases. In practice, however, the elements in a sequence may have
+different forward and backward relations. This poses a challenge for delayed networks that are constrained to a specific delay. If the delay is too low, it may not be enough for some long dependencies
+between elements. If it is too high, the network may forget information and require higher capacity
+(and maybe training data). This is prevalent in several NLP tasks. Therefore, we test on the Part-ofSpeech (POS) tagging task where Bi-LSTMs achieve state-of-the-art performance [26, 21, 7]. The
+task involves processing a variable length sequence to predict a POS tag (e.g. Noun, Verb) per word,
+using the Universal Dependencies (UD) [22] dataset. More details can be found in the supplementary material.
+The dual Bi-LSTM architecture proposed by Plank et al. [26] is followed to test the approximation
+capacity of the d-LSTMs. In this model, a word is encoded using a combination of word embeddings
+and character-level encoding. The encoded word is fed to a Bi-LSTM followed by a linear layer
+with softmax to produce POS tags. The character-level encoding is produced by first computing
+the embedding of each character and then feeding it to a Bi-LSTM. The last hidden state in each
+direction is concatenated with the word embedding to form the character-level encoding.
+The character-level Bi-LSTM has 100 units in each direction and the LSTM/d-LSTMs have 200
+units to generate encodings of the same size. For the word-level subnetwork, the hidden state is of
+size 188 for the Bi-LSTM, and 300 units for the LSTM/d-LSTM to match the number of parameters.
+The networks are trained for 20 epochs with cross-entropy loss. We train combinations of networks
+with delays 0 (LSTM), 1, 3, and 5 for the character-level subnetwork, and delays 0 through 4 for the
+word-level. Each network has 5 repeats with random initialization.
+Results are presented in Table 1. For brevity, we include a subset of the combinations for each
+language (the complete table can be found in the supplementary material). For the character-level
+model, LSTMs without delay yield reduced performance. However, replacing only the characterlevel Bi-LSTM with a LSTM does not affect the performance (supplementary material). This suggests that only the word-level subnetwork benefits from acausal elements in the sentence. Interestingly, using a d-LSTM with delay 1 for the character-level network achieves a small improvement
+over the double-bidirectional model in English and German. Replacing the word-level Bi-LSTM
+8
+
+with an LSTM decreases performance significantly. However, using a mere d-LSTM with delay 1
+improves performance to within 0.3% of the original Bi-LSTM model.
+
+5 Conclusions
+In this paper we show that stacked RNNs, which are frequently used to increase depth and representational complexity for sequence problems, can always be flattened into a single-layer RNN with
+delayed output. Relaxing constraints imposed by the flattening process allows this delayed RNN
+to look at future as well as past elements, making it possible to approximate bidirectional RNNs
+but at reduced computational cost. Although delayed-output RNNs have been touched upon previously, this paper reinforces the idea that the simple action of introducing a delay can have significant
+impact on the capabilities and performance of RNNs.
+
+References
+[1]
+[2]
+[3]
+[4]
+
+[5]
+
+[6]
+
+[7]
+
+[8]
+
+Universal dependencies English EWT treebank v2.3. https://github.com/UniversalDependencies/UD_EnglishUniversal dependencies French GSD treebank v2.3. https://github.com/UniversalDependencies/UD_French-GS
+Universal dependencies German GSD treebank v2.3. https://github.com/UniversalDependencies/UD_German-G
+R. Al-Rfou, B. Perozzi, and S. Skiena. Polyglot: Distributed word representations for multilingual nlp. In Proceedings of the Seventeenth Conference on Computational Natural Language
+Learning, pages 183–192, Sofia, Bulgaria, August 2013. Association for Computational Linguistics.
+D. Amodei, S. Ananthanarayanan, R. Anubhai, J. Bai, E. Battenberg, C. Case, J. Casper,
+B. Catanzaro, Q. Cheng, G. Chen, et al. Deep speech 2: End-to-end speech recognition in
+english and mandarin. In International conference on machine learning, pages 173–182, 2016.
+S. O. Arik, M. Chrzanowski, A. Coates, G. Diamos, A. Gibiansky, Y. Kang, X. Li, J. Miller,
+A. Ng, J. Raiman, S. Sengupta, and M. Shoeybi. Deep voice: Real-time neural text-tospeech. In Proceedings of the 34th International Conference on Machine Learning - Volume
+70, ICML’17, pages 195–204. JMLR.org, 2017.
+M. Ballesteros, C. Dyer, and N. A. Smith. Improved transition-based parsing by modeling
+characters instead of words with LSTMs. In Proceedings of the 2015 Conference on Empirical Methods in Natural Language Processing, pages 349–359, Lisbon, Portugal, Sept. 2015.
+Association for Computational Linguistics.
+C. Baziotis, N. Pelekis, and C. Doulkeridis. Datastories at semeval-2017 task 4: Deep lstm
+with attention for message-level and topic-based sentiment analysis. In Proceedings of the
+11th international workshop on semantic evaluation (SemEval-2017), pages 747–754, 2017.
+
+[9] Y. Bengio. Learning deep architectures for ai. Foundations and TrendsÂő in Machine Learning,
+2(1):1–127, 2009.
+[10] Y. Bengio, Y. LeCun, et al. Scaling learning algorithms towards ai. Large-scale kernel machines, 34(5):1–41, 2007.
+[11] Y. Bengio, P. Simard, and P. Frasconi. Learning long-term dependencies with gradient descent
+is difficult. IEEE Transactions on Neural Networks, 5(2):157–166, March 1994.
+[12] M. Bianchini and F. Scarselli. On the complexity of neural network classifiers: A comparison
+between shallow and deep architectures. IEEE Transactions on Neural Networks and Learning
+Systems, 25(8):1553–1565, Aug 2014.
+[13] J. Chung, C. Gulcehre, K. Cho, and Y. Bengio. Gated feedback recurrent neural networks. In
+Proceedings of the 32Nd International Conference on International Conference on Machine
+Learning - Volume 37, ICML’15, pages 2067–2075. JMLR.org, 2015.
+[14] A. Graves. Generating sequences with recurrent neural networks. CoRR, abs/1308.0850, 2013.
+[15] A. Graves. Adaptive computation time for recurrent neural networks. arXiv preprint
+arXiv:1603.08983, 2016.
+[16] A. Graves and J. Schmidhuber. Framewise phoneme classification with bidirectional lstm and
+other neural network architectures. Neural Networks, 18(5):602 – 610, 2005. IJCNN 2005.
+9
+
+[17] T. Guo, Z. Xu, X. Yao, H. Chen, K. Aberer, and K. Funaya. Robust online time series prediction
+with recurrent neural networks. In 2016 IEEE International Conference on Data Science and
+Advanced Analytics (DSAA), pages 816–825, Oct 2016.
+[18] S. Hochreiter and J. Schmidhuber. Long short-term memory. Neural Comput., 9(8):1735–1780,
+Nov. 1997.
+[19] D. P. Kingma and J. Ba. Adam: A method for stochastic optimization. In 3rd International
+Conference on Learning Representations, ICLR 2015, San Diego, CA, USA, May 7-9, 2015,
+Conference Track Proceedings, 2015.
+[20] S. Li, W. Li, C. Cook, C. Zhu, and Y. Gao. Independently recurrent neural network (indrnn):
+Building a longer and deeper rnn. In The IEEE Conference on Computer Vision and Pattern
+Recognition (CVPR), June 2018.
+[21] W. Ling, C. Dyer, A. W. Black, I. Trancoso, R. Fermandez, S. Amir, L. Marujo, and T. Luis.
+Finding function in form: Compositional character models for open vocabulary word representation. In Proceedings of the 2015 Conference on Empirical Methods in Natural Language
+Processing, pages 1520–1530, Lisbon, Portugal, Sept. 2015. Association for Computational
+Linguistics.
+[22] J. Nivre, M.-C. de Marneffe, F. Ginter, Y. Goldberg, J. Hajic̆, C. D. Manning, R. McDonald,
+S. Petrov, S. Pyysalo, N. Silveira, R. Tsarfaty, and D. Zeman. Universal dependencies v1:
+A multilingual treebank collection. In International Conference on Language Resources and
+Evaluation (LREC), 2016.
+[23] R. Pascanu, C. Gulcehre, K. Cho, and Y. Bengio. How to construct deep recurrent neural
+networks. In Proceedings of the Second International Conference on Learning Representations
+(ICLR 2014), 2014.
+[24] R. Pascanu, T. Mikolov, and Y. Bengio. On the difficulty of training recurrent neural networks.
+In Proceedings of the 30th International Conference on International Conference on Machine
+Learning - Volume 28, ICML’13, pages III–1310–III–1318. JMLR.org, 2013.
+[25] A. Paszke, S. Gross, S. Chintala, G. Chanan, E. Yang, Z. DeVito, Z. Lin, A. Desmaison,
+L. Antiga, and A. Lerer. Automatic differentiation in PyTorch. In NIPS Workshop on the
+future of gradient-based machine learning software & techniques, 2017.
+[26] B. Plank, A. Søgaard, and Y. Goldberg. Multilingual part-of-speech tagging with bidirectional
+long short-term memory models and auxiliary loss. In Proceedings of the 54th Annual Meeting
+of the Association for Computational Linguistics (Volume 2: Short Papers), pages 412–418,
+Berlin, Germany, Aug. 2016. Association for Computational Linguistics.
+[27] T. Raiko, H. Valpola, and Y. Lecun. Deep learning made easier by linear transformations
+in perceptrons. In N. D. Lawrence and M. Girolami, editors, Proceedings of the Fifteenth
+International Conference on Artificial Intelligence and Statistics, volume 22 of Proceedings
+of Machine Learning Research, pages 924–932, La Palma, Canary Islands, 21–23 Apr 2012.
+PMLR.
+[28] J. Schmidhuber. Learning complex, extended sequences using the principle of history compression. Neural Computation, 4(2):234–242, 1992.
+[29] M. Schuster and K. K. Paliwal. Bidirectional recurrent neural networks. IEEE Transactions
+on Signal Processing, 45(11):2673–2681, Nov 1997.
+[30] N. Silveira, T. Dozat, M.-C. de Marneffe, S. Bowman, M. Connor, J. Bauer, and C. D. Manning.
+A gold standard dependency corpus for English. In Proceedings of the Ninth International
+Conference on Language Resources and Evaluation (LREC-2014), 2014.
+[31] I. Sutskever, J. Martens, and G. E. Hinton. Generating text with recurrent neural networks.
+In Proceedings of the 28th International Conference on Machine Learning (ICML-11), pages
+1017–1024, 2011.
+[32] I. Sutskever, O. Vinyals, and Q. V. Le. Sequence to sequence learning with neural networks.
+In Advances in neural information processing systems, pages 3104–3112, 2014.
+[33] S. Zhang, Y. Wu, T. Che, Z. Lin, R. Memisevic, R. R. Salakhutdinov, and Y. Bengio. Architectural complexity measures of recurrent neural networks. In D. D. Lee, M. Sugiyama,
+U. V. Luxburg, I. Guyon, and R. Garnett, editors, Advances in Neural Information Processing
+Systems 29, pages 1822–1830. Curran Associates, Inc., 2016.
+10
+
+[34] J. G. Zilly, R. K. Srivastava, J. Koutník, and J. Schmidhuber. Recurrent highway networks.
+In D. Precup and Y. W. Teh, editors, Proceedings of the 34th International Conference on
+Machine Learning, volume 70 of Proceedings of Machine Learning Research, pages 4189–
+4198, International Convention Centre, Sydney, Australia, 06–11 Aug 2017. PMLR.
+
+11
+
+A
+
+Theorem 1 proof
+
+Proof. We prove Theorem 1 by induction on the sequence length t. First, we show that for t = 1 the
+stacked RNN and the flattened single-layer RNN are equivalent. Namely, for t = 1 we show that
+(i)
+{i}
+the outputs and the hidden states are the same, i.e. ŷk = y1 and ĥi = h1 , respectively. Without
+loss of generality, we have for any j in 1 . . . k the following:
+{i}
+
+ĥi
+
+
+
+= f {i} Ŵx xi + Ŵh ĥi−1 + b̂h
+
+
+(i)
+(i) {i}
+{i−1}
+= f Ŵx{i} xi + Wx(i) ĥi−1 + Wh ĥi−1 + bh
+
+
+(i) (i)
+(i)
+{i−1}
+= f 0 + Wx(i) ĥi−1 + Wh h0 + bh
+
+
+
+(i−1)
+(i−1) {i−1}
+{i−2}
+= f Wx(i) · f Ŵx{i−1} xi−1 + Wx(i−1) ĥi−2 + Wh ĥi−2 + bh
+
+(i)
+(i) (i)
++Wh h0 + bh
+
+
+
+
+(i−1) (i−1)
+(i−1)
+(i) (i)
+(i)
+{i−2}
++ bh
++ W h h0 + bh
+= f Wx(i) · f Wx(i−1) ĥi−2 + Wh h0
+... 
+
+= f Wx(i) . . . f Wx(j) . . .
+
+
+
+
+(1) (1)
+(1)
+(2) (2)
+(2)
+f Wx(2) f Wx(1) x1 + Wh h0 + bh + Wh h0 + bh
+
+
+(j) (j)
+(j)
+(i) (i)
+(i)
+. . . + W h h0 + bh . . . + W h h0 + bh
+
+
+
+
+(1)
+(2) (2)
+(2)
+= f Wx(i) . . . f Wx(j) . . . f Wx(2) h1 + Wh h0 + bh
+
+
+(j) (j)
+(j)
+(i) (i)
+(i)
+. . . + W h h0 + bh . . . + W h h0 + bh
+... 
+
+
+(j−1)
+
+(j) (j)
+
+(j)
+
+= f Wx(i) . . . f Wx(j) h1
++ W h h0 + bh
+... 
+
+(i−1)
+(i) (i)
+(i)
+= f Wx(i) h1
++ W h h0 + bh
+
+(i) (i)
+
+(i)
+
+. . . + W h h0 + bh
+
+
+
+(i)
+
+= h1 ,
+(i)
+
+{i}
+
+where we used the initialization assumption ĥi−1 = h0 for all i = 1 . . . k, and the definition of the
+hidden state in Eq. (1) for j − 1 blocks, in the previous steps. In particular, we have for j = k,
+{k}
+
+ĥk
+
+(k)
+
+= h1 .
+
+Plugging this result and the definition of the output weights and biases in Equation (6) into Equation
+(1) for the computing the output, we obtain
+
+
+
+
+
+
+(k)
+{k}
+ŷk = g Ŵo ĥk + b̂o = g Wo ĥk + bo = g Wo h1 + bo = y1 .
+
+(A.7)
+
+Which concludes the basis of the induction.
+{i}
+
+(i)
+
+Next, we assume that ĥt+i−1 = ht for all 1 ≤ i ≤ k and t ≤ T − 1, and prove that it holds for the
+(i)
+
+{i}
+
+hidden states for all layers when t = T : ĥT +i−1 = hT , ∀1 ≤ i ≤ k. Without loss of generality, we
+12
+
+{i}
+
+have for the hidden state ĥT +i−1 in single-layer RNN that,
+
+
+{i}
+ĥT +i−1 = f {i} Ŵx xT +i−1 + Ŵh ĥT +i−2 + b̂h
+
+
+(i)
+(i) {i}
+{i−1}
+= f Ŵx{i} xT +i−1 + Wx(i) ĥT +i−2 + Wh ĥT +i−2 + bh
+
+
+(i)
+(i) {i}
+{i−1}
+= f 0 + Wx(i) ĥT +i−2 + Wh ĥT +i−2 + bh
+
+
+
+{i−2}
+(i−1) {i−1}
+(i−1)
+= f Wx(i) · f Ŵx{i−1} xT +i−2 + Wx(i−1) ĥT +i−3 + Wh ĥT +i−3 + bh
+
+(i)
+(i) {i}
++Wh ĥT +i−2 + bh
+
+
+
+
+(i)
+(i−1)
+(i) {i}
+(i−1) {i−1}
+{i−2}
++ Wh ĥT +i−2 + bh
+= f Wx(i) · f Wx(i−1) ĥT +i−3 + Wh ĥT +i−3 + bh
+... 
+
+= f Wx(i) . . . f Wx(j) . . .
+
+
+
+
+(2)
+(1)
+(2) {2}
+(1) {1}
+f Wx(2) f Wx(1) xT + Wh ĥT −1 + bh + Wh ĥT + bh
+
+
+(j) {j}
+(j)
+(i) {i}
+(i)
+. . . + Wh ĥT +j−2 + bh . . . + Wh ĥT +i−2 + bh
+(j)
+
+{j}
+
+From the inductive assumption, we have that ĥT +j−2 = hT −1 for all 1 ≤ j ≤ k, then it follows
+that
+
+
+{i}
+ĥT +i−1 = f Wx(i) . . . f Wx(j) . . .
+
+
+
+
+(2)
+(1)
+(2) (2)
+(1) (1)
+f Wx(2) f Wx(1) xT + Wh hT −1 + bh + Wh hT −1 + bh
+
+
+(j) (j)
+(j)
+(i) (i)
+(i)
+. . . + Wh hT −1 + bh . . . + Wh hT −1 + bh
+
+
+= f Wx(i) . . . f Wx(j) . . .
+
+
+(2)
+(2) (2)
+(1)
+f Wx(2) hT + Wh hT −1 + bh
+
+
+(i) (i)
+(i)
+(j) (j)
+(j)
+. . . + Wh hT −1 + bh . . . + Wh hT −1 + bh
+... 
+
+
+
+(j)
+(i) (i)
+(i)
+(j) (j)
+(j−1)
++ Wh hT −1 + bh . . . + Wh h0 + bh
+= f Wx(i) . . . f Wx(j) hT
+... 
+
+(i−1)
+
+= f Wx(i) hT
+
+(i) (i)
+
+(i)
+
++ Wh hT −1 + bh
+
+(i)
+
+= hT ,
+where we used the definition of the hidden states in Equations (2)-(3). In particular, we have for
+{k}
+(k)
+i = k that ĥT +k−1 = hT .
+Now, we show that ŷT +k−1 = yT . By the definition of the output weights and biases in Equation
+{k}
+(k)
+(6). and by the fact that ĥT +k−1 = hT , we obtain
+
+
+
+
+
+
+(k)
+{k}
+ŷT +k−1 = g Ŵo ĥT +k−1 + b̂o = g Wo ĥT +k−1 + bo = g Wo hT + bo = yT ,
+which completes the proof.
+
+
+
+B Lemma 1 proof
+We show next that there exists an initialization vector that allows us to initialize the single-layer
+RNN as defined in Theorem 1.
+13
+
+(a)
+
+(b)
+
+Figure 5: (a) Weights of the flattened RNN that are equivalent to connections in the stacked RNN
+from Figure 1. (b) Connections in the flattened RNN based on this weight matrix. The hidden states
+are delayed in time with respect to the stacked network.
+Proof of Lemma 1. From the surjective definition of the activation function f (·), we know that the
+function f (·) is right-invertible. Namely, there is a function r : D → R such that for any d ∈ D,
+(1)
+{1}
+r (·) satisties f (r (d)) = d. First, we note that for i = 1, we have ĥ0 = h0 . When i = 2, we
+have
+
+
+(2)
+{2}
+(1)
+(2) {2}
+(2)
+(B.8)
+h0 = ĥ1 = f Wx(2) h0 + Wh ĥ0 + bh .
+
+ 
+(2)
+(2)
+, we obtain
+From (B.8) and the right-invertible function r (·) satisfies h0 = f r h0
+
+
+(2)
+(1)
+(2) {2}
+(2)
+r h0
+= Wx(2) h0 + Wh ĥ0 + bh
+
+i
+h 
+(1)
+(2)
+(2)
+{2}
+(2) †
+(B.9)
+r h0 − Wx(2) h0 − bh ,
+=⇒ ĥ0 = Wh
+where A† is the pseudoinverse of matrix A.
+We assume that we obtained the initializations for i − 1 and compute the initialization for block i.In
+general, for block i we have
+
+
+(i)
+(i) {i}
+{i−1}
+{i}
+(i)
+h0 = ĥi−1 = f Wx(i) ĥi−1 + Wh ĥi−2 + bh
+We can plug in the initialization and the intermediate computed hidden states for block i − 1 to
+obtain
+i
+
+h 
+(i)
+{i−1}
+(i)
+(i) †
+{i}
+r h0 − Wx(i) ĥi−1 − bh .
+ĥi−2 = Wh
+We continue to reapply the recursive formula one step at a time until we reach the last step before
+{i}
+the initialization ĥ0 :
+h 
+i
+
+(i)
+{i−1}
+(i) †
+{i}
+{i}
+r ĥi−j+1 − Wx(i) ĥi−j+1 − bh
+ĥi−j = Wh
+..
+.
+{i}
+
+ĥ1
+
+{i}
+
+=⇒ ĥ0
+
+
+
+{i−1}
+(i) {i}
+(i)
+= f Wx(i) ĥ1
++ Wh ĥ0 + bh
+i
+
+h 
+(i)
+{i−1}
+(i) †
+{i}
+− bh ,
+− Wx(i) ĥ1
+r ĥ1
+= Wh
+
+(i)
+
+(B.10)
+
+{i}
+
+Following these steps from h0 to obtain ĥ0 , we constructed the initialization of the single-layer
+RNN to accurately mimic the initialization of the stacked RNN. This completes the proof of Lemma
+1.
+
+
+C
+
+Weight constraints and connections in flattened RNN
+
+Figure 5 shows the weight constraints imposed to achieve equivalence between the stacked and
+single-layer RNNs, and a visualization of the weights as connections in the flattened RNN.
+14
+
+Table 2: Parts-of-Speech results for German. The table shows all possible combinations of delays
+or bidirectional LSTM networks. The best forward-only network is marked in bold.
+Character-level network
+Word-level network
+Validation Accuracy Test Accuracy
+
+D
+
+Bi-LSTM
+Bi-LSTM
+Bi-LSTM
+Bi-LSTM
+Bi-LSTM
+Bi-LSTM
+Bi-LSTM
+
+Bi-LSTM
+LSTM
+d-LSTM with delay=1
+d-LSTM with delay=2
+d-LSTM with delay=3
+d-LSTM with delay=4
+d-LSTM with delay=5
+
+93.88 ± 0.13
+92.00 ± 0.16
+93.32 ± 0.23
+93.15 ± 0.06
+92.82 ± 0.14
+92.41 ± 0.12
+91.86 ± 0.11
+
+93.15 ± 0.08
+91.50 ± 0.05
+92.81 ± 0.14
+92.67 ± 0.08
+92.25 ± 0.16
+91.95 ± 0.17
+91.57 ± 0.20
+
+LSTM
+LSTM
+LSTM
+LSTM
+LSTM
+LSTM
+
+Bi-LSTM
+LSTM
+d-LSTM with delay=1
+d-LSTM with delay=2
+d-LSTM with delay=3
+d-LSTM with delay=4
+
+93.96 ± 0.12
+92.05 ± 0.16
+93.46 ± 0.16
+93.13 ± 0.10
+92.91 ± 0.13
+92.56 ± 0.17
+
+93.43 ± 0.07
+91.58 ± 0.11
+92.71 ± 0.11
+92.61 ± 0.26
+92.38 ± 0.15
+92.06 ± 0.19
+
+d-LSTM with delay=1
+d-LSTM with delay=1
+d-LSTM with delay=1
+d-LSTM with delay=1
+d-LSTM with delay=1
+d-LSTM with delay=1
+
+Bi-LSTM
+LSTM
+d-LSTM with delay=1
+d-LSTM with delay=2
+d-LSTM with delay=3
+d-LSTM with delay=4
+
+93.93 ± 0.06
+92.04 ± 0.11
+93.48 ± 0.31
+93.11 ± 0.18
+92.85 ± 0.14
+92.50 ± 0.12
+
+93.39 ± 0.18
+91.58 ± 0.14
+92.87 ± 0.24
+92.54 ± 0.08
+92.28 ± 0.19
+92.11 ± 0.19
+
+d-LSTM with delay=3
+d-LSTM with delay=3
+d-LSTM with delay=3
+d-LSTM with delay=3
+d-LSTM with delay=3
+d-LSTM with delay=3
+
+Bi-LSTM
+LSTM
+d-LSTM with delay=1
+d-LSTM with delay=2
+d-LSTM with delay=3
+d-LSTM with delay=4
+
+94.00 ± 0.17
+92.10 ± 0.24
+93.29 ± 0.09
+93.09 ± 0.21
+92.86 ± 0.24
+92.53 ± 0.17
+
+93.32 ± 0.18
+91.61 ± 0.18
+92.68 ± 0.09
+92.59 ± 0.16
+92.42 ± 0.16
+92.08 ± 0.18
+
+d-LSTM with delay=5
+d-LSTM with delay=5
+d-LSTM with delay=5
+d-LSTM with delay=5
+d-LSTM with delay=5
+d-LSTM with delay=5
+
+Bi-LSTM
+LSTM
+d-LSTM with delay=1
+d-LSTM with delay=2
+d-LSTM with delay=3
+d-LSTM with delay=4
+
+93.88 ± 0.17
+91.88 ± 0.18
+93.31 ± 0.14
+93.17 ± 0.13
+92.84 ± 0.19
+92.50 ± 0.22
+
+93.27 ± 0.06
+91.54 ± 0.11
+92.74 ± 0.10
+92.57 ± 0.17
+92.25 ± 0.10
+91.96 ± 0.19
+
+Additional plots for error maps
+
+Figure 6 present the standard deviation diagrams for the error maps in Figure 4.
+
+E Part-of-speech: additional details and results
+In this section, we include more details about the dataset and the results of all the combinations for
+the Parts-Of-Speech experiment. We used treebanks from Universal Dependencies (UD) [22] version 2.3. We selected the English EWT treebank [30, 1] (254,854 words), French GSD treebank [2]
+(411,465 words), and German GSD treebank [3] (297,836 words) based on the quality assigned by
+the UD authors. We follow the partitioning onto training, validation and test datasets as pre-defined
+in UD. All treebanks use the same POS tag set containing 17 tags. We use the Polyglot project [4]
+word embeddings (64 dimensions). We build our own alphabets based on the most frequent 100
+characters in the vocabularies. All the networks have a 100-dimensional character-level embedding,
+which is trained with the network.
+Results for German, English, and French can be found in Tables 2, 3, and 4, respectively. The best
+result that does not use a bidirectional network is marked in bold for each language.
+
+15
+
+1
+
+Filter Acausality a
+
+2
+
+3
+
+4
+
+5
+
+6
+
+7
+
+8
+
+9 10
+
+1
+
+Filter Acausality a
+
+2
+
+3
+
+4
+
+5
+
+6
+
+7
+
+8
+
+9 10
+
+0
+
+3
+
+4
+
+5
+
+6
+
+7
+
+8
+
+0
+
+9 10
+
+3
+
+4
+
+5
+
+6
+
+7
+
+8
+
+9 10
+
+4
+
+5
+
+6
+
+7
+
+8
+
+9 10
+
+0
+
+1
+
+Filter Acausality a
+
+2
+
+3
+
+4
+
+5
+
+6
+
+7
+
+8
+
+0.0
+
+3
+
+−0.8
+
+Filter Acausality a
+
+2
+
+−1.6
+
+1
+
+−2.4
+
+0
+
+9 10
+
+0.1
+0.2
+0.3
+0.4
+0.5
+0.6
+0.7
+0.8
+0.9
+1.0
+1.5
+2.0
+2.5
+3.0
+3.5
+4.0
+4.5
+5.0
+
+Scale γ
+
+Scale γ
+
+Scale γ
+
+Scale γ
+
+0.1
+0.2
+0.3
+0.4
+0.5
+0.6
+0.7
+0.8
+0.9
+1.0
+1.5
+2.0
+2.5
+3.0
+3.5
+4.0
+4.5
+5.0
+
+−3.2
+
+9 10
+
+−4.0
+
+8
+
+Filter Acausality a
+
+2
+
+Scale γ
+
+7
+
+1
+
+0.1
+0.2
+0.3
+0.4
+0.5
+0.6
+0.7
+0.8
+0.9
+1.0
+1.5
+2.0
+2.5
+3.0
+3.5
+4.0
+4.5
+5.0
+
+(a) LSTM
+
+6
+
+0.0
+
+5
+
+−0.8
+
+4
+
+−1.6
+
+3
+
+−2.4
+
+Filter Acausality a
+
+2
+
+−3.2
+
+1
+
+−4.0
+
+0
+0.1
+0.2
+0.3
+0.4
+0.5
+0.6
+0.7
+0.8
+0.9
+1.0
+1.5
+2.0
+2.5
+3.0
+3.5
+4.0
+4.5
+5.0
+
+(b) Bi-LSTM
+
+9 10
+
+0.0
+
+8
+
+−0.8
+
+7
+
+−1.6
+
+6
+
+−2.4
+
+5
+
+−3.2
+
+4
+
+Filter Acausality a
+
+2
+
+0.1
+0.2
+0.3
+0.4
+0.5
+0.6
+0.7
+0.8
+0.9
+1.0
+1.5
+2.0
+2.5
+3.0
+3.5
+4.0
+4.5
+5.0
+
+−4.0
+
+3
+
+(c) d-LSTM with delay=5
+
+Filter Acausality a
+
+2
+
+0.0
+
+−0.8
+
+−1.6
+
+1
+
+−2.4
+
+−3.2
+
+−4.0
+0
+0.1
+0.2
+0.3
+0.4
+0.5
+0.6
+0.7
+0.8
+0.9
+1.0
+1.5
+2.0
+2.5
+3.0
+3.5
+4.0
+4.5
+5.0
+
+1
+
+Scale γ
+
+0.1
+0.2
+0.3
+0.4
+0.5
+0.6
+0.7
+0.8
+0.9
+1.0
+1.5
+2.0
+2.5
+3.0
+3.5
+4.0
+4.5
+5.0
+
+Scale γ
+
+0.1
+0.2
+0.3
+0.4
+0.5
+0.6
+0.7
+0.8
+0.9
+1.0
+1.5
+2.0
+2.5
+3.0
+3.5
+4.0
+4.5
+5.0
+
+0
+
+Scale γ
+
+(d) d-LSTM with delay=10
+
+16
+
+0.25
+
+0.20
+
+0.15
+
+0.10
+
+0.05
+
+0.00
+
+0.25
+
+0.20
+
+0.15
+
+0.10
+
+0.05
+
+0.00
+
+0.25
+
+0.20
+
+0.15
+
+0.10
+
+0.05
+
+0.00
+
+0.25
+
+0.20
+
+0.15
+
+0.10
+
+0.05
+
+0.00
+
+Figure 6: Error maps presented in Figure 4 (left column) together with their standard deviation
+figures.
+
+0
+
+Table 3: Parts-of-Speech results for English. The table shows all possible combinations of delays or
+bidirectional LSTM networks. The best forward-only network is marked in bold.
+Character-level network
+Word-level network
+Validation Accuracy Test Accuracy
+Bi-LSTM
+Bi-LSTM
+Bi-LSTM
+Bi-LSTM
+Bi-LSTM
+Bi-LSTM
+Bi-LSTM
+
+Bi-LSTM
+LSTM
+d-LSTM with delay=1
+d-LSTM with delay=2
+d-LSTM with delay=3
+d-LSTM with delay=4
+d-LSTM with delay=5
+
+94.85 ± 0.05
+91.90 ± 0.12
+94.47 ± 0.06
+94.17 ± 0.13
+93.70 ± 0.07
+93.11 ± 0.14
+92.54 ± 0.16
+
+94.84 ± 0.08
+92.05 ± 0.09
+94.41 ± 0.05
+94.14 ± 0.10
+93.87 ± 0.07
+93.26 ± 0.08
+92.70 ± 0.10
+
+LSTM
+LSTM
+LSTM
+LSTM
+LSTM
+LSTM
+
+Bi-LSTM
+LSTM
+d-LSTM with delay=1
+d-LSTM with delay=2
+d-LSTM with delay=3
+d-LSTM with delay=4
+
+95.03 ± 0.14
+92.05 ± 0.13
+94.53 ± 0.08
+94.29 ± 0.05
+93.81 ± 0.11
+93.39 ± 0.12
+
+94.99 ± 0.15
+92.14 ± 0.10
+94.58 ± 0.11
+94.28 ± 0.05
+93.85 ± 0.12
+93.55 ± 0.10
+
+d-LSTM with delay=1
+d-LSTM with delay=1
+d-LSTM with delay=1
+d-LSTM with delay=1
+d-LSTM with delay=1
+d-LSTM with delay=1
+
+Bi-LSTM
+LSTM
+d-LSTM with delay=1
+d-LSTM with delay=2
+d-LSTM with delay=3
+d-LSTM with delay=4
+
+94.94 ± 0.07
+91.96 ± 0.16
+94.57 ± 0.08
+94.29 ± 0.12
+93.86 ± 0.05
+93.35 ± 0.10
+
+94.95 ± 0.06
+92.09 ± 0.10
+94.57 ± 0.14
+94.37 ± 0.08
+93.84 ± 0.10
+93.56 ± 0.13
+
+d-LSTM with delay=3
+d-LSTM with delay=3
+d-LSTM with delay=3
+d-LSTM with delay=3
+d-LSTM with delay=3
+d-LSTM with delay=3
+
+Bi-LSTM
+LSTM
+d-LSTM with delay=1
+d-LSTM with delay=2
+d-LSTM with delay=3
+d-LSTM with delay=4
+
+94.98 ± 0.09
+91.96 ± 0.08
+94.47 ± 0.03
+94.21 ± 0.05
+93.80 ± 0.13
+93.23 ± 0.13
+
+94.91 ± 0.10
+92.08 ± 0.10
+94.51 ± 0.10
+94.18 ± 0.03
+93.88 ± 0.13
+93.38 ± 0.11
+
+d-LSTM with delay=5
+d-LSTM with delay=5
+d-LSTM with delay=5
+d-LSTM with delay=5
+d-LSTM with delay=5
+d-LSTM with delay=5
+
+Bi-LSTM
+LSTM
+d-LSTM with delay=1
+d-LSTM with delay=2
+d-LSTM with delay=3
+d-LSTM with delay=4
+
+94.90 ± 0.07
+91.84 ± 0.11
+94.36 ± 0.09
+94.05 ± 0.07
+93.61 ± 0.07
+93.14 ± 0.04
+
+94.87 ± 0.09
+91.98 ± 0.20
+94.44 ± 0.08
+94.19 ± 0.05
+93.76 ± 0.05
+93.27 ± 0.12
+
+17
+
+Table 4: Parts-of-Speech results for French. The table shows all possible combinations of delays or
+bidirectional LSTM networks. The best forward-only network is marked in bold.
+Character-level network
+Word-level network
+Validation Accuracy Test Accuracy
+Bi-LSTM
+Bi-LSTM
+Bi-LSTM
+Bi-LSTM
+Bi-LSTM
+Bi-LSTM
+Bi-LSTM
+
+Bi-LSTM
+LSTM
+d-LSTM with delay=1
+d-LSTM with delay=2
+d-LSTM with delay=3
+d-LSTM with delay=4
+d-LSTM with delay=5
+
+97.63 ± 0.06
+96.67 ± 0.05
+97.48 ± 0.02
+97.41 ± 0.02
+97.31 ± 0.05
+97.12 ± 0.05
+96.88 ± 0.10
+
+97.22 ± 0.11
+96.15 ± 0.17
+96.98 ± 0.05
+96.91 ± 0.12
+96.84 ± 0.09
+96.61 ± 0.06
+96.20 ± 0.14
+
+LSTM
+LSTM
+LSTM
+LSTM
+LSTM
+LSTM
+
+Bi-LSTM
+LSTM
+d-LSTM with delay=1
+d-LSTM with delay=2
+d-LSTM with delay=3
+d-LSTM with delay=4
+
+97.70 ± 0.07
+96.67 ± 0.07
+97.49 ± 0.07
+97.49 ± 0.05
+97.34 ± 0.04
+97.16 ± 0.06
+
+97.19 ± 0.09
+96.10 ± 0.11
+97.03 ± 0.07
+97.00 ± 0.06
+96.89 ± 0.09
+96.66 ± 0.15
+
+d-LSTM with delay=1
+d-LSTM with delay=1
+d-LSTM with delay=1
+d-LSTM with delay=1
+d-LSTM with delay=1
+d-LSTM with delay=1
+
+Bi-LSTM
+LSTM
+d-LSTM with delay=1
+d-LSTM with delay=2
+d-LSTM with delay=3
+d-LSTM with delay=4
+
+97.67 ± 0.07
+96.66 ± 0.06
+97.49 ± 0.04
+97.43 ± 0.05
+97.36 ± 0.08
+97.22 ± 0.06
+
+97.23 ± 0.12
+95.97 ± 0.07
+97.04 ± 0.13
+96.98 ± 0.05
+96.80 ± 0.10
+96.57 ± 0.10
+
+d-LSTM with delay=3
+d-LSTM with delay=3
+d-LSTM with delay=3
+d-LSTM with delay=3
+d-LSTM with delay=3
+d-LSTM with delay=3
+
+Bi-LSTM
+LSTM
+d-LSTM with delay=1
+d-LSTM with delay=2
+d-LSTM with delay=3
+d-LSTM with delay=4
+
+97.67 ± 0.08
+96.67 ± 0.07
+97.52 ± 0.04
+97.44 ± 0.02
+97.28 ± 0.04
+97.13 ± 0.05
+
+97.21 ± 0.08
+95.98 ± 0.14
+97.02 ± 0.09
+96.97 ± 0.12
+96.74 ± 0.07
+96.57 ± 0.09
+
+d-LSTM with delay=5
+d-LSTM with delay=5
+d-LSTM with delay=5
+d-LSTM with delay=5
+d-LSTM with delay=5
+d-LSTM with delay=5
+
+Bi-LSTM
+LSTM
+d-LSTM with delay=1
+d-LSTM with delay=2
+d-LSTM with delay=3
+d-LSTM with delay=4
+
+97.61 ± 0.03
+96.64 ± 0.06
+97.46 ± 0.02
+97.41 ± 0.06
+97.36 ± 0.05
+97.15 ± 0.05
+
+97.12 ± 0.06
+96.08 ± 0.08
+96.96 ± 0.13
+96.87 ± 0.06
+96.82 ± 0.07
+96.51 ± 0.07
+
+18
+
+

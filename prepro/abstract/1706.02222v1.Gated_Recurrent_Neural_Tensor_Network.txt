@@ -1,0 +1,30 @@
+recurrent neural networks (rnns), which are a
+powerful scheme for modeling temporal and sequential data need
+to capture long-term dependencies on datasets and represent
+them in hidden layers with a powerful model to capture more
+information from inputs. for modeling long-term dependencies in
+a dataset, the gating mechanism concept can help rnns remember and forget previous information. representing the hidden
+layers of an rnn with more expressive operations (i.e., tensor
+products) helps it learn a more complex relationship between
+the current input and the previous hidden layer information.
+these ideas can generally improve rnn performances. in this
+paper, we proposed a novel rnn architecture that combine the
+concepts of gating mechanism and the tensor product into a
+single model. by combining these two concepts into a single
+rnn, our proposed models learn long-term dependencies by
+modeling with gating units and obtain more expressive and
+direct interaction between input and hidden layers using a tensor
+product on 3-dimensional array (tensor) weight parameters.
+we use long short term memory (lstm) rnn and gated
+recurrent unit (gru) rnn and combine them with a tensor
+product inside their formulations. our proposed rnns, which
+are called a long-short term memory recurrent neural tensor
+network (lstmrntn) and gated recurrent unit recurrent
+neural tensor network (grurntn), are made by combining
+the lstm and gru rnn models with the tensor product. we
+conducted experiments with our proposed models on word-level
+and character-level language modeling tasks and revealed that
+our proposed models significantly improved their performance
+compared to our baseline models.
+
+i. 

@@ -1,0 +1,19 @@
+ continuous glucose monitoring (cgm) has enabled important opportunities for diabetes management. this
+study explores the use of cgm data as input for digital decision
+support tools. we investigate how recurrent neural networks
+(rnns) can be used for short term blood glucose (stbg)
+prediction and compare the rnns to conventional time-series
+forecasting using autoregressive integrated moving average
+(arima). a prediction horizon up to 90 min into the future is
+considered. in this context, we evaluate both population-based
+and patient-specific rnns and contrast them to patient-specific
+arima models and a simple baseline predicting future observations as the last observed. we find that the population-based
+rnn model is the best performing model across the considered
+prediction horizons without the need of patient-specific data.
+this demonstrates the potential of rnns for stbg prediction
+in diabetes patients towards detecting/mitigating severe events
+in the stbg, in particular hypoglycemic events. however,
+further studies are needed in regards to the robustness and
+practical use of the investigated stbg prediction models.
+
+i. 

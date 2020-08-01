@@ -1,0 +1,12 @@
+
+recurrent neural networks (rnn) can be difficult to deploy on resource constrained devices due to their size. as a result, there is a need for compression
+techniques that can significantly compress rnns without negatively impacting
+task accuracy. this paper introduces a method to compress rnns for resource
+constrained environments using kronecker product (kp). kps can compress rnn
+layers by 16 − 38× with minimal accuracy loss. we show that kp can beat the
+task accuracy achieved by other state-of-the-art compression techniques across 4
+benchmarks spanning 3 different applications, while simultaneously improving
+inference run-time.
+
+1
+

@@ -1,0 +1,16 @@
+
+
+in this paper, a novel architecture of recurrent neural network (rnn) is designed and experimented. the
+proposed rnn adopts a computational memory based on the concept of stigmergy. the basic principle of a
+stigmergic memory (sm) is that the activity of deposit/removal of a quantity in the sm stimulates the next
+activities of deposit/removal. accordingly, subsequent sm activities tend to reinforce/weaken each other,
+generating a coherent coordination between the sm activities and the input temporal stimulus. we show that,
+in a problem of supervised classification, the sm encodes the temporal input in an emergent representational
+model, by coordinating the deposit, removal and classification activities. this study lays down a basic
+framework for the derivation of a sm-rnn. a formal ontology of sm is discussed, and the sm-rnn
+architecture is detailed. to appreciate the computational power of an sm-rnn, comparative nns have been
+selected and trained to solve the mnist handwritten digits recognition benchmark in its two variants: spatial
+(sequences of bitmap rows) and temporal (sequences of pen strokes).
+
+1
+

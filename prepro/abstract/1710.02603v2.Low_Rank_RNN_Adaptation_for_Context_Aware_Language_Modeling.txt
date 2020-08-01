@@ -1,0 +1,12 @@
+
+a context-aware language model uses location, user and/or domain metadata (context)
+to adapt its predictions. in neural language
+models, context information is typically represented as an embedding and it is given to the
+rnn as an additional input, which has been
+shown to be useful in many applications. we
+introduce a more powerful mechanism for using context to adapt an rnn by letting the
+context vector control a low-rank transformation of the recurrent layer weight matrix. experiments show that allowing a greater fraction of the model parameters to be adjusted
+has benefits in terms of perplexity and classification for several different types of context.
+
+1
+

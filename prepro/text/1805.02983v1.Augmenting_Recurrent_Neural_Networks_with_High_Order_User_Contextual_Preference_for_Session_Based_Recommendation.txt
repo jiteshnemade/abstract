@@ -1,0 +1,653 @@
+Augmenting Recurrent Neural Networks with High-Order
+User-Contextual Preference for Session-Based Recommendation
+Younghun Song
+
+Jae-Gil Lee∗
+
+KAIST
+Daejeon, Korea, Republic of
+younghun.song@kaist.ac.kr
+
+KAIST
+Daejeon, Korea, Republic of
+jaegil@kaist.ac.kr
+
+arXiv:1805.02983v1 [cs.IR] 8 May 2018
+
+ABSTRACT
+
+attempts that explicitly consider the static user-side contexts(e.g.,
+age, gender, location), which are readily available in commercial
+systems. In terms of session modeling, explicit modeling of static
+user contexts is important because user navigation paths of items
+during sessions are dependent on static contexts, due to the fact
+that users with different static contexts have different preferences
+with respect to the same items. For example, when recommended a
+job position in Paris during a session, a user living in New York will
+tend to look for alternative positions in New York in the following
+searches, while a user living in Paris will tend to look for the similar
+positions.
+Therefore, in order to seamlessly integrate static user-side contexts into RNN session models, we propose an augmented RNN
+(ARNN), which is an augmented version of RNN that can improve
+on any existing RNN session model. The unique feature of ARNN is
+that it estimates user-contextual preference by modeling high-order
+interaction between static user context and the previous item using a product-based neural network (PNN)[11], which is a neural
+network (NN) variant of the factorization machine (FM)[13]. By
+integrating this contextual preference with the hidden states of
+an RNN session model, the ARNN makes more personalized recommendations than the plain RNN session models that does not
+consider user contexts.
+We evaluated the ARNN on two datasets: a job recommendation
+dataset and a standard e-commerce dataset. Through an experiment,
+we verified that the ARNN successfully captured user-contextual
+preference when abundant user contexts were available, which
+led to a substantial improvement in the recommendation quality
+against an RNN baseline.
+
+The recent adoption of recurrent neural networks (RNNs) for session modeling has yielded substantial performance gains compared
+to previous approaches. In terms of context-aware session modeling,
+however, the existing RNN-based models are limited in that they
+are not designed to explicitly model rich static user-side contexts
+(e.g., age, gender, location). Therefore, in this paper, we explore
+the utility of explicit user-side context modeling for RNN session
+models. Specifically, we propose an augmented RNN (ARNN) model
+that extracts high-order user-contextual preference using the productbased neural network (PNN) in order to augment any existing RNN
+session model. Evaluation results show that our proposed model
+outperforms the baseline RNN session model by a large margin
+when rich user-side contexts are available.
+
+
+
+INTRODUCTION
+
+Making recommendations based on session logs of user-item interactions has been a major challenge for the recommender systems
+community. Utilizing session logs for recommendations has obvious advantages: 1) they can be used to infer user preferences to
+make recommendations to anonymous/fresh users, and 2) they can
+provide a more personalized recommendation that matches a user’s
+current interest.
+Since the pioneering work of Hidasi et al.[4], recurrent neural networks (RNNs) have been the de-facto choice for modeling
+session-based recommender systems, as they are capable of effectively exploiting the sequential nature of user session data. Inspired
+by this success, numerous RNN-based session models have been
+proposed to accommodate diverse aspects of session-based recommender systems—e.g., by incorporating item content features[5],
+modeling latent user intent[10], or merging information from past
+and current user sessions[12, 15].
+Another interesting application of RNNs has been their usage in
+context-aware sequential recommendations[9, 17], which can be
+also applied to session-based recommendation settings. However, a
+majority of the research in this line focused on exploiting dynamic
+temporal contexts(e.g., time-of-the-day), and there have been few
+∗ Corresponding
+
+2 RELATED WORKS
+2.1 Session-based / Context-aware
+Recommendation with RNNs
+Traditional session-based recommendation algorithms have largely
+been based on item-to-item approaches[8, 16]. However, the recent
+success of deep learning has led to the adoption of recurrent neural networks (RNNs) to session-based recommendations, starting
+from GRU4REC[4]. The motivation of GRU4REC was to mitigate
+the consistently-cold-starting problem that occurs frequently in
+a typical e-commerce environment, where most of the customers
+do not log in and thus are anonymous. After GRU4REC, several
+RNN-based models were introduced to consider various aspects of
+session-based recommendations [5, 10, 12, 15].
+RNNs also started to gain momentum in the field of contextaware sequential modeling. Some approaches used temporal contexts like time-of-the-day or time difference between the previous
+and current interaction[9, 17]. There was also an attempt to use the
+
+Author
+1
+
+3.2
+
+type of interaction events as a contextual information[17]. However,
+all those contexts were dynamic contexts dependent on specific
+transaction instances, and no models have been introduced that
+can equip the powerful RNN session models with abundant static
+user-side contexts like age, location, or current job title.1
+
+2.2
+
+Model Overview
+
+The proposed model, which we call the augmented RNN (ARNN)
+model, augments an RNN session model with a PNN context encoder.
+At the training stage, a PNN context encoder and an RNN session
+model are first pretrained separately to optimize the likelihood
+(1), where the negative items are defined using the items in the
+session-parallel mini-batches as in GRU4REC[4]. Then, a merging
+layer is trained on top of the pretrained PNN and RNN to integrate
+the information from both networks. After training, the ARNN
+scores the items conditioning on both the PNN-produced contextual preference c t and the RNN hidden state ht . The details of the
+PNN/RNN components and the merging network are explained in
+the following sections.
+
+PNN and FM
+
+In terms of context-aware recommendations, the factorization machine (FM)[13] and its neural network (NN) variants[3, 11] have
+been widely successful, particularly in applications such as clickthrough-rate (CTR) prediction. The FM and its variants build the latent embeddings for the categorical contexts in order to estimate the
+2nd-order interactions between categorical features, thereby aiming to resolve the data sparsity inherent in recommender systems.
+Among the NN variants of FM, the product-based neural network
+(PNN)[11] has been known to effectively capture the higher-order
+interactions between the categorical variables by applying pairwise
+product operations for each possible pair of embedded categorical
+fields and passing the resulting vector as the input to a NN.
+
+3.3
+
+PNN Context Encoder
+
+The foundational element of the ARNN is the PNN context encoder
+that models user-contextual preference by capturing high-order
+interactions between user contexts and previous items. Similar to
+the original PNN[11], the PNN context encoder is composed of three
+layers: embedding layer, product layer, and FC layer, as shown in
+Figure 1.
+
+3 MODEL DESCRIPTION
+3.1 Problem Setup
+The goal of our work is to capture the contribution of user context
+information in determining a user’s item navigation path during an
+online session. Therefore, our dataset can be expressed as follows:
+
+r t̂
+
+softmax
+
+i
+• Session: si = {(x t , yt )}Tt =1
+, where yt is the item that the user
+interacted with at t within the session, and x t is the user
+contextual vector.
+• Training set: Dt r ain = {s 1 , . . . , s | Dt r ain | }
+• Test set: Dt est = {s 1′ , . . . , s ′|D
+}
+|
+
+ct,1
+
+ct,2
+
+FC
+Layer
+
+T Ö
+N
+Ö
+
+p(r (yt ) > r (yn )|y <t , x t −1 )
+
+ct
+
+: contextual
+preference
+
+zt,1
+
+zt,2
+
+zt,N
+
+…
+
+pt
+
+pt,1
+
+pt,2
+
+flatten
+Embedding
+Layer
+
+ct,H
+
+…
+
+Fully Connected
+
+zt
+
+Product
+Layer
+
+…
+
+ReLU + Batch Norm
+
+t es t
+
+Notice that x t is included in every user session. x t , a user contextual
+vector, is a concatenation of the one-hot encodings for each categorical fields, as in Rendle[13]. For instance, if we have the context information (Gender=Female,Location=U.S.) about a user, then each
+field are first encoded separately as [1, 0], [0, 0, 1, 0, . . . , 0] and concatenated to produce the final input x t = [1, 0, 0, 0, 1, 0, . . . , 0]. The
+objective of the ARNN is, given a new sequence of (context,item)
+pairs in a user session su′ = {(x 1 , y1 ), . . . , (x t −1 , yt −1 )} included
+in a test set, to predict the next item yt with which the user will
+interact.
+Given the dataset, our problem reduces to a sequential ranking
+task with implicit feedback, where the input consists of the item
+indices yt ’s and user contexts x t ’s, and the output consists of the
+ranking scores for the positive items r (yt ) and negative items r (yn ).
+Now, following the approach by Rendle et al.[14] and introducing
+the time-independence assumption for user contexts, we can set up
+the following joint likelihood for a single session as the objective
+function:
+L=
+
+: item scores
+
+…
+
+pt,M
+
+pairwise product
+
+ft,1
+
+ft,2
+
+…
+
+ft,N
+
+ft
+
+: field embeddings
+
+embedding
+[xt−1 ; yt−1 ] = [1, 0, 0, 0, 1, 0, 1, 0, … , 0, 1, 0]
+
+field 1 field 2
+
+previous item
+
+Figure 1: Architecture of the PNN context encoder.
+First, x t −1 (as explained in Section 3.1) and the previous item
+yt −1 are concatenated and enters the embedding layer, producing
+the embeddings for each fields(including the previous item). As the
+original PNN, only one position remains active per field.
+Next, pairwise inner product operations are applied to each possible pair of field embeddings to produce the pairwise signal pt . At
+the same time, all field embeddings are flattened and concatenated
+to produce the linear signal zt .
+Then, pt and zt are concatenated and fed as an input to the FC
+layer, followed by a rectified linear unit (ReLU) + batch normalization [6]. From this nonlinear transformation of both linear/pairwise
+
+(1)
+
+t =1 n=1
+
+where y <t = (yt −1 , . . . , y1 ).
+1 For
+
+convenience, we’ll use the term “user context” to refer to “static user context”
+throughout this paper.
+2
+
+combined and used to calculate the item scores as follows:
+
+signals, the PNN can effectively model high-order interactions between the user contexts and the previous item, obtaining a vector
+encoding the user-contextual preference.
+Finally, after the batch normalization layer, the user-contextual
+preference c t goes through the softmax layer that calculates the
+final item scores. The item scores are then used to calculate the
+ranking loss and to pretrain the PNN, as mentioned in Section 3.2.
+
+3.4
+
+rˆ(yt |y <t , x t −1 ) = so f tmax(M([c t ; ht ]))
+c t = PN N (x t −1 , yt −1 ) ht = GRU (yt −1 , ht −1 )
+In our model, M is a simple FC layer followed by a ReLU + batch
+normalization layer.
+
+4 EXPERIMENTS
+4.1 Dataset
+
+RNN Session Model
+
+For simplicity, RNN session models are set to follow the simple gated
+recurrent unit (GRU)[1] architecture proposed in GRU4REC[4].
+More specifically, let yt be the one-hot encoded item for the t-th
+transaction and ht be the corresponding GRU hidden state. The
+scores for the next items are then calculated by the GRU as follows:
+
+To test our algorithm, we used two datasets: the XING dataset from
+the RecSys 2016 Challenge and the TMALL dataset from the IJCAI15 competition. Table 1 presents the profiles of the two datasets.
+The XING dataset contains the user-item interaction logs from
+xing.com, a social networking service specialized for job searching.
+Rich user-side categorical contexts such as job roles and career
+levels are included in the XING dataset. Among those contexts,
+we picked only 12 attributes (e.g., job roles, career level, and country/region) that are likely to be useful for predicting job preferences.
+By contrast, the TMALL dataset is a standard e-commerce dataset in
+which only three types of user-side categorical information (user ID,
+age, and gender) are available. We thus used all three attributes. The
+purpose of employing the TMALL dataset was to examine how the
+degree of abundance in user-side contexts impact the performance
+of the proposed context-augmented model.
+
+rˆ(yt |y <t ) = so f tmax(ht ) ht = GRU (yt −1 , ht −1 )
+Similar to Section 3.3, the item scores are then used to pretrain the
+GRU for the session-based ranking task. However, our model does
+not restrict the RNN session model to take the proposed simple
+GRU form, so any existing RNN session models can be used instead
+of the GRU.
+
+3.5
+
+Augmenting the RNN with the PNN
+
+r t̂
+
+Table 1: Dataset statistics.
+
+: item scores
+
+ReLU + Batch Norm + Softmax
+merging
+layer
+
+# of users
+# of items
+# of sessions
+# of transactions
+# of user-side categorical contexts used
+
+FC layer
+concat
+ct
+
+intermediate
+layer
+
+input
+layer
+
+xt−1
+
+TMALL
+
+769K
+1M
+2.1M
+7.2M
+12
+
+424K
+1.1M
+6.5M
+48.6M
+3
+
+ht
+
+4.2
+PNN
+
+: user context
+
+XING
+
+RNN
+
+yt−1
+
+Preprocessing
+
+4.2.1 Train/test split. For both datasets, we extracted the last
+three days for testing purposes and trained on the preceding 27
+days. Transactions including the items not in the training set were
+ignored as in Hidasi et al.[4].
+
+: previous item
+
+Figure 2: Overall architecture of the ARNN model.
+
+4.2.2 Session ID marking. Since session IDs were missing in
+both XING and TMALL, we manually set time thresholds for marking a sequence of transactions as a session. The threshold was 1
+hour for XING, and 1 day for TMALL (as in Jannach et al.[7]).
+
+Figure 2 shows the overall architecture of the ARNN which
+consists of three types of layers: the input layer, the intermediate
+layer, and the merging layer. The input layer is simply where the
+model receives its input data. The intermediate layer consists of the
+PNN/RNN that we pretrained(as decribed in Sections 3.3 and 3.4).
+To use the pretrained PNN/RNN as feature extractors, we remove
+the final softmax layers from both the PNN/RNN, and freeze the
+parameters so that they are not further updated2 . The merging layer
+M is where the PNN output c t and the RNN hidden state ht are
+
+4.2.3 Sampling on the items. Due to scalability issues, only the
+top items that covered 50% of the transactions were selected for
+modeling. In other words, the items were sorted by popularity
+and a minimum item popularity threshold was set such that the
+transactions including only the items above the threshold accounted
+for 50% of the entire dataset. After this sampling, we were left with
+13,259 items for XING and 11,939 items for TMALL.
+4.2.4 Encoding the categorical attributes. All categorical features
+were encoded as binary features that indicated the presence of the
+corresponding features. For XING, there were multi-valued categorical features that held numerous values (e.g., jobroles=[350,
+
+2 However,
+
+we found that retraining only the batch normalization layers for the PNN
+slightly increases the model performance.
+3
+
+891]). Making binary features for all the multi-valued features resulted in prohibitively high-dimensional input to the PNN, which
+incurred large computational cost. Thus, similar to the process we
+described in Section 4.2.3, we created binary features for only the
+most popular categories that covered 75% of the transactions. The
+least-popular 25% of the features were mapped to a single "unknown" attribute. After this encoding, the total number of input
+fields required for the PNN was 368 for XING and 4 for TMALL,
+including the field kept for embedding the previous items.
+
+4.3
+
+4.4.2 Baselines. We compared the ARNN with the following
+baselines:
+• Item-KNN[8]: A simple yet powerful item-to-item approach
+that recommends items that are similar to the previous item
+based on cosine similarity.
+• GRU4REC[4]: A widely used RNN-based session model, as
+described in Section 2.1. Unlike ARNN, GRU4REC uses only
+the information from the item IDs.
+• PNN[11]: A PNN context encoder, which is included to assess
+how well it captures high-order context information relevant
+for ranking.
+
+Optimization and Hyperparameters
+
+4.3.1 Loss Function. The TOP1 loss[4] was used as a ranking
+loss to maximize the objective (1). Let Ns be the number of negative
+samples in a session-parallel mini-batch. In addition, let rˆs,i be the
+calculated score for the i-th item in the session s. Then, the TOP1
+loss is defined as:
+Ns 
+
+1 Õ
+2
+TOP1s,i =
+σ (ˆr s, j − rˆs,i ) + σ (ˆr s,
+)
+j
+Ns j=1
+
+5
+
+Table 2 shows the Recall@20 and MRR@20 of the ARNN and the
+baselines for the two datasets.
+Table 2: Evaluation results.
+XING
+
+This loss function is intended to push the scores of the negative
+items to zero, which prevents the overall item scores from exploding
+during optimization.
+
+ItemKNN
+GRU4REC
+PNN
+ARNN
+
+4.3.2 Hyperparameters and Optimizer. Here, we provide information about the core hyperparameters and optimizer. The hyperparameters for the GRU4REC follows that of Quadrana et al.[12]
+for XING, and Jannach et al.[7] for TMALL.
+
+As an optimizer, we used Adagrad[2] with different learning rates
+and weight decays for each dataset and model. It turned out that
+finding the right optimizer hyperparameters was crucial to the
+performance of the model.3
+
+6
+Evaluation
+
+Nhit s
+Nr ecs
+
+MRR@K =
+
+1
+
+Recall@20
+
+MRR@20
+
+Recall@20
+
+MRR@20
+
+0.2235
+0.2597
+0.1439
+0.3106
+
+0.0932
+0.1169
+0.0507
+0.1252
+
+0.1541
+0.3789
+0.1755
+0.3812
+
+0.0614
+0.1886
+0.0694
+0.1953
+
+DISCUSSION AND CONCLUSIONS
+
+In this study, we proposed an augmented RNN model that can
+easily boost an existing RNN session model by estimating highorder user-contextual preference using the PNN. Since PNN context
+encoders can handle arbitrary user-side contextual information and
+build upon an existing pretrained RNN session model, we believe
+that deploying our model for real-world systems would be a handy
+solution that can improve the recommendation quality of a system
+without considerable effort.
+However, one limitation of the ARNN is that it ignores the itemside contexts(e.g., item metadata, item content), unlike the usual
+factorization machines or PNNs used for CTR prediction. We omitted the item-side contexts because our intention was to measure the
+effect of incorporating pure user-side contexts(e.g., age, location,
+login platform) with existing RNN session models using a FM-like
+
+4.4.1 Measures. We employed two ranking measures to evaluate the model performance: Recall@K and MRR@K. Let Nhit s
+be the number of times that a user chose an item from the recommendation list and Nr ecs be the number of top-K recommendation
+attempts. Then, the measures can be calculated as follows:
+Recall@K =
+
+TMALL
+
+Evaluation of our model on XING provided us with a clear evidence that capturing user-contextual preference using a PNN is
+indeed helpful for RNN session models when rich user-side context
+is available. Although the performance of the PNN context encoder
+in itself was poor compared to GRU4REC, ARNN as a whole outperformed both ItemKNN and GRU4REC in both the Recall@20
+and MRR@20 measures.
+However, the performance of the ARNN was only marginally better than the GRU4REC baseline in case of TMALL. Considering that
+only three user context variables were available for TMALL(user id,
+age, gender), our hypothesis is that the number of user context fields
+was not enough to augment new piece of information that could
+not be inferred by the GRU4REC. Thus, we recommend that ARNN
+should be used only when the number of user-side categorical fields
+is sufficiently large.
+
+• GRU4REC
+– GRU hidden size: 100 (XING), 1000 (TMALL)
+– Dropout: 0.2 (XING), None (TMALL)
+• PNN
+– Field embedding dimension: 10 (XING, TMALL)
+– FC layer hidden size: 100 (XING), 300 (TMALL)
+– Dropout: None (XING, TMALL)
+• ARNN
+– Merging layer hidden size: 100 (XING), 1000 (TMALL)
+– Dropout: None (XING, TMALL)
+
+4.4
+
+RESULTS
+
+NÕ
+r ecs
+
+1
+Nr ecs n=1 rank(n)
+
+where rank(n) denotes the rank of the chosen item within the n-th
+top-K recommendation list.
+3 For
+
+more details, please visit our Github repository. The repository will go public
+after the review process.
+4
+
+approach. Therefore, designing an ARNN architecture that can also
+handle item-side contexts would be an interesting research topic
+for a future work.
+
+REFERENCES
+[1] Kyunghyun Cho, Bart van Merrienboer, Caglar Gulcehre, Dzmitry Bahdanau,
+Fethi Bougares, Holger Schwenk, and Yoshua Bengio. 2014. Learning Phrase
+Representations using RNN Encoder–Decoder for Statistical Machine Translation.
+In Proceedings of 2014 Conference on Empirical Methods in Natural Language
+Processing (EMNLP). pages 1724–1734.
+[2] John Duchi, Elad Hazan, and Yoram Singer. 2011. Adaptive Subgradient Methods
+for Online Learning and Stochastic Optimization. Journal of Machine Learning
+Research vol.12 (2011), pages 2121–2159.
+[3] Xiangnan He and Tat-Seng Chua. 2017. Neural Factorization Machines for Sparse
+Predictive Analytics. In Proceedings of the 40th International ACM Special Interest
+Group on Information Retrieval(SIGIR). pages 355–364.
+[4] Balázs Hidasi, Alexandros Karatzoglou, Linas Baltrunas, and Domonkos Tikk.
+2016. Session-based Recommendations with Recurrent Neural Networks. In
+Proceedings of the International Conference on Learning Representations(ICLR).
+[5] Balázs Hidasi, Massimo Quadrana, Alexandros Karatzoglou, and Domonkos
+Tikk. 2016. Parallel Recurrent Neural Network Architectures for Feature-rich
+Session-based Recommendations. In Proceedings of the 10th ACM Conference on
+Recommender Systems(RecSys).
+[6] Sergey Ioffe and Christian Szegedy. 2015. Batch Normalization: Accelerating
+Deep Network Training by Reducing Internal Covariate Shift. In Proceedings of
+the 32nd International Conference on Machine Learning.
+[7] Dietmar Jannach and Malte Ludewig. 2017. When Recurrent Neural Networks
+meet the Neighborhood for Session-Based Recommendation. In Proceedings of
+the 11th ACM Conference on Recommender Systems(RecSys). pages 306–310.
+[8] Greg Linden, Brent Smith, and Jeremy York. 2003. Amazon.com Recommendations: Item-to-Item Collaborative Filtering. Internet Computing, IEEE 7 (2003),
+76–80.
+[9] Qiang Liu, Shu Wu, Diyi Wang, Zhaokang Li, and Liang Wang. 2016. Contextaware Sequential Recommendation. In Proceedings of the IEEE International Conference on Data Mining (ICDM). pages 1053–1058.
+[10] Pablo Loyola, Chen Liu, and Yu Hirate. 2017. Modeling User Session and Intent
+with an Attention-based Encoder-Decoder Architecture. In Proceedings of the
+Eleventh ACM Conference on Recommender Systems(RecSys). pages 147–151.
+[11] Yanru Qu, Han Cai, Kan Ren, Weinan Zhang, Yong Yu, Ying Wen, and Jun Wang.
+2016. Product-based Neural Networks for User Response Prediction. In Proceedings of the 16th International Conference on Data Mining(ICDM). pages 1149–1154.
+[12] Massimo Quadrana, Alexandros Karatzoglou, Balázs Hidasi, and Paolo Cremonesi.
+2017. Personalizing Session-based Recommendations with Hierarchical Recurrent
+Neural Networks. In Proceedings of the 11th ACM Conference on Recommender
+Systems(RecSys). pages 130–137.
+[13] Steffen Rendle. 2010. Factorization Machines. In Proceedings of the 2010 International Conference on Data Mining(ICDM). pages 995–1000.
+[14] Steffen Rendle, Christoph Freudenthaler, Zeno Gantner, and Lars Schmidt-Thieme.
+2009. BPR: Bayesian Personalized Ranking from Implicit Feedback. In Proceedings
+of the 25th Conference on Uncertainty in Artificial Intelligence(UAI). pages 452–461.
+[15] Massimiliano Ruocco, Ole Steinar Lillestøl Skrede, and Helge Langseth. 2017.
+Inter-Session Modeling for Session-Based Recommendation. In Proceedings of the
+2nd Workshop on Deep Learning for Recommender Systems(DLRS). pages 24–31.
+[16] Badrul Sarwar, George Karypis, Joseph Konstan, and John Riedl. 2001. Item-Based
+Collaborative Filtering Recommendation Algorithms. In In Proceedings of the 10th
+international conference on World Wide Web(WWW). pages 285–295.
+[17] Elena Smirnova and Flavian Vasile. 2017. Contextual Sequence Modeling for
+Recommendation with Recurrent Neural Networks. In Proceedings of the 2nd
+Workshop on Deep Learning for Recommender Systems(DLRS). pages 2–9.
+
+5
+
+

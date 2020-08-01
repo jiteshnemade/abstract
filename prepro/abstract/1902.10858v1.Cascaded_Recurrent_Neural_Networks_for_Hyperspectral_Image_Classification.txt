@@ -1,0 +1,26 @@
+this paper has been accepted by ieee transactions
+on geoscience and remote sensing. by considering the spectral
+signature as a sequence, recurrent neural networks (rnns) have
+been successfully used to learn discriminative features from
+hyperspectral images (hsis) recently. however, most of these
+models only input the whole spectral bands into rnns directly,
+which may not fully explore the specific properties of hsis. in this
+paper, we propose a cascaded rnn model using gated recurrent
+units (grus) to explore the redundant and complementary
+information of hsis. it mainly consists of two rnn layers.
+the first rnn layer is used to eliminate redundant information
+between adjacent spectral bands, while the second rnn layer
+aims to learn the complementary information from non-adjacent
+spectral bands. to improve the discriminative ability of the
+learned features, we design two strategies for the proposed model.
+besides, considering the rich spatial information contained in
+hsis, we further extend the proposed model to its spectral-spatial
+counterpart by incorporating some convolutional layers. to test
+the effectiveness of our proposed models, we conduct experiments
+on two widely used hsis. the experimental results show that our
+proposed models can achieve better results than the compared
+models.
+index terms—recurrent neural network (rnn), gated recurrent unit (gru), spectral feature, spectral-spatial feature,
+hyperspectral image (hsi) classification.
+
+i. 

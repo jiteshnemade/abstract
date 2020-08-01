@@ -1,0 +1,11 @@
+ in this paper we examine learning methods combining the random neural network, a biologically inspired neural network and the extreme learning machine that achieve
+state of the art classification performance while requiring much shorter training time. the
+random neural network is a integrate and fire computational model of a neural network
+whose mathematical structure permits the efficient analysis of large ensembles of neurons.
+an activation function is derived from the rnn and used in an extreme learning machine.
+we compare the performance of this combination against the elm with various activation
+functions, we reduce the input dimensionality via pca and compare its performance vs.
+autoencoder based versions of the rnn-elm.
+
+1
+

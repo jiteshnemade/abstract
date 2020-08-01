@@ -1,0 +1,15 @@
+
+rnn language models have achieved stateof-the-art perplexity results and have proven
+useful in a suite of nlp tasks, but it is as
+yet unclear what syntactic generalizations they
+learn. here we investigate whether state-ofthe-art rnn language models represent longdistance filler–gap dependencies and constraints on them. examining rnn behavior
+on experimentally controlled sentences designed to expose filler–gap dependencies, we
+show that rnns can represent the relationship in multiple syntactic positions and over
+large spans of text. furthermore, we show that
+rnns learn a subset of the known restrictions on filler–gap dependencies, known as island constraints: rnns show evidence for
+wh-islands, adjunct islands, and complex np
+islands. these studies demonstrates that stateof-the-art rnn models are able to learn and
+generalize about empty syntactic positions.
+
+1
+

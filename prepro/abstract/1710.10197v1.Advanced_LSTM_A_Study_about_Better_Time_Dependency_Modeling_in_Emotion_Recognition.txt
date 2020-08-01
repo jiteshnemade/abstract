@@ -1,0 +1,11 @@
+
+long short-term memory (lstm) is normally used in recurrent neural network (rnn) as basic recurrent unit. however, conventional lstm assumes that the state at current
+time step depends on previous time step. this assumption
+constraints the time dependency modeling capability. in this
+study, we propose a new variation of lstm, advanced lstm
+(a-lstm), for better temporal context modeling. we employ a-lstm in weighted pooling rnn for emotion recognition. the a-lstm outperforms the conventional lstm by
+5.5% relatively. the a-lstm based weighted pooling rnn
+can also complement the state-of-the-art emotion classification framework. this shows the advantage of a-lstm.
+index terms— multi-task learning, attention model, long
+short-term memory, recurrent neural network, emotion recognition
+1. 

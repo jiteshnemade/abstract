@@ -1,0 +1,20 @@
+recurrent neural networks (rnns) are a class of machine learning algorithms used for
+applications with time-series and sequential data. recently, there has been a strong interest in executing
+rnns on embedded devices. however, difficulties have arisen because rnn requires high computational
+capability and a large memory space. in this paper, we review existing implementations of rnn models on
+embedded platforms and discuss the methods adopted to overcome the limitations of embedded systems.
+we will define the objectives of mapping rnn algorithms on embedded platforms and the challenges facing
+their realization. then, we explain the components of rnn models from an implementation perspective.
+we also discuss the optimizations applied to rnns to run efficiently on embedded platforms. finally, we
+compare the defined objectives with the implementations and highlight some open research questions and
+aspects currently not addressed for embedded rnns.
+overall, applying algorithmic optimizations to rnn models and decreasing the memory access overhead
+is vital to obtain high efficiency. to further increase the implementation efficiency, we point up the more
+promising optimizations that could be applied in future research. additionally, this article observes that high
+performance has been targeted by many implementations, while flexibility has, as yet, been attempted less
+often. thus, the article provides some guidelines for rnn hardware designers to support flexibility in a
+better manner.
+index terms compression, flexibility, efficiency, embedded computing, long short term memory
+(lstm), quantization, recurrent neural networks (rnns)
+
+i. 

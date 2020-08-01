@@ -1,0 +1,17 @@
+
+we present a novel recurrent neural network (rnn) based
+model that combines the remembering ability of unitary
+rnns with the ability of gated rnns to effectively forget
+redundant/irrelevant information in its memory. we achieve
+this by extending unitary rnns with a gating mechanism.
+our model is able to outperform lstms, grus and unitary
+rnns on several long-term dependency benchmark tasks. we
+empirically both show the orthogonal/unitary rnns lack the
+ability to forget and also the ability of goru to simultaneously remember long term dependencies while forgetting irrelevant information. this plays an important role in recurrent neural networks. we provide competitive results along
+with an analysis of our model on many natural sequential
+tasks including the babi question answering, timit speech
+spectrum prediction, penn treebank, and synthetic tasks that
+involve long-term dependencies such as algorithmic, parenthesis, denoising and copying tasks.
+
+1
+

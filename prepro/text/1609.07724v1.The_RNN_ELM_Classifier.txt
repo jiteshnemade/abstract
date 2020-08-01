@@ -1,0 +1,462 @@
+The RNN-ELM Classifier
+Athanasios Vlontzos
+
+arXiv:1609.07724v1 [cs.NE] 25 Sep 2016
+
+Department of Electrical and Electronic Engineering Imperial College London, UK
+
+Abstract. In this paper we examine learning methods combining the Random Neural Network, a biologically inspired neural network and the Extreme Learning Machine that achieve
+state of the art classification performance while requiring much shorter training time. The
+Random Neural Network is a integrate and fire computational model of a neural network
+whose mathematical structure permits the efficient analysis of large ensembles of neurons.
+An activation function is derived from the RNN and used in an Extreme Learning Machine.
+We compare the performance of this combination against the ELM with various activation
+functions, we reduce the input dimensionality via PCA and compare its performance vs.
+autoencoder based versions of the RNN-ELM.
+
+1
+
+Introduction
+
+Deep Learning, using convolutional neural networks with multiple layers of hidden units has in recent
+years achieved human-competitive or even better than human performance in image classification
+tasks [2],[18] at the expense of long training times and specialised hardware [3]. In this paper
+we combine the Random Neural Network (RNN)[6],[12],[13] and the Extreme Learning Machine
+(ELM)[16] in shallow and deep classifiers and compare their performance.
+The RNN: The RNN is a stochastic integer state, integrate and fire system [14], initially developed
+to model biological neurons [7] and extended to model soma-to-soma interactions [15]. It consists of
+M interconnected neurons, each of which can receive positive (excitatory) or negative (inhibitory)
+signals from external sources such as sensory sources or other cells.
+The RNN can be described by equations that are possible to be solved analytically. It provides
+useful mathematical properties and algorithmic efficiency as seen in [14] :
+– The state of each neuron i is represented at a given time t by a integer ki ≥ 0 which can describe
+the neuron’s level of excitation.
+– Each neuron i receives excitatory and inhibitory spikes in the form of independent Poisson pro−
+cesses of rate λ+
+i and λi . A neuron when excited (i.e. ki > 0) can fire after a delay characterised
+by exponential distribution whose average value µ−1
+depends on the specific neuron.
+i
+– A neuron j which fires, sends an excitatory or inhibitory spike to a neuron i with probability
+−
++
++
+−
+−
+p+
+ji , pji . We write wji = rj pji and wji = rj pji
+– The state of the system is the joint probability distribution p(k, t) = P rob[k1 (t), ...kn (t) =
+(k1 , .., kn )] and it satisfies a coupled system of Chapman-Kolmogorov equations
+– The RNN has a “product form” solution [6], meaning that in steady state, the joint probability
+distribution of network state is equal to the product of marginal probabilities
+where the marginal :
+lim P r[ki (t) = ki ] = qiki (1 − qi )
+
+t→∞
+
+(1)
+
+and
+qi =
+
+λ+
+i
+
+Pn
+
++
+j=1 qj wij
+P
+n
+−
+ri + λ−
+i
+j=1 qj wji
+
+(2)
+
+The RNN was initially developed to model biological neurons [7] and has been used for landmine
+detection[20],[9], video and image processing [5],[4],[1], combinatorial optimisation [10], network
+routing[8] and emergency management citeemergency.
+The ELM: The Extreme Learning Machine [16] is a Single Layer Feedforward Network (SLFN)
+with one layer of hidden neurons. Input weights W1 to the hidden neurons are assigned randomly
+in the range [0,1] and never changed while the output weights W2 are estimated in one step by
+observing that its output is calculated as in eq. 3 where ζ is the hidden neuron activation function.
+Then:
+W2 = ζ(W1 x)+ Y
+
+Y = W2 ζ(W1 x)
+
+(3, 4)
+
+where a least squares fit to Y is calculated and ()+ is the Moore-Penrose pseudo-inverse.
+ELMs have been shown to achieve very good classification results and with their one-step weight
+estimation procedure, achieve very fast learning times. However, ELMs tend to produce good results
+when very large numbers of hidden neurons are used thus reducing their computational complexity
+advantage since the computation time is dominated by the calculation of the pseudo-inverse of a
+very large matrix.
+
+2
+
+The RNN-ELM and the PCA-RNN-ELM
+
+RNN-ELM: Inspired by the fact that in mammalian brains, among other communication mechanisms, cells exhibit a quasi-simultaneous firing pattern through soma-to-soma interactions[15], in
+[14] an extension of the RNN was presented. A special network was considered that contained n
+identical connected neurons, each having a firing rate r and external excitatory and inhibitory spikes
+are denoted by λ+ and λ− . The state of each neuron was denoted by q and each neuron receives
+an inhibitory input from some external neuron u which is not part of the cluster, thus any cell i
+−
+inside the cluster has an inhibitory weight wu− ≡ wu,i
+> 0 from the external neuron u to i. Also the
++
+−
+internal spiking rate weights were set to zero wi,j = wi,j
+= 0. Whenever one of the neurons fires it
+triggers the firing of the others with p(i, j) = np and Q(i, j) = (1−p)
+n . In this way instead of exiting
+or inhibiting other neurons in the cluster through spikes, the packed neurons excite each other and
+provoke firing through soma-to-soma interactions. The result that [14] has reached is :
+λ+ +
+q=
+
+rq(n−1)(1−p)
+n−qp(n−1)
+
+r + λ− + qu wu− +
+
+rqp(n − 1)
+n − qp(n − 1)
+
+(5)
+
+which is a second degree polynomial in q that can be solved for its positive root which is the only
+of interest since q is a probability.
+q 2 p(n − 1)[λ− + qu wu− ] − q(n − 1)[r(1 − p) − λ+ p] + n[λ+ − r − λ− − qu wu ] = 0
+
+(6)
+
+From the standard method of solving quadratic equation we can define the activation function of
+the cth cluster as:
+−bc
+ζC (x) =
++
+2pc (n − 1)[λ−
+c + x]
+
+q
+bc 2 − 4pc (n − 1)[λ− + x]n[λc + − rc − λc − − x]
+2pc (n − 1)[λc − + x]
+
+(7)
+
+where:
+x=
+
+U
+X
+
+−
+wu,c
+qu
+
+(8)
+
+u=1
+
+The RNN-ELM therefore is defined as an ELM using equations (7) and (8) as the activation function
+of the hidden neurons.
+An Update Rule for ELM Output: In [14] and [11] to achieve better accuracies in classification tasks
+an update rule was introduced. Instead of updating the ELM output weights based on the desired
+output, the desired output itself was updated and the weights were updated via the Moore-Penrose
+pseudo inverse.
+T
+Denoting the labels of the dataset as L = [l1 l2 ...lD ] and the desired output as a D × K matrix ,
+Y = [yd,k ] where the ld th element in [yd,1 ...y d,K ]is initially 1 while the rest of the are set to 0. Then
+the hidden-layer output is then H = ζ(XW (1) ) where W (1) denotes the randomly generated input
+weights while let W (2) which is determined by
+W (2) = H + Y
+
+(9)
+
+Then the output of the ELM is O = HW (2) .
+The rule dictates an iterative approach to adjust Y based on the output O using the negative
+log-likelihood function at the cost function:
+eO(d,ld )
+)
+fd = −ln( PK
+O(d,k)
+k=1 e
+
+(10)
+
+then taking the partial derivative:
+
+1
+ PM O(d,
+−1
+k̂)−O(k,d)
+∂fd
+e
+k̂=1
+=
+1
+∂O(d, k)  PK O(d,
+k̂)−O(k,d)
+e
+k̂=1
+
+if k = ld
+if k 6= ld
+
+(11)
+
+then:
+Y (i+1) (d, k) = O(i) (d, k) − s
+
+∂fd
+∂O(i) (d, k)
+
+(12)
+
+where O(i) denotes the output after the i-th iteration based on Y (i) and s > 0 is the step size chosen
+by the user.
+
+The PCA-RNN-ELM algorithm: The PCA algorithm is using Singular Value Decomposition (SVD),
+in that we decompose the input X and its covariance matrix as :
+X = UΓVT
+
+C=
+
+1
+1
+XXT = UΓ2 UT
+N
+N
+
+(13, 14)
+
+Where U is an N × N matrix, Γ is a N × M matrix and V is a M × M matrix. Comparing
+the factorisation of X with that of C we conclude that the right vectors U are equivalent to the
+eigenvectors of XXT . So the transformed data are denoted as Y and after selecting only the the
+eigenvectors corresponding to the m largest eigenvalues the data are denoted as Ym . Both can be
+expressed as
+Y = XV = UΓ
+
+Ym = Um Γm = XVm
+
+(15, 16)
+
+Based on the above the complete PCA-ELM algorithm with Nh hidden neurons, Vm the matrix
+of the first m principal components and training set X is:
+X0m = XVm
+
+W1 = rand(Nh , M)
+
+(17, 18)
+
+H = ζ(W1 X0m )
+
+W2 = H+ T
+
+(19, 20)
+
+where T is the matrix of target labels. Finally repeat for I iterations starting with O = HW2
+Di =
+
+∂fd
+∂O(i) (d, k)
+
+Y (i) (d, k) = O(i−1) (d, k) − sDi
+W2i = H+ Yi
+
+(21, 22)
+(23)
+
+On the testing set Z the algorithm executed is:
+Z0m = ZVm
+
+Y = W2 ζ(W1 Z0m )
+
+(24, 25)
+
+When using the iterative output adaptation method, one must be careful to avoid model overfitting. The training accuracy rapidly converges to 100% but the training accuracy starts decreasing.
+In our simulations we limit the training accuracy to 98.5% for MNIST and 99% for NORB dataset.
+
+3
+
+Simulation Results
+
+Before we present our simulation results we must note that most algorithms achieving better performance are using image pre-processing (e.g. [19]) or require much larger computational resources
+(e.g. [2],[18],[17]).
+RNN-ELM vs. ELM: The first experiment run was to compare the accuracy of the ELM with
+various activation functions with the RNN-ELM using the activation function of Eq.7. In [17] an
+ELM structure 784-15000-10 was used to achieve 97% testing accuracy with a sigmoid activation
+function. In contrast, the RNN-ELM can achieve the same level of performance with 5000 output
+neurons. Table 1 provides a more detailed comparison using 1000 hidden neurons using various
+activation functions and the activation function of Eq.7 (RNN). These results clearly demonstrate
+that the use of the RNN activation function leads to much better accuracies with a small increase
+in computational time.
+
+Activation Function Training Time Testing Time Training Accuracy Testing Accuracy
+Sigmoid
+24,95
+0,86
+14.84%
+14.05%
+Sine
+32,27
+0,92
+22.49%
+14.99%
+Hard Limit
+29,27
+0,64
+11.24
+11.35%
+Triangular basis
+13,05
+0,63
+9.87%
+9.8%
+Radial basis
+47,43
+0,97
+17.13%
+17.02%
+RNN
+43,45
+2,82
+92.82%
+92.39%
+
+Table 1: Activation Function Comparison Without PCA with 1000 Hidden Neurons
+
+Fig. 1: PCA-RNN Performance for variable PCs and Hidden Neurons
+
+PCA-RNN-ELM: The next experiment run was to test the performance of the PCA-ELM varying
+the number of principal components and the number of hidden neurons in the ELM. In our testing
+we used this process with 30 iterations and a step size of s = 5 getting equivalent results but using
+less neurons as seen in figure Fig. 1.. Also its important to note that the time needed to achieve
+30 iterations of the simulation seems to be constant and independent of the number of neurons
+used, in contrast to the method used in [14] where we observe an increase in the time needed as
+the number of neurons increases, as seen in table 2.
+PCA-RNN-ELM vs. Autoencoder-ELM: We compared PCA-RNN-ELM with Autoencoder-ELM[11]
+using the same number of PCs and autoencoder neurons while varying the ELM size. Essentially
+this compares the performance of the ELM given the dimensionality reduction obtained by the two
+methods. Figure 1 and Table 2 show that the performance of the two methods is roughly equivalent
+for any ELM size. The PCA-ELM enjoys a slight advantage in testing time while the accuracy is
+essentially the same. It must be noted that due to the randomness of the ELM weights, results vary
+from run to run and differences beyond the second decimal point should be ignored.
+NORB with PCA-RNN-ELM: In testing the PCA-ELM with the NORB dataset the input data were
+presented to the algorithms by concatenating binocular images of the same object. Therefore, each
+
+X Training Accuracy Testing Accuracy Total Time
+100
+94.1633
+94.38
+112.9509
+200
+96.025
+95.82
+135.6642
+300
+96.515
+96.37
+143.4844
+500
+96.4517
+96.21
+235.5055
+1000
+96.6267
+96.48
+586.1988
+
+Table 2: MNIST Simulation results: Classifier of [14] with 500-500-X structure
+
+pair of images had 2048 features (pixel values), similarly to [14]. We ran two sets of experiments: 1)
+setting ELM hidden neurons to 500 and varying the number of PCs used (Table 3) and 2) keeping
+the number of PCs fixed and varying the number of ELM hidden neurons . Finally we ran the Deep
+RNN-ELM network of [14] and obtained a training time of 34.88s, training accuracy 99.02%, testing
+time 9.53 and testing accuracy 86.99%. All results are averages of 50 trials to minimise the effect of
+the randomised initialisation of the input weights in the ELM. We observed also that the training
+times are faster than the Deep Autoencoder RNN-ELM while producing better testing accuracy
+by 3% at best. The PCA-RNN-ELM always enjoys an advantage in testing time. Given that the
+PCA-RNN-ELM training and testing times are quite fast, it is possible to run the algorithm on the
+same data multiple times and select the parameters (random input weights) that produce the best
+results.
+Principal Components Training Accuracy Testing Accuracy
+2
+71,4856
+59,1317
+5
+98,465
+86,9753
+10
+99,3498
+91,1687
+20
+99,2963
+90,786
+30
+99,4033
+89,856
+40
+99,4198
+88,8724
+50
+99,2675
+87,7202
+
+Table 3: NORB Simulation results: PCA-RNN-ELM with Output adaptation
+
+4
+
+Conclusion
+
+In this paper we compared the RNN-ELM to the ELM with various activation functions and observed that the RNN-ELM achieves far superior results with far fewer hidden neurons. We also
+demonstrated that the RNN-ELM network with PCA preprocessing is a viable alternative to other
+image classification algorithms by comparing three versions of the RNN-ELM network and a Deep
+RNN architecture on the standard MNIST and NORB datasets. The results were obtained without
+any prior feature extraction or image processing apart from the PCA algorithm in order to concentrate on the raw performance of the algorithms tested. We observed that the relatively simple
+PCA-RNN-ELM can provide high accuracy and very fast training and testing times while the deep
+autoencoder-ELM algorithm can achieve similar results on the MNIST dataset.
+
+References
+1. Abdelbaki, H., Hussain, K., Gelenbe, E.: A laser intensity image based automatic vehicle classification
+system. IEEE Proc. on Intelligent Transportation Systems pp. 460–465 (2001)
+2. Ciresan, D.C., Meier, U., Masci, J., Gambardella, L.M., Schmidhuber, J.: Flexible, high performance
+convolutional neural networks for image classification. In: International Joint Conference on Artificial
+Intelligence (IJCAI-2011, Barcelona) (2011)
+3. Ciresan, D.C., Meier, U., Masci, J., Schmidhuber, J.: Multi-column deep neural network for traffic sign
+classification. In: Neural Networks (2012)
+4. Cramer, C., Gelenbe, E.: Video quality and traffic qos in learning based subsampled and receiver
+interpolated video sequences. IEEE J. on Selected Areas in Communications 18(2), 150–167 (2000)
+5. Cramer, C., Gelenbe, E., Bakircloglu, H.: Low bit-rate video compression with neural networks and
+temporal subsampling. Proceedings of the IEEE 84(10), 1529–1543 (1996)
+6. Gelenbe, E.: Random neural networks with negative and positive signalsand product form solution.
+Neural Computation 1(4), 502–510 (1989)
+7. Gelenbe, E., Cramer, C.: Oscillatory corticothalamic response to somatosensory input. Biosystems
+48(1), 67–75 (1998)
+8. Gelenbe, E., Kazhmaganbetova, Z.: Cognitive packet network for bilateral asymmetric connections.
+IEEE Trans. Industrial Informatics 10(3), 1717–1725 (2014)
+9. Gelenbe, E., Kocak, T.: Area-based results for mine detection. IEEE Trans. Geoscience and Remote
+Sensing 38(1), 12–14 (2000)
+10. Gelenbe, E., Koubi, V., Pekegrin, F.: Dynamical random neural network approach to the traveling
+salesman problem. IEEE Trans Sys. Man, Cybernetics pp. 630–635 (1993)
+11. Gelenbe, E., Yin, Y.: Deep learning with random neural networks. In: IEEE World Conference on
+Computational Intelligence, IJCNN (August 2016)
+12. Gelenbe, E.: G-networks with triggered customer movement. Journal of Applied Probability pp. 742–748
+(1993)
+13. Gelenbe, E., Timotheou, S.: Random neural networks with synchronized interactions. Neural Computation vol. 20(no. 9), pp. 2308–2324, (2008)
+14. Gelenbe, E., Yin, Y.: Deep learning with random neural networks. In: SAI Intelligent Systems Conference 2016 (September 20-22, 2016)
+15. Gu, Y., Chen, Y., Zhang, X., Li, G., Wang, C., Huang, L.: Neuronal soma-satellite glial cell interactions in sensory ganglia and the participation of purigenic receptors. Neuron Glia Biology 6(1), 53–62
+(February 2010)
+16. Huang, G.B., Zhu, Q.Y., Siew, C.K.: Extreme learning machine: theory and applications. Neurocomputing 70(1), 489 – 501 (2006)
+17. Kasun, L., Zhou, H., Huang, G., Vong, C.: Representational learning with elms for big data. IEEE
+Intelligent Systems pp. 31–34 (Nov-Dec 2013)
+18. Krizhevsky, A., Sutskever, I., Hinton, G.: Imagenet classification with deep convolutional neural networks. In: NIPS 2012: Neural Information Processing Systems, Lake Tahoe, Nevada (2012)
+19. LeCun, Y., Bottou, L., Bengio, Y., Haffner, P.: Gradient-based learning applied to document recognition. Proceedings of the IEEE 86(5), 755 – 824 (1998)
+20. W.Gelenbe, Cao, Y.: Autonomous search for mines. European J. Oper. Research 108(2), 319–333 (1998)
+
+

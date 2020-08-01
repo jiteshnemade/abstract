@@ -1,0 +1,11 @@
+
+long short-term memory (lstm) and recurrent neural network (rnn) has achieved great successes
+on time-series prediction. in this paper, a methodology of using lstm-based deep-rnn for twophase flow regime prediction is proposed, motivated by previous research on constructing deep rnn.
+the method is featured with fast response and accuracy. the built rnn networks are trained and
+tested with time-series void fraction data collected using impedance void meter. the result shows
+that the prediction accuracy depends on the depth of network and the number of layer cells. however,
+deeper and larger network consumes more time in predicting.
+keywords pattern recognition · flow regime identification · neural network
+
+1
+

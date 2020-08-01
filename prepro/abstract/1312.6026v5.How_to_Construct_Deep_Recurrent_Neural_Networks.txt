@@ -1,0 +1,15 @@
+
+in this paper, we explore different ways to extend a recurrent neural network
+(rnn) to a deep rnn. we start by arguing that the concept of depth in an rnn
+is not as clear as it is in feedforward neural networks. by carefully analyzing
+and understanding the architecture of an rnn, however, we find three points of
+an rnn which may be made deeper; (1) input-to-hidden function, (2) hidden-tohidden transition and (3) hidden-to-output function. based on this observation, we
+propose two novel architectures of a deep rnn which are orthogonal to an earlier
+attempt of stacking multiple recurrent layers to build a deep rnn (schmidhuber, 1992; el hihi and bengio, 1996). we provide an alternative interpretation
+of these deep rnns using a novel framework based on neural operators. the
+proposed deep rnns are empirically evaluated on the tasks of polyphonic music
+prediction and language modeling. the experimental result supports our claim
+that the proposed deep rnns benefit from the depth and outperform the conventional, shallow rnns.
+
+1
+

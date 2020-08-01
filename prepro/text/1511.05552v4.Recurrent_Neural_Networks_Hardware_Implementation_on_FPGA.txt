@@ -1,0 +1,875 @@
+Recurrent Neural Networks Hardware Implementation on FPGA
+
+arXiv:1511.05552v4 [cs.NE] 4 Mar 2016
+
+Andre Xian Ming Chang, Berin Martini, Eugenio Culurciello
+Department of Electrical and Computer Engineering
+Purdue University
+West Lafayette, USA
+{amingcha,berin,euge}@purdue.edu
+
+Abstract—Recurrent Neural Networks (RNNs) have the
+ability to retain memory and learn data sequences. Due
+to the recurrent nature of RNNs, it is sometimes hard to
+parallelize all its computations on conventional hardware.
+CPUs do not currently offer large parallelism, while GPUs
+offer limited parallelism due to sequential components of RNN
+models. In this paper we present a hardware implementation
+of Long-Short Term Memory (LSTM) recurrent network on
+the programmable logic Zynq 7020 FPGA from Xilinx. We
+implemented a RNN with 2 layers and 128 hidden units
+in hardware and it has been tested using a character level
+language model. The implementation is more than 21× faster
+than the ARM Cortex-A9 CPU embedded on the Zynq 7020
+FPGA. This work can potentially evolve to a RNN co-processor
+for future mobile devices.
+
+
+
+I. INTRODUCTION
+As humanity progresses into the digital era, more and
+more data is produced and distributed across the world. Deep
+Neural Networks (DNN) provides a method for computers
+to learn from this mass of data. This unlocks a new set of
+possibilities in computer vision, speech recognition, natural
+language processing and more. However, DNNs are computationally expensive, such that general processors consume
+large amounts of power to deliver desired performance. This
+limits the application of DNNs in the embedded world. Thus,
+a custom architecture optimized for DNNs provides superior
+performance per power and brings us a step closer to selflearning mobile devices.
+Recurrent Neural Networks (RNNs) are becoming an
+increasingly popular way to learn sequences of data [1]–[4],
+and it has been shown to be successful in various applications, such as speech recognition [4], machine translation
+[1] and scene analysis [5]. A combination of a Convolutional
+Neural Network (CNN) with a RNN can lead to fascinating
+results such as image caption generation [6]–[8].
+Due to the recurrent nature of RNNs, it is sometimes
+hard to parallelize all its computations on conventional
+hardware. General purposes CPUs do not currently offer
+large parallelism, while small RNN models do not get full
+benefit from GPUs. Thus, an optimized hardware architecture is necessary for executing RNNs models on embedded
+systems.
+
+Long Short Term Memory, or LSTM [9], is a specific
+RNN architecture that implements a learned memory controller for avoiding vanishing or exploding gradients [10].
+The purpose of this paper is to present a LSTM hardware
+module implemented on the Zynq 7020 FPGA from Xilinx
+[11]. Figure 1 shows an overview of the system. As proof
+of concept, the hardware was tested with a character level
+language model made with 2 LSTM layers and 128 hidden
+units. The next following sections present the background for
+LSTM, related work, implementation details of the hardware
+and driver software, the experimental setup and the obtained
+results.
+II. LSTM BACKGROUND
+One main feature of RNNs are that they can learn from
+previous information. But the question is how far should a
+model remember, and what to remember. Standard RNN can
+retain and use recent past information [12]. But it fails to
+learn long-term dependencies. Vanilla RNNs are hard to train
+for long sequences due to vanishing or exploding gradients
+[10]. This is where LSTM comes into play. LSTM is an
+RNN architecture that explicitly adds memory controllers to
+decide when to remember, forget and output. This makes the
+training procedure much more stable and allows the model
+to learn long-term dependencies [9].
+There are some variations on the LSTM architecture. One
+variant is the LSTM with peephole introduced by [13]. In
+this variation, the cell memory influences the input, forget
+
+ht
+
+Wxo
+
+X
+
+Sigmoid
+
+Who
+
+ot
+
+Tanh
+
+c t−1
+
+memory cell c
+t
+
+Wxi
+input gate
+
+X
+
+ht−1
+
+X
+
++
+
+xt
+
+Sigmoid
+
+ft
+
++
+
+Wxf
+
+forget gate
+Sigmoid
+
++
+
+X
+
++
+
+xt
+ht−1
+
+output gate
+
+it
+
+Tanh
+
+xt
+h t−1
+
+W
+
+hf
+
+~
+ct
+
+Whi
+
+X
+X
+
+candidate memory
+
+One needs to train the model to get the parameters that
+will give the desired output. In simple terms, training is an
+iterating process in which training data is fed in and the
+output is compared with a target. Then the model needs to
+backpropagate the error derivatives to update new parameters
+that minimize the error. This cycle repeats until the error is
+small enough [18]. Models can become fairly complex as
+more layers and more different functions are added. For the
+LSTM case, each module has four gates and some elementwise operations. A deep LSTM network would have multiple
+LSTM modules cascaded in a way that the output of one
+layer is the input of the following layer.
+
++
+Wxc
+
+Whc
+
+X
+
+X
+
+xt
+
+h t−1
+
+III. R ELATED W ORK
+
+Figure 2.
+The vanilla LSTM architecture that was implemented in
+hardware. ⊗ represents matrix-vector multiplication and is element-wise
+multiplication.
+
+and output gates. Conceptually, the model peeps into the
+memory cell before deciding whether to memorize or forget.
+In [2], input and forget gate are merged together into one
+gate. There are many other variations such as the ones
+presented in [14] and [15]. All those variations have similar
+performance as shown in [16].
+The LSTM hardware module that was implemented focuses on the LSTM version that does not have peepholes,
+which is shown in figure 2. This is the vanilla LSTM [17],
+which is characterized by the following equations:
+it = σ(Wxi xt + Whi ht−1 + bi )
+
+(1)
+
+ft = σ(Wxf xt + Whf ht−1 + bf )
+
+(2)
+
+ot = σ(Wxo xt + Who ht−1 + bo )
+
+(3)
+
+c̃t = tanh(Wxc xt + Whc ht−1 + bc )
+
+(4)
+
+ct = ft
+
+ct−1 + it
+
+ht = ot
+
+tanh(ct )
+
+c̃t
+
+(5)
+(6)
+
+where σ is the logistic sigmoid function,
+is element
+wise multiplication, x is the input vector of the layer, W is
+the model parameters, c is memory cell activation, c̃t is the
+candidate memory cell gate, h is the layer output vector. The
+subscript t − 1 means results from the previous time step.
+The i, f and o are respectively input, forget and output gate.
+Conceptually, these gates decide when to remember or forget
+an input sequence, and when to respond with an output. The
+combination of two matrix-vector multiplications and a nonlinear function, f (Wx xt +Wh ht−1 +b), extracts information
+from the input and previous output vectors. This operation
+is referred as gate.
+
+Co-processors for accelerating computer vision algorithms
+and CNNs have been implemented on FPGAs. A system
+that can perform recognition on mega-pixel images in realtime is presented in [19]. A similar architecture for general
+purpose vision algorithms called neuFlow is described in
+[20]. neuFlow is a scalable architecture composed by a
+grid of operation modules connected with an optimized data
+streaming network. This system can achieve speedups up to
+100× in end-to-end applications.
+An accelerator called nn-X for deep neural networks is
+described in [21]–[24]. nn-X is a high performance coprocessor implemented on FPGA. The design is based on
+computational elements called collections that are capable
+of performing convolution, non-linear functions and pooling.
+The accelerator efficiently pipelines the collections achieving
+up to 240 G-op/s.
+RNNs are different from CNNs in the context that they
+require a different arrangement of computation modules.
+This allows different hardware optimization strategies that
+should be exploited. A LSTM learning algorithm using Simultaneous Perturbation Stochastic Approximation (SPSA)
+for hardware friendly implementation was described in [25].
+The paper focuses on transformation of the learning phase
+of LSTM for FPGA.
+Another FPGA implementation that focus on standard
+RNN is described by [26]. Their approach was to unfold the
+RNN model into a fixed number of timesteps B and compute
+them in parallel. The hardware architecture is composed of
+a hidden layer module and duplicated output layer modules.
+First, the hidden layer serially processes the input x for
+B timesteps. Then, with the results of the hidden layer,
+the duplicated logic computes output h for B timesteps in
+parallel.
+This work presents a different approach of implementing
+RNN in FPGA, focusing the LSTM architecture. It is different than [26], in the sense that it uses a single module that
+consumes input x and previous output ht−1 simultaneously.
+
+Ewise Module
+
+Gate module
+
+Sync
+
+Sync
+xt
+
+Wx
+ht-1
+Wh
+
+MAC
+MAC
+
++
+
+Tanh
+Sigmoid
+
+it
+~
+ct
+
+ct
+Sync
++
+
+ft
+
+Tanh
+
+ht
+
+c t−1
+ot
+
+Figure 3. The main hardware module that implements the LSTM gates.
+The non-linear module can be configured to be a tanh or logistic sigmoid.
+
+Figure 4.
+the gates.
+
+The module that computes the ct and ht from the results of
+is element-wise multiplication.
+
+LSTM
+
+IV. I MPLEMENTATION
+
+Router
+
+A. Hardware
+The main operations to be implemented in hardware
+are matrix-vector multiplications and non-linear functions
+(hyperbolic tangent and logistic sigmoid). Both are modifications of the modules presented in [24]. For this design, the
+number format of choice is Q8.8 fixed point. The matrixvector multiplication is computed by a Multiply ACcumulate (MAC) unit, which takes two streams: vector stream
+and weight matrix row stream. The same vector stream
+is multiplied and accumulated with each weight matrix
+row to produce an output vector with same size of the
+weight’s height. The MAC is reset after computing each
+output element to avoid accumulating previous matrix rows
+computations. The bias b can be added in the multiply
+accumulate by adding the bias vector to the last column
+of the weight matrix and adding an extra vector element set
+to unity. This way there is no need to add extra input ports
+for the bias nor add extra pre-configuration step to the MAC
+unit. The results from the MAC units are added together. The
+adder’s output goes to an element wise non-linear function,
+which is implemented with linear mapping.
+The non-linear function is segmented into lines y = ax +
+b, with x limited to a particular range. The values of a, b
+and x range are stored in configuration registers during the
+configuration stage. Each line segment is implemented with
+a MAC unit and a comparator. The MAC multiplies a and x
+and accumulates with b. The comparison between the input
+value with the line range decides whether to process the
+input or pass it to the next line segment module. The nonlinear functions were segmented into 13 lines, thus the nonlinear module contains 13 pipelined line segment modules.
+The main building block of the implemented design is the
+gate module as shown in figure 3.
+The implemented module uses Direct Memory Access
+(DMA) ports to stream data in and out. The DMA ports
+use valid and ready handshake. Because the DMA ports
+are independent, the input streams are not synchronized
+even when the module activates the ports at same the time.
+Therefore, a stream synchronizing module is needed. The
+sync block is a buffer that caches some streaming data until
+
+Gate
+sigmoid
+
+AXIS
+DMA
+
+Gate
+tanh
+Gate
+sigmoid
+
+Main
+Memory
+
+ARM
+Processor
+
+FIFOs
+it
+~
+ct
+ft
+ot
+
+Ewise
+
+Configuration
+Registers
+
+Figure 5. The LSTM module block diagram. It is mainly composed of
+three gates and one ewise stage module.
+
+all ports are streaming. When the last port starts streaming,
+the sync block starts to output synchronized streams. This
+ensures that vector and matrix row elements that goes to
+MAC units are aligned.
+The gate module in figure 3 also contains a rescale block
+that converts 32 bit values to 16 bit values. The MAC units
+perform 16 bit multiplication that results into 32 bit values.
+The addition is performed using 32 bit values to preserve
+accuracy.
+All that is left are some element wise operations to
+calculate ct and ht in equations 5 and 6. To do this, extra
+multipliers and adders were added into a separate module
+shown in figure 4.
+The LSTM module uses three blocks from figure 3 and
+one from figure 4. The gates are pre-configured to have a
+non-linear function (tanh or sigmoid). The LSTM module is
+shown in figure 5.
+The internal blocks are controlled by a state machine to
+perform a sequence of operations. The implemented design
+uses four 32 bit DMA ports. Since the operations are done in
+16 bit, each DMA port can transmit two 16 bit streams. The
+
+weights Wx and Wh are concatenated in the main memory to
+exploit this feature. The streams are then routed to different
+modules depending on the operation to be performed. With
+this setup, the LSTM computation was separated into three
+sequential stages:
+1) Compute it and c̃t .
+2) Compute ft and ot .
+3) Compute ct and ht .
+In the first and second stage, two gate modules (4 MAC
+units) are running in parallel to generate two internal vectors
+(it , c̃t , ft and ot ), which are stored into a First In First Out
+(FIFO) for the next stages. The ewise module consumes
+the FIFO vectors to output the ht and ct back to main
+memory. After that, the module waits for new weights and
+new vectors, which can be for the next layer or next time
+step. The hardware also implements an extra matrix-vector
+multiplication to generate the final output. This is only used
+when the last LSTM layer has finished its computation.
+This architecture was implemented on the Zedboard [27],
+which contains the Zynq-7000 SOC XC7Z020. The chip
+contains Dual ARM Cortex-A9 MPCore, which is used for
+running the LSTM driver C code and timing comparisons.
+The hardware utilization is shown in table I. The module
+runs at 142 MHz and the total on-chip power is 1.942 W.
+Table I
+FPGA HARDWARE RESOURCE UTILIZATION FOR Z YNQ ZC7020.
+
+Components
+FF
+LUT
+Memory LUT
+BRAM
+DSP48
+BUFG
+
+Utilization [ / ]
+12960
+7201
+426
+16
+50
+1
+
+Utilization [%]
+12.18
+13.54
+2.45
+11.43
+22.73
+3.12
+
+B. Driving Software
+The control and testing software was implemented with C
+code. The software populates the main memory with weight
+values and input vectors, and it controls the hardware module
+with a set of configuration registers.
+The weight matrix have an extra element containing the
+bias value in the end of each row. The input vector contains
+an extra unity value so that the matrix-vector multiplication
+will only add the last element of the matrix row (bias
+addition). Usually the input vector x size can be different
+from the output vector h size. Zero padding was used to
+match both the matrix row size and vector size, which makes
+stream synchronization easier.
+Due to the recurrent nature of LSTM, ct and ht becomes
+the ct−1 and ht−1 for the next time step. Therefore, the
+input memory location for ct−1 and ht−1 is the same for
+the output ct and ht . Each time step c and h are overwritten.
+
+This is done to minimize the number of memory copies done
+by the CPU. To implement a multi-layer LSTM, the output
+of the previous layer ht was copied to the xt location of
+the next layer, so that ht is preserved in between layers for
+error measurements. This feature was removed for profiling
+time. The control software also needs to change the weights
+for different layers by setting different memory locations in
+the control registers.
+V. E XPERIMENTS
+The training script by Andrej Karpathy of the character
+level language model was written in Torch7. The code can be
+downloaded from Github1 . Additional functions were written
+to transfer the trained parameters from the Torch7 code to
+the control software.
+The Torch7 code implements a character level language
+model, which predicts the next character given a previous
+character. Character by character, the model generates a text
+that looks like the training data set, which can be a book
+or a large internet corpora with more than 2 MB of words.
+For this experiment, the model was trained on a subset of
+Shakespeare’s work. The batch size was 50, the training
+sequence was 50 and learning rate was 0.002. The model
+is expected to output Shakespeare look like text.
+The Torch7 code implements a 2 layer LSTM with hidden
+layer size 128 (weight matrix height). The character input
+and output is a 65 sized vector one-hot encoded. The
+character that the vector represents is the index of the only
+unity element. The predicted character from last layer is fed
+back to input xt of first layer for following time step.
+For profiling time, the Torch7 code was ran on other
+embedded platforms to compare the execution time between
+them. One platform is the Tegra K1 development board,
+which contains quad-core ARM Cortex-A15 CPU and Kepler GPU 192 Cores. The Tegra’s CPU was clocked at
+maximum frequency of 2320.5 MHz. The GPU was clocked
+at maximum of 852 MHz. The GPU memory was running
+at 102 MHz.
+Another platform used is the Odroid XU4, which has the
+Exynos5422 with four high performance Cortex-A15 cores
+and four low power Cortex-A7 cores (ARM big.LITTLE
+technology). The low power Cortex-A7 cores was clocked
+at 1400 MHz and the high performance Cortex-A15 cores
+was running at 2000 MHz.
+The C code LSTM implementation was ran on Zedboard’s
+dual ARM Cortex-A9 processor clocked at 667 MHz. Finally, the hardware was ran on Zedboard’s FPGA clocked
+at 142 MHz.
+VI. R ESULTS
+A. Accuracy
+The number of weights of some models can be very large.
+Even our small model used almost 530 KB of weights. Thus
+1 https://github.com/karpathy/char-rnn
+
+ezWhan I have s ll the soul of thee
+That I may be the sun to the state,
+That we may be the bear the state to see,
+That is the man that should be so far o the world.
+✁
+
+eBut they'ld not kindle perpide'd thee this!
+So shall you shall be gratuly not-Dost thereof enring?
+
+✄
+
+KING EDWARD IV:
+Why, then I see thee to the common sons
+That we may be a countering thee there were
+The sea for the most cause to the common sons,
+That we may be the boy of the state,
+And then the world that was the state to thee,
+That is the sea for the most contrary.
+KING RICHARD II:
+Then we shall be a surper in the seas
+Of the statue of my sons and therefore with the statue
+To the sea of men with the storesy.
+
+KING EDWARD IV:
+Steep that we do desire. near me in seeming here?
+HASTINGS:
+And I am coming to pray you.
+
+LSTM HW 2x
+
+0.508
+
+LSTM HW (this work)
+
+0.932
+21.756
+
+Zynq ZC7020 CPU
+8.226
+
+Exynos5422 4Cortex-A7
+
+BIANCA:
+He shall be you both so, get your lord, I'll sea-tay.
+The law, how both his sake, let him not only smiles
+Aad my sons but was, lend that common me within:
+I mean the case of me chooser.
+
+2.061
+
+Exynos5422 4Cortex-A15
+
+2.799
+
+Tegra TK1 GPU
+
+1.907
+
+Tegra TK1 CPU
+
+LUCIO:
+And of this feelen clus on what I was forward.
+Yer, as it is trudment.
+
+0
+
+5
+
+10
+
+✄
+
+QUEEN MARGARET:
+And then the world that was the state to thee,
+That is the man that should be so far o the worl
+✄
+
+PETRUCHIO:
+Suggion your shape,
+Than all the morn unknoward:
+Which, good how be thy jus ce, which he will dead?
+Speak, let me took no more pitch
+The bloody dealest heart would show it, to death.
+And if those Caius shalt go alone; befe ence
+Or lie, the love fell'd with mine;
+Then, yet so, fair of him wall: graces, be curse-I wish thee, cake for my heart, and eat and ever
+
+15
+
+25
+
+20
+
+Execution Time[s]
+
+✁
+
+DUKE VICENTIO:
+I cannot say the prince that hath a sun
+To the prince and the season of the state,
+And then the world that was the state to thee,
+That is the sea for the most cause to the common sons,
+That we may be the sun to the state to thee,
+That is the man that should be so far o the world.
+
+Figure 7. Execution time of feedforward LSTM character level language
+model on different embedded platforms (the lower the better).
+
+✁
+
+✂
+
+Figure 6. On the left side is the output text from the LSTM hardware. On
+the right side is text from CPU implementation. The model predict each
+next character based on the previous characters. The model only gets the
+first character (seed) and generates the entire text character by character.
+
+268
+
+LSTM HW 2x
+145.9
+
+LSTM HW (this work)
+Zynq ZC7020 CPU
+
+6.07
+
+Exynos5422 4Cortex-A7 2.59
+Exynos5422 4Cortex-A15
+
+8.78
+
+Tegra TK1 GPU
+
+7.55
+
+Tegra TK1 CPU
+
+it makes sense to compress those weights into different
+number formats for a throughput versus accuracy trade
+off. The use of fixed point Q8.8 data format certainly
+introduces rounding errors. Then one may raise the question
+of how much these errors can propagate to the final output.
+Comparing the results from the Torch7 code with the LSTM
+module’s output for same xt sequence, the average percentage error for the ct was 3.9% and for ht was 2.8%. Those
+values are average error of all time steps. The best was 1.3%
+and the worse was 7.1%. The recurrent nature of LSTM did
+not accumulate the errors and on average it stabilized at a
+low percentage.
+The text generated by sampling 1000 characters (timestep
+t = 1 to 1000) is shown in figure 6. On the left is text output
+from FPGA and on the right is text from the CPU implementation. The result shows that the LSTM model was able to
+generate personage dialog, just like in one of Shakespeare’s
+book. Both implementations displayed different texts, but
+same behavior.
+B. Memory Bandwidth
+The Zedboard Zynq ZC7020 platform has 4 Advanced
+eXtensible Interface (AXI) DMA ports available. Each is
+ran at 142 MHz and send packages of 32 bits. This allows
+aggregate bandwidth up to 3.8 GB/s full-duplex transfer
+between FPGA and external DDR3.
+At 142 MHz, one LSTM module is capable of computing
+388.8 M-ops/s and uses simultaneously 4 AXI DMA ports
+for streaming weight and vector values. During the peak
+memory usage, the module requires 1.236 GB/s of memory
+bandwidth. The high memory bandwidth requirements poses
+
+18.48
+0
+
+50
+
+100
+
+150
+
+200
+
+250
+
+300
+
+Performace per watt [Mop/s/W]
+
+Figure 8. Performance per unit power of different embedded platforms
+(the higher the better).
+
+a limit to the number of LSTM modules that can be ran on
+parallel. To replicated LSTM module, it is required higher
+memory bandwidth or to introduce internal memory to lower
+requirements of external DDR3 memory usage.
+C. Performance
+Figure 7 shows the timing results. One can observe that
+the implemented hardware LSTM was significantly faster
+than other platforms, even running at lower clock frequency
+of 142 MHz (Zynq ZC7020 CPU uses 667 MHz). Scaling
+the implemented design by replicating the number of LSTM
+modules running in parallel will provide faster speed up.
+Using 2 LSTM cells in parallel can be 16× faster than
+Exynos5422 on quad-core ARM Cortex-A7.
+In one LSTM layer of size 128, there are 132.1 Kops. Multiplying this by number of samples and number
+of layers for the experimental application (2000) gives the
+total number of operations 264.4 M-ops. The execution time
+divided by number of operations gives performance (ops/s).
+The power consumption of each platform was measured.
+Figure 8 shows the performance per unit power.
+The GPU performance was slower because of the following reasons. The model is too small for getting benefit
+from GPU, since the software needs to do memory copies.
+This is confirmed by running the same Torch7 code on a
+
+MacBook PRO 2016. The CPU of the MacBook PRO 2016
+executed the Torch7 code for character level language model
+in 0.304 s, whereas the MacBook PRO 2016’s GPU executed
+the same test in 0.569 s.
+VII. C ONCLUSION
+Recurrent Neural Networks have recently gained popularity due to the success from the use of Long Short Term
+Memory architecture in many applications, such as speech
+recognition, machine translation, scene analysis and image
+caption generation.
+This work presented a hardware implementation of LSTM
+module. The hardware successfully produced Shakespearelike text using a character level model. Furthermore, the
+implemented hardware showed to be significantly faster than
+other mobile platforms. This work can potentially evolve
+to a RNN co-processor for future devices, although further
+work needs to be done. The main future work is to optimize
+the design to allow parallel computation of the gates. This
+involves designing a parallel MAC unit configuration to
+perform the matrix-vector multiplication.
+Acknowledgments: This work is supported by Office
+of Naval Research (ONR) grants 14PR02106-01 P00004
+and MURI N000141010278 and National Council for the
+Improvement of Higher Education (CAPES) through Brazil
+scientific Mobility Program (BSMP). We would like to
+thank Vinayak Gokhale for the discussion on implementation
+and hardware architecture and also thank Alfredo Canziani,
+Aysegul Dundar and Jonghoon Jin for the support. We
+gratefully appreciate the support of NVIDIA Corporation
+with the donation of GPUs used for this research.
+REFERENCES
+[1] I. Sutskever, O. Vinyals, and Q. V. Le, “Sequence to sequence
+learning with neural networks,” in Advances in neural information processing systems, 2014, pp. 3104–3112.
+[2] K. Cho, B. Van Merriënboer, C. Gulcehre, D. Bahdanau,
+F. Bougares, H. Schwenk, and Y. Bengio, “Learning phrase
+representations using rnn encoder-decoder for statistical machine translation,” EMNLP, 2014.
+[3] W. Zaremba, I. Sutskever, and O. Vinyals, “Recurrent neural network regularization,” arXiv preprint arXiv:1409.2329,
+2014.
+[4] A. Graves, A.-r. Mohamed, and G. Hinton, “Speech recognition with deep recurrent neural networks,” in IEEE Int. Conf.
+on ICASSP, 2013, pp. 6645–6649.
+[5] W. Byeon, M. Liwicki, and T. M. Breuel, “Scene analysis
+by mid-level attribute learning using 2d lstm networks and
+an application to web-image tagging,” Pattern Recognition
+Letters, vol. 63, pp. 23–29, 2015.
+[6] O. Vinyals, A. Toshev, S. Bengio, and D. Erhan, “Show and
+tell: A neural image caption generator,” CVPR, 2015.
+
+[7] J. Mao, W. Xu, Y. Yang, J. Wang, and A. L. Yuille, “Explain
+images with multimodal recurrent neural networks,” arXiv
+preprint arXiv:1410.1090, 2014.
+[8] H. Fang, S. Gupta, F. Iandola, R. Srivastava, L. Deng,
+P. Dollár, J. Gao, X. He, M. Mitchell, J. Platt et al.,
+“From captions to visual concepts and back,” arXiv preprint
+arXiv:1411.4952, 2014.
+[9] S. Hochreiter and J. Schmidhuber, “Long short-term memory,” Neural computation, vol. 9, no. 8, pp. 1735–1780, 1997.
+[10] Y. Bengio, P. Simard, and P. Frasconi, “Learning long-term
+dependencies with gradient descent is difficult,” IEEE Trans.
+on Neural Networks, vol. 5, no. 2, pp. 157–166, 1994.
+[11] Zynq-7000
+All
+Programmable
+SoC
+Overview,
+Xilinx,
+Jan.
+2016,
+v1.9.
+[Online].
+Available:
+http://www.xilinx.com/support/documentation/data
+sheets/ds190-Zynq-7000-Overview.pdf
+[12] J. Schmidhuber, “Deep learning in neural networks: An
+overview,” Neural Networks, vol. 61, pp. 85–117, 2015.
+[13] F. Gers, J. Schmidhuber et al., “Recurrent nets that time and
+count,” in Neural Networks, 2000. IJCNN 2000, Proceedings
+of the IEEE-INNS-ENNS International Joint Conference on,
+vol. 3. IEEE, 2000, pp. 189–194.
+[14] H. Sak, A. Senior, and F. Beaufays, “Long short-term memory
+recurrent neural network architectures for large scale acoustic
+modeling,” in Proc. of the Annual Conf. of INTERSPEECH,
+2014.
+[15] S. Otte, M. Liwicki, and A. Zell, “Dynamic cortex memory:
+Enhancing recurrent neural networks for gradient-based sequence learning,” in Artificial Neural Networks and Machine
+Learning–ICANN 2014. Springer, 2014, pp. 1–8.
+[16] K. Greff, R. K. Srivastava, J. Koutnı́k, B. R. Steunebrink,
+and J. Schmidhuber, “Lstm: A search space odyssey,” arXiv
+preprint arXiv:1503.04069, 2015.
+[17] A. Graves and J. Schmidhuber, “Framewise phoneme classification with bidirectional lstm and other neural network
+architectures,” Neural Networks, vol. 18, no. 5, pp. 602–610,
+2005.
+[18] C. M. Bishop, “Pattern recognition and machine learning,”
+pp. 225–284, 2006.
+[19] C. Farabet, B. Martini, P. Akselrod, S. Talay, Y. LeCun,
+and E. Culurciello, “Hardware accelerated convolutional neural networks for synthetic vision systems,” in Circuits and
+Systems (ISCAS), Proceedings of 2010 IEEE International
+Symposium on. IEEE, 2010, pp. 257–260.
+[20] C. Farabet, B. Martini, B. Corda, P. Akselrod, E. Culurciello,
+and Y. LeCun, “Neuflow: A runtime reconfigurable dataflow
+processor for vision,” in IEEE Comp. Conf. on CVPRW.
+IEEE, 2011, pp. 109–116.
+[21] A. Dundar, J. Jin, V. Gokhale, B. Krishnamurthy, A. Canziani,
+B. Martini, and E. Culurciello, “Accelerating deep neural
+networks on mobile processor with embedded programmable
+logic,” in Neural information processing systems conference
+(NIPS), 2013.
+
+[22] J. Jin, V. Gokhale, A. Dundar, B. Krishnamurthy, B. Martini,
+and E. Culurciello, “An efficient implementation of deep
+convolutional neural networks on a mobile coprocessor,” in
+Circuits and Systems (MWSCAS), 2014 IEEE 57th International Midwest Symposium on. IEEE, 2014, pp. 133–136.
+[23] A. Dundar, J. Jin, V. Gokhale, B. Martini, and E. Culurciello,
+“Memory access optimized routing scheme for deep networks
+on a mobile coprocessor,” in High Performance Extreme
+Computing Conference (HPEC), 2014 IEEE. IEEE, 2014,
+pp. 1–6.
+[24] V. Gokhale, J. Jin, A. Dundar, B. Martini, and E. Culurciello,
+“A 240 g-ops/s mobile coprocessor for deep neural networks,”
+in IEEE Conf. on CVPRW, 2014. IEEE, 2014, pp. 696–701.
+[25] R. Tavcar, J. Dedic, D. Bokal, and A. Zemva, “Transforming
+the lstm training algorithm for efficient fpga-based adaptive
+control of nonlinear dynamic systems,” Informacije MidemJournal of Microelectronics Electronic Components and Materials, vol. 43, no. 2, pp. 131–138, 2013.
+[26] S. Li, C. Wu, H. Li, B. Li, Y. Wang, and Q. Qiu, “Fpga acceleration of recurrent neural network based language model,”
+in IEEE 23rd Inter. Symp.on FCCM, May 2015, pp. 111–118.
+[27] Zedboard
+Product
+Brief,
+Avnet,
+Nov.
+2014.
+[Online]. Available: http://zedboard.org/sites/default/files/
+product briefs/PB-AES-Z7EV-7Z020 G-v12.pdf
+
+

@@ -1,0 +1,16 @@
+
+recurrent neural networks (rnns) are a powerful model for
+sequential data. end-to-end training methods such as connectionist temporal classification make it possible to train rnns
+for sequence labelling problems where the input-output alignment is unknown. the combination of these methods with
+the long short-term memory rnn architecture has proved
+particularly fruitful, delivering state-of-the-art results in cursive handwriting recognition. however rnn performance in
+speech recognition has so far been disappointing, with better
+results returned by deep feedforward networks. this paper investigates deep recurrent neural networks, which combine the
+multiple levels of representation that have proved so effective
+in deep networks with the flexible use of long range context
+that empowers rnns. when trained end-to-end with suitable regularisation, we find that deep long short-term memory rnns achieve a test set error of 17.7% on the timit
+phoneme recognition benchmark, which to our knowledge is
+the best recorded score.
+index terms— recurrent neural networks, deep neural
+networks, speech recognition
+1. 

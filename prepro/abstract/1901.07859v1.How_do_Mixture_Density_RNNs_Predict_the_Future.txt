@@ -1,0 +1,21 @@
+
+gaining a better understanding of how and what
+machine learning systems learn is important to increase confidence in their decisions and catalyze
+further research. in this paper, we analyze the predictions made by a specific type of recurrent neural network, mixture density rnns (md-rnns).
+these networks learn to model predictions as a
+combination of multiple gaussian distributions,
+making them particularly interesting for problems
+where a sequence of inputs may lead to several
+distinct future possibilities. an example is learning internal models of an environment, where different events may or may not occur, but where
+the average over different events is not meaningful. by analyzing the predictions made by trained
+md-rnns, we find that their different gaussian
+components have two complementary roles: 1)
+separately modeling different stochastic events
+and 2) separately modeling scenarios governed
+by different rules. these findings increase our
+understanding of what is learned by predictive
+md-rnns, and open up new research directions
+for further understanding how we can benefit from
+their self-organizing model decomposition.
+
+1. 

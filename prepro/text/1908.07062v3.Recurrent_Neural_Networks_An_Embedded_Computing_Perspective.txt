@@ -1,0 +1,4100 @@
+Accepted for publication in IEEE open Access
+Digital Object Identifier 10.1109/ACCESS.2020.2982416
+
+Recurrent Neural Networks: An
+Embedded Computing Perspective
+NESMA M. REZK1 , MADHURA PURNAPRAJNA2 ,TOMAS NORDSTRÖM3 , AND ZAIN
+UL-ABDIN1
+
+arXiv:1908.07062v3 [cs.NE] 19 Mar 2020
+
+1
+2
+3
+
+School of information technology, Halmstad University, Sweden (e-mail: nesma.rezk,zain-ul-abdin@hh.se)
+Amrita Vishwa Vidyapeetham, Bangalore, India (e-mail: p_madhura@blr.amrita.edu)
+Umeå University (e-mail:tomas.nordstrom@umu.se)
+
+Corresponding author: Nesma M. Rezk (e-mail: nesma.rezk@hh.se).
+This research is performed in the NGES (Towards Next Generation Embedded Systems: Utilizing Parallelism and Reconfigurability)
+Indo-Swedish project, funded by VINNOVA Strategic Innovation grant and the Department of Science and Technology
+(INT/SWD/VINN/p-10/2015), Government of India.
+
+ABSTRACT Recurrent Neural Networks (RNNs) are a class of machine learning algorithms used for
+applications with time-series and sequential data. Recently, there has been a strong interest in executing
+RNNs on embedded devices. However, difficulties have arisen because RNN requires high computational
+capability and a large memory space. In this paper, we review existing implementations of RNN models on
+embedded platforms and discuss the methods adopted to overcome the limitations of embedded systems.
+We will define the objectives of mapping RNN algorithms on embedded platforms and the challenges facing
+their realization. Then, we explain the components of RNN models from an implementation perspective.
+We also discuss the optimizations applied to RNNs to run efficiently on embedded platforms. Finally, we
+compare the defined objectives with the implementations and highlight some open research questions and
+aspects currently not addressed for embedded RNNs.
+Overall, applying algorithmic optimizations to RNN models and decreasing the memory access overhead
+is vital to obtain high efficiency. To further increase the implementation efficiency, we point up the more
+promising optimizations that could be applied in future research. Additionally, this article observes that high
+performance has been targeted by many implementations, while flexibility has, as yet, been attempted less
+often. Thus, the article provides some guidelines for RNN hardware designers to support flexibility in a
+better manner.
+INDEX TERMS Compression, Flexibility, Efficiency, Embedded computing, Long Short Term Memory
+(LSTM), Quantization, Recurrent Neural Networks (RNNs)
+
+I. INTRODUCTION
+
+Recurrent Neural Networks (RNNs) are a class of Neural
+Networks (NNs) dealing with applications that have sequential data inputs or outputs. RNNs capture the temporal
+relationship between input/output sequences by introducing
+feedback to FeedForward (FF) neural networks. Thus, many
+applications with sequential data such as speech recognition
+[1], language translation [2], and human activity recognition
+[3] can benefit from RNNs.
+In contrast to cloud computing, edge computing can guarantee better response time and enhance security for the
+running application. Augmenting edge devices with RNNs
+grant them the intelligence to process and respond to sequential problems. Realization on embedded platforms in edge
+VOLUME , 2020
+
+devices imposes some optimizations to RNN applications.
+Embedded platforms are time-constrained systems that suffer
+from limited memory and power resources. To run RNN
+applications efficiently on embedded platforms, RNN applications need to overcome these restrictions.
+A. SCOPE OF THE ARTICLE
+
+In this article, we study RNN models and specifically focus
+on RNN optimizations and implementations on embedded
+platforms. The article compares recent implementations of
+RNN models on embedded systems found in the literature.
+For a research paper to be included in the comparison, it
+should satisfy the following conditions:
+•
+
+It discusses the implementation of an RNN model or the
+1
+
+Rezk et al.: Recurrent Neural Networks: An Embedded Computing Perspective
+
+FIGURE 1: Structure of the survey article. RNN models should run on an embedded platform in an edge device. Section
+II discusses the objectives of such an implementation and the challenges facing it. Section III describes the RNN models in
+detail. There follows a discussion of how algorithmic optimizations (Section IV-A) may be applied to RNN models and how
+platform-specific optimizations (Section IV-B) are applied to embedded platforms. The resulting implementations are discussed
+in Section V and compared to the objectives in Section VI.
+
+•
+
+recurrent layer of an RNN model.
+The target platform is an embedded platform such as
+FPGA, ASIC, etc.
+
+To provide a complete study, the survey also addresses the
+methods used for optimizing the RNN models and realizing
+them on embedded systems.
+This survey distinguishes itself from related works because
+no existing article includes the components of the RNN
+models with optimizations and implementations in a single
+analysis, as may be seen in Table 1. The other surveys focus
+on one or two aspects compared to those covered in this
+article. Some articles study RNNs from an algorithmic point
+of view [4], [5]. While another group of survey articles looks
+at the hardware implementations. For example, one survey
+on neural networks efficient processing [6] studied CNNs,
+CNN optimizations, and CNN implementations, while another CNN survey [7] studied CNN mappings on FPGAs.
+Some articles were specialized in algorithmic optimizations
+such as compression [8]. All algorithmic optimizations for
+both CNNs and RNNs were surveyed in one article that
+also discussed their implementations [9]. However, the main
+scope of the article was optimizations, and so RNN models and their components were not studied. Furthermore,
+the RNN implementations included were limited to speech
+recognition applications on the TIDIGITs dataset.
+B. CONTRIBUTIONS
+
+This survey article provides the following:
+•
+
+2
+
+A detailed comparison of RNN models’ components
+from a computer architecture perspective that addresses
+computational and memory requirements.
+
+•
+•
+•
+
+A study of the optimizations applied to RNNs to execute
+them on embedded platforms.
+An application-independent comparison of recent implementations of RNNs on embedded platforms.
+Identification of possible opportunities for future research.
+
+C. SURVEY STRUCTURE
+
+This survey article is organized as shown in Figure 1. Section II defines the objectives of realizing RNN models on
+embedded platforms and the challenges faced in achieving
+them. We then define a general model for RNN applications
+and discuss different variations for the recurrent layers in
+RNN models in Section III. However, it is difficult to run
+RNN models in their original form efficiently on embedded
+platforms. Therefore, researchers have applied optimizations
+to both the RNN model and the target platform. The optimizations applied to the RNN model are called algorithmic optimizations and are discussed in Section IV-A; the
+optimizations applied to the hardware platform are called
+platform-specific optimizations and are discussed in Section IV-B. Then, in Section V, we present an analysis of
+the hardware implementations of RNNs suggested in the
+literature. The implementations are compared against the
+applied optimizations and their achieved performance. In
+Section VI, we compare the implementations analyzed in
+Section V with the objectives defined in Section II to define
+the gap between them and propose research opportunities
+to fill this gap. Finally, in Section VII, we summarize our
+survey.
+
+VOLUME , 2020
+
+Rezk et al.: Recurrent Neural Networks: An Embedded Computing Perspective
+
+TABLE 1: Comparison with related survey articles.
+Article
+Analysis of RNN models components
+Analysis of CNN models components
+Algorithmic Optimizations
+Platform-specific optimizations
+RNN Implementations
+CNN Implementations
+
+[4] & [5]
+3
+7
+7
+7
+7
+7
+
+[8]
+7
+7
+3
+7
+7
+7
+
+[9]
+7
+7
+3
+7
+Speech recognition only
+3
+
+II. OBJECTIVES AND CHALLENGES
+
+Implementation efficiency is the primary objective in implementing RNN applications on embedded systems. Implementation efficiency requires the implementation to have
+high throughput, low energy consumption, and to meet realtime requirements. A secondary objective for the implementation would be flexibility. Flexibility requires the implementation to support variations in the RNN model, to allow for
+online training, and to meet different applications requirements. In meeting these objectives, there exist challenges in
+mapping these applications onto embedded systems, such as
+the large number of computations to be performed within the
+limited available memory. These objectives and challenges
+are discussed in detail below.
+A. OBJECTIVES OF REALIZING RNNS ON EMBEDDED
+PLATFORMS
+
+To realize RNN models on embedded platforms, we define
+some objectives that will influence the solution. These objectives are divided into implementation efficiency objectives
+and flexibility objectives.
+1) Implementation Efficiency
+
+Since we target embedded platforms, we consider the online
+execution of the application. To satisfy the implementation
+efficiency objective, the implementation should have a high
+throughput, low energy consumption, and meet the realtime requirements of the application. The real-time requirements of the application pose additional demands for the
+throughput, energy consumption and the accuracy of the
+implementation. Accuracy indicates how correct the model
+is in performing recognition, classification, translation, etc.
+• High throughput Throughput is a measure of performance. It measures the number of processed input/output samples per second. Application-level inputs
+and outputs are diverse. For image processing applications, the input can be frames and the throughput can
+be the number of consumed frames per second, which
+may also depend on the frame size. For speech/text
+applications, it can be the number of predicted words
+per second. Thus for different sizes and types of input
+and outputs, throughput can have different units and the
+throughput value may be interpreted in various ways.
+To compare different applications, we use the number
+of operations per second as a measure of throughput.
+• Low energy consumption For an implementation to
+be considered efficient, the energy consumption of the
+VOLUME , 2020
+
+•
+
+[6]
+7
+3
+3
+3
+7
+3
+
+[7]
+7
+7
+3
+3
+7
+FPGAs only
+
+This article
+3
+7
+3
+3
+3
+7
+
+implementation should meet embedded platforms’ energy constraints. To compare the energy consumption
+of different implementations, we use the number of
+operations per second per watt as a measure of energy
+efficiency.
+Real-time requirements In real-time implementations,
+a response cannot be delayed beyond a predefined deadline, and energy consumption cannot exceed a predefined limit. The deadline is defined by the application
+and is affected by the frequency of sensor inputs and
+the system response time. Normally, the RNN execution
+should meet the predefined deadline.
+
+2) Flexibility
+
+The flexibility of the solution in this context is the ability of the solution to run different models under different
+constraints without being restricted to one model or one
+configuration. For an implementation to be flexible, we define
+the following requirements that should be satisfied:
+• Supporting variations in RNN layer The recurrent
+layers of RNN models can vary in the type of the layer
+(different types of the recurrent layer are discussed in
+Section III-B), the number of hidden cells, and the
+number of recurrent layers.
+• Supporting other NN layers RNN models have other
+types of NN layers as well. A solution that supports
+more NN layers is considered a complete solution for
+RNN models, and not just a flexible solution. Convolution layers, fully connected layers, and pooling layers
+might be required in an RNN model.
+• Supporting algorithmic optimization variations Different algorithmic optimizations are applied to RNN
+models to implement them efficiently on embedded systems (Section IV). Supporting at least one algorithmic
+optimization for the hardware solution is in many cases
+mandatory for a feasible execution of RNN models on
+an embedded system. Combinations of optimizations
+will lead to higher efficiency and flexibility as this gives
+the algorithmic designer more choices while optimizing
+the model for embedded execution.
+• Online training Training is a process that sets parameter values within the neural network. In embedded
+platforms, training is performed offline, and only inference is run on the platform at run-time. For real-life
+problems, it is often not enough to run only inference
+on the embedded platforms – some level of training
+is required at run-time as well. Online training allows
+3
+
+Rezk et al.: Recurrent Neural Networks: An Embedded Computing Perspective
+
+•
+
+the neural network to adapt to new data that was not
+encountered within the training data, and to adapt to
+changes in the environment. For example, online training is required for object recognition in autonomous cars
+to achieve lifelong learning, by continuously receiving
+new training data from fleets of robots and updating
+the model parameters [10]. Another example is in automated visual monitoring systems that continuously
+receive new labeled data [11].
+Meeting the requirements of different application
+domains One aspect of flexibility is to support the requirements of different application domains. This makes
+the implementation attractive because the solution can
+support a wider range of applications. However, different application domains can have different performance
+criteria. Some application domains, such as autonomous
+vehicles [12], might require very high throughput with
+moderate power consumption, while others, such as
+mobile applications [13], [14], require extremely low
+power consumption but have less stringent constraints
+on throughput.
+
+B. CHALLENGES IN MAPPING RNNS ON EMBEDDED
+PLATFORMS
+
+We shall now take a look at the challenges faced by hardware
+solutions to meet the objectives discussed above.
+1) Computation challenges
+
+The main computation bottleneck in RNNs is the matrix to
+vector multiplications. The LSTM layer (Explained in detail
+in Section III-B) has four computation blocks, each of which
+has one matrix to vector multiplication. For example, if the
+size of the vector is 1280 and the size of the matrices is 1280
+× 1024, each matrix to vector multiplication requires 1280 ×
+1024 MAC (Multiply And Accumulate) operations. The total
+number of MAC operations in the LSTM would be 4×1280×
+1024 = 5.24 Mega MAC, which is approximately equivalent
+to 10.5 MOP. The high number of computations negatively
+affects both the throughput of the implementation and energy
+consumption.
+One other problem in RNNs is the recurrent structure of
+the RNN. In RNNs, the output is fed back as an input in
+such a way that each time-step computation needs to wait
+for the previous time-step computation to complete. This
+temporal dependency makes it difficult to parallelize the
+implementation over time-steps.
+2) Memory challenges
+
+The memory required for the matrix to vector multiplications can be very large. The size and the access time of
+these matrices become a memory bottleneck. The previous
+example of the LSTM layer, requires four matrices, each of
+size 1280 × 1024. Consider 32-bit floating-point operations:
+the size of the required memory for the weights would be
+32 × 4 × 1280 × 1024 = 21M B. Also, the high number
+4
+
+of memory accesses affects the throughput and energy consumption of the implementation [15].
+3) Accuracy challenges
+
+To overcome the previous two issues (computation and memory challenges), optimizations can be applied to RNN models
+as discussed in Section IV. These optimizations may affect
+accuracy. The acceptable decrease in accuracy varies with
+the application domain. For instance, in aircraft anomaly
+detection, the accepted range of data fluctuation is only 5%
+[16].
+III. RECURRENT NEURAL NETWORKS
+
+The intelligence of humans, as well as most animals, depends on having a memory of the past. This can be shortterm, as when combining sounds to make words, and longterm, for example where the word “she” can refer back to
+“Anne” mentioned hundreds of words earlier. This is exactly
+what RNN provides in neural networks. It adds feedback
+that enables using the outputs of previous time step while
+processing the current time-step input. It aims to add memory
+cells that function similarly to human long-term and shortterm memories.
+RNNs add recurrent layers to the NN (Neural Network)
+model. Figure 2 presents a generic model for RNNs that
+consists of three sets of layers (input, recurrent, and output).
+Input layers take the sensor output and convert it into a vector
+that conveys the features of the input. These are followed
+by the recurrent layers, which provide feedback. In most
+recent recurrent layer models, memory cells exist as well.
+Subsequently, the model completes similarly to most NN
+models with Fully Connected (FC) layers and an output
+layer that can be a softmax layer. FC layers and the output
+layer are grouped into the set of output layers in Figure 2.
+In this section, we discuss the input layers, different types
+of recurrent layer, output layers, RNN modes of operation,
+deep RNN, and RNN applications and their corresponding
+datasets.
+
+FIGURE 2: Generic model of RNNs with diverse recurrent
+layers.
+
+A. INPUT LAYERS (FEATURES EXTRACTOR) AND
+CORRESPONDING APPLICATIONS AND DATASETS
+
+Input layers are needed by many implementations to prepare the sensor output for processing (these may also called
+feature extraction layers). Often, the raw sensor data, e.g.,
+VOLUME , 2020
+
+Rezk et al.: Recurrent Neural Networks: An Embedded Computing Perspective
+
+the audio samples or video frames, are in a form that is
+unsuitable for direct processing in the recurrent layer. Also,
+the RNN performance (in learning rate and accuracy) can be
+significantly improved if suitable features are extracted in the
+input layer.
+As sensor types (and numbers) change with the application, RNN models show a large variation with application
+types as well. Thus it is important to study which applications
+an RNN model is used for and their corresponding datasets.
+Datasets are used by researchers to demonstrate success
+in applying their methods and the modifications to them.
+Datasets differ in the size of the data samples, the values of
+data samples, and the total size of the dataset. The success
+of NN models is measured by accuracy. Accuracy indicates
+how correct the model is when carrying out recognition,
+classification, translation, etc.
+In this section, we discuss examples from three application
+domains where input layer pre-processing is used: audio,
+video, and text. In Table 2, we summarize these application domains and their corresponding datasets. For different
+datasets, different metrics are used to assess accuracy.
+1) Audio inputs
+
+Audio feature extractors translate sound signals into feature
+vectors. In speech processing, we often want to extract a
+frequency content from the audio signal (in a similar way
+to the human ear) [17]. There are many ways to do this, for
+example, by using short-time Fourier transform (STFT), mel
+frequency cepstral coefficients (MFCC) and linear predictive
+coding (LPC) coefficients [18].
+Applications: Speech recognition
+Speech recognition applications receive audio as input,
+understand it, and translate it into words. Speech recognition
+can be used for phonetic recognition, voice search, conversational speech recognition, and speech-to-text processing [19].
+2) Video inputs
+
+When the input is a video signal, that is, a sequence of images
+or frames, it is natural to use a convolutional neural network
+(CNN) as an input layer. CNN layers then extract image
+features from each video frame and feed the resulting feature
+vector to the recurrent layer. This use of a CNN as an input
+layer before a recurrent layer has been employed for many
+applications with video inputs, such as activity recognition,
+image description [3], [20], or video description [21].
+The use of CNN as an input layer can also be found for
+audio signals [22]. In this case, a short segment of audio
+samples is transformed into a frequency domain vector using,
+for example, STFT or MFCC. By combining a number of
+these segments into a spectrogram, we can show information
+about the source’s frequency and amplitude against time.
+This visual representation is then fed into a CNN as an image.
+The CNN then extracts speech or audio features suitable for
+the recurrent layer.
+Applications: Image/Video applications
+VOLUME , 2020
+
+Image/video applications cover any application that takes
+images as input, for example, image captioning, activity
+recognition, and video description.
+3) Text inputs
+
+When the input is in the form of text, we often want to
+represent words as vectors, and word embedding is one
+common way to do this [23]. The word embedding layer
+extracts the features of each word in relation to the rest of the
+vocabulary. The output of the word embedding is a vector.
+For two words with similar contexts, the distance between
+their two vectors is short, while it is large for two words that
+have different contexts.
+Following word embedding in an input layer, deeper text
+analysis or natural language processing is performed in the
+recurrent layers.
+Applications:
+• Text generation
+RNN models can be used for language-related applications such as text generation. RNN models can predict
+the next words in a phrase, using the previous words as
+inputs.
+• Sentiment analysis
+Sentiment analysis is the task of understanding the
+underlying opinion expressed by words [24], [25]. Since
+the input words comprise a sequence, RNN methods are
+well-suited to performing sentiment analysis.
+B. RECURRENT LAYERS
+
+In this section, we cover the various types of recurrent layers.
+For each layer, we discuss the structure of the layer and
+the gate equations. The most popular recurrent layer is the
+Long Short Term Memory (LSTM) [39]. Changes have been
+proposed to the LSTM to enhance algorithmic efficiency or
+improve computational complexity. Enhancing algorithmic
+efficiency means improving the accuracy achieved by the
+RNN model, which includes LSTM with peepholes and
+ConvLSTM, as discussed in Sections III-B2 and III-B3.
+Improving computational complexity means reducing the
+number of computations and the amount of memory required by an LSTM to run efficiently on a hardware platform. Techniques include LSTM with projection, GRU, and
+QRNN/SRU, which are discussed in Sections III-B4, III-B5,
+and III-B6, respectively. These changes can be applied to
+the gate equations, interconnections, or even the number of
+gates. Finally, we compare all the different layers against
+the number of operations and the number of parameters in
+Table 3.
+1) LSTM
+
+First, we explain the LSTM (Long Short Term Memory)
+layer. Looking at LSTM as a black box, the input to LSTM is
+a vector combination of the input vector xt and the previous
+time-step output vector ht−1 , where the output vector at time
+t is denoted as ht . Looking at the structure of an LSTM,
+5
+
+Rezk et al.: Recurrent Neural Networks: An Embedded Computing Perspective
+
+TABLE 2: RNN input layer types and their corresponding application domains and datasets.
+Input type
+
+Applications
+
+Audio input
+
+Speech recognition
+
+Video input
+
+Image/video applications
+
+Text input
+
+Text generation
+Sentiment analysis
+
+Dataset
+TIDIGITS [26]
+AN4 [27]
+TIMIT [28]
+Wall Street Journal(WSJ) [29]
+LibriSpeech ASR corpus [30]
+COCO [31]
+Moving MNIST [32]
+comma.ai driving dataset [33]
+Penn Treebank (PTB) [34]
+wikitext [35]
+Text8 [36]
+WMT’14 [37]
+IMDB [38]
+
+it has a memory cell state Ct and three gates. These gates
+control what is to be forgotten and what is to be updated
+by the memory state (forget and input gates). They also
+control the part of the memory state that will be used as
+an output (output gate). Our description of the LSTM unit
+is based on its relationship with hardware implementations.
+Thus, in Figure 3a, we show the LSTM as four blocks instead
+of three gates because LSTM is composed of four similar
+computation blocks.
+The computation block is the matrix to vector multiplication of the combination of xt and ht−1 with one of the weight
+matrices {Wf , Wi , Wc , Wo }. This is considered the dominant computational task in LSTMs. Each block is composed
+of a matrix to vector multiplication followed by the addition
+of a bias vector {bf , bi , bc , bo }, and then the application of
+a nonlinear function. Each block might have element-wise
+multiplication operations as well. The nonlinear functions
+used in the LSTM are tanh and sigmoid functions. The four
+computation blocks are as follow:
+• Forget gate The role of the forget gate is to decide
+which information should be forgotten. The forget gate
+output ft is calculated as
+ft = σ(Wf [ht−1 , xt ] + bf ),
+
+•
+
+where xt is the input vector, ht−1 is the hidden state
+output vector, Wf is the weight matrix, bf is the bias
+vector, and σ is the sigmoid function.
+Input gate The role of the input gate is to decide which
+information is to be renewed. The input gate output it is
+computed similarly to the forget gate output as
+it = σ(Wi [ht−1 , xt ] + bi ),
+
+•
+
+(1)
+
+(2)
+
+using the weight matrix Wi and the bias vector bi .
+State computation The role of this computation is to
+compute the new memory state Ct of the LSTM cell.
+First, it computes the possible values for the new state
+et = tanh(WC [ht−1 , xt ] + bC ),
+C
+
+(3)
+
+where xt is the input vector, ht−1 is the hidden state
+output vector, Wc is the weight matrix, and bc is the bias
+vector. Then, the new state vector, Ct is calculated by
+6
+
+Accuracy measure metric
+Word Error Rate (WER) (Lower is better) &
+Phone Error Rate (PER) (Lower is better)
+BLEU (Higher is better)
+Cross entropy loss (Lower is better)
+RMS prediction error (Lower is better)
+Perplexity per word (PPW)
+(Lower is better)
+& Bilingual Evaluation Understudy (BLEU)
+(Higher is better)
+Testing accuracy (Higher is better)
+
+the addition of the previous state vector Ct−1 elementwise multiplied with the forget gate output vector ft
+et element-wise
+and the new state candidate vector C
+multiplied with the input gate output vector it as
+Ct = ft
+
+•
+
+Ct−1 + it
+
+et ,
+C
+
+(4)
+
+where is used to denote the element-wise multiplication.
+Output gate The role of the output gate is to compute
+the LSTM output. First, the output gate vector ot is
+computed as
+ot = σ(Wo [ht−1 , xt ] + bo ),
+
+(5)
+
+where xt is the input vector, ht−1 is the hidden state
+output vector, Wo is the weight matrix, bo is the bias
+vector, and σ is the sigmoid function. Then, the hidden
+state output ht is computed by applying the elementwise multiplication of the output gate vector ot (that
+holds the decision of which part of the state is the
+output) to the tanh of the state vector Ct as
+ht = ot
+
+tanh(Ct ).
+
+(6)
+
+The number of computations and parameters for LSTM are
+shown in Table 3. Matrix to vector multiplications dominate
+the number of computations and parameters. For each matrix
+to vector multiplication, the input vector xt of size m and
+the hidden state output vector ht−1 of size n are multiplied
+with weight matrices of size (m + n) × n. That requires
+n(m + n) MAC operations, which is equivalent to nm + n2
+multiplications and nm + n2 additions. The number of parameters in the weight matrices is nm + n2 as well. Since
+this computation is repeated four times within the LSTM
+computation, these numbers are multiplied by four in the total
+number of operations and parameters for an LSTM. For the
+models in the studied papers, n is larger than m. Thus, n has
+a dominating effect on the computational complexity of the
+LSTM.
+2) LSTM with peepholes
+
+Peephole connections were added to LSTMs to make them
+able to count and measure the time between events [40]. As
+seen in Figure 3b, the output from the state computation is
+VOLUME , 2020
+
+Rezk et al.: Recurrent Neural Networks: An Embedded Computing Perspective
+
+(a) Long Short Term Memory (LSTM).
+
+(b) LSTM with peepholes.
+
+(c) LSTM with projection layer.
+
+(d) Gated Recurrent Unit (GRU).
+
+(e) Quasi-RNN (QRNN).
+
+(f) Simple Recurrent Unit (SRU).
+
+FIGURE 3: Different variations of an RNN layer.
+VOLUME , 2020
+
+7
+
+Rezk et al.: Recurrent Neural Networks: An Embedded Computing Perspective
+
+used as input for the three gates. The LSTM gate equations
+are changed to:
+ft = σ(Wf [ht−1 , xt , Ct−1 ] + bf ),
+
+(7)
+
+it = σ(Wi [ht−1 , xt , Ct−1 ] + bi ),
+
+(8)
+
+ot = σ(Wo [ht−1 , xt , Ct ] + bo ).
+
+(9)
+
+and
+
+where xt is the input vector, ht−1 is the hidden state output
+vector, Ct−1 is the state vector at time t − 1, Wf , Wi , Wo are
+the weight matrices, and bf , bi and bo are the bias vectors.
+The number of operations and computations for an LSTM
+with peepholes are shown in Table 3. There exist two rows
+for an LSTM with peepholes. The first one considers the
+multiplication with the cell state in the three gates as a matrix to vector multiplication. The number of multiplications,
+additions, and weights increases by 3 × n2 . However, the
+weight matrices multiplied with the cell state can be diagonal
+matrices [41]. Thus, the matrix to vector multiplication can
+be considered as element-wise vector multiplication, which
+has become widely used for LSTM with peepholes. In this
+case, the number of multiplications, additions, and weights
+will increase by 3n only.
+3) ConvLSTM
+
+ConvLSTM is an LSTM with all matrix to vector multiplications replaced with 2D convolutions [42]. The idea is that
+if the input to the LSTM is data that holds spatial relations
+such as visual frames, it is better to apply 2D convolutions
+than matrix to vector multiplications. Convolution is capable
+of extracting spatial information from the data. The vectors
+xt , ht , and Ct are replaced with 3-D tensors. One can
+think of each element in the LSTM vectors as a 2D frame
+in the ConvLSTM vectors. Convolution weights need less
+memory than to vector matrices weights. However, using
+them involves more computation.
+The number of operations and parameters required for a
+convLSTM are shown in Table 3. The calculated numbers are
+for a convLSTM without peepholes. If peepholes are added,
+the number of multiplications, additions, and weights will
+increase by 3n. Since the main change from an LSTM is
+the replacement of the matrix to vector multiplications with
+convolutions, the change in the number of operations and
+parameters would be via the nm + n2 factor that appears
+in multiplications, additions, and the number of weight equations. The number of multiplications and additions (MACs)
+in convolutions of input vector xt and hidden state output
+vector ht−1 is rcnmki 2 + rcn2 × ks 2 , where r is the number
+of rows and c is the number of columns in the frames, n is the
+number of frames in input xt , m is the number of frames in
+output ht (or the number of hidden cells), ki is the size of the
+filter used with xt , and ks is the size of the filter used with
+ht−1 . The number of weights is the size of the filters used for
+convolutions.
+8
+
+4) LSTM with projection layer
+
+The LSTM is changed by adding one extra step after the
+last gate [43]. This step is called a projection layer. The
+output of the projection layer is the output of the LSTM and
+the feedback input to the LSTM in the next time-step, as
+shown in Figure 3c. Simply, a projection layer is like an FC
+layer. The purpose of this layer is to allow an increase in the
+number of hidden cells while controlling the total number of
+parameters. This is performed by using a projection layer that
+has a number of units p less than the number of hidden cells.
+The dominating factor in the number of computations and
+the number of weights will be 4pn instead of 4n2 , where n is
+the number of hidden cells and p is the size of the projection
+layer. Since p < n, n can increase with a smaller effect on
+the size of the model and the number of computations.
+In Table 3, we show the number of operations and parameters required for an LSTM with a projection layer. In
+the original paper proposing the projection layer, the authors
+considered the output layer of the RNN as a part of the
+LSTM [43]. The output layer was an FC layer that changes
+the size of the output vector to o, where o is the output size.
+Thus, there is an extra po term in the number of multiplications, additions, and weights. We put the extra terms between
+curly brackets to show that they are optional terms. The
+projection layer can be applied to an LSTM with peepholes
+as well. In Table 3, we show the number of operations and
+parameters for an LSTM with peepholes and a projection
+layer.
+5) GRU
+
+The Gated Recurrent Unit (GRU) was proposed in 2014 [44].
+The main purpose was to make the recurrent layer able
+to capture the dependencies at different time scales in an
+adaptive manner [45]. However, the fact that GRU has
+only two gates (three computational blocks) instead of three
+(four computational blocks) as with the LSTM makes it
+more computationally efficient and more promising for highperformance hardware implementations. The three computational blocks are as follows:
+• Reset gate The reset gate is used to decide whether to
+use the previously computed output or treat the input
+as the first symbol in a sequence. The reset gate output
+vector rt is computed as
+rt = σ(Wr [ht−1 , xt ]),
+
+•
+
+(10)
+
+where xt is the input vector, ht−1 is the hidden state
+output vector, Wr is the weight matrix, and σ is the
+sigmoid function.
+Update gate The update gate decides how much of the
+output is updated. The output of the update gate zt is
+computed as the reset gate output rt using the weight
+matrix Wz as
+zt = σ(Wz [ht−1 , xt ]).
+
+(11)
+
+VOLUME , 2020
+
+RNN layer
+
+LSTM
+LSTM + peepholes
+LSTM + peepholes (diagonalized)
+LSTM + projection
+LSTM + peepholes (diagonalized) + projection
+
+Multiplications
+4n2 + 4nm + 3n
+= LST Mmul
+7n2 + 4nm + 3n
+= LST Mmul + 3n2
+4n2 + 4nm + 6n
+= LST Mmul + 3n
+4np + 4nm + 3n + np + {po}
+= LST M P rojmul
+4np + 4nm + 6n + np + {po}
+= LST M P rojmul + 3n
+
+Number of Operations
+Additions
+4n2 + 4nm + 5n
+= LST Madd
+7n2 + 4nm + 5n
+= LST Madd + 3n2
+4n2 + 4nm + 8n
+= LST Madd + 3n
+4np + 4nm + 5n + np +
+{po}
+= LST M P rojadd
+4np + 4nm + 8n + np +
+{po}
+= LST M P rojadd + 3n
+
+ConvLSTM
+
+4rcnmki 2 +4rcn2 ks 2 + 3n
+
+GRU
+
+3n2 + 3nm + 3n
+= 0.75LST Mmul
+
+4rcnmki 2 +4rcn2 ks 2 +
+5n
+3n2 + 3nm + 2n
+= 0.75LST Madd
+
+QRNN
+SRU
+
+3knm + 3n
+3nm + 6n
+
+3knm + 2n
+3nm + 8n
+
+Nonlinear
+5n
+= LST Mnonlinear
+5n
+= LST Mnonlinear
+5n
+= LST Mnonlinear
+5n
+= LST Mnonlinear
+5n
+
+Number of Parameters
+Weights
+Biases
+4n2 + 4nm
+4n
+= LST Mweights
+= LST Mbiases
+7n2 + 4nm
+4n
+= LST Mweights + 3n2
+= LST Mbiases
+4n2 + 4nm + 3n
+4n
+= LST Mweights + 3n
+= LST Mbiases
+4np + 4nm + np + {po}
+4n
+= LST M P rojweights
+4np + 4nm + 3n + np +
+{po}
+= LST M P rojweights +
+3n
+
+= LST Mbiases
+4n
+
+5n
+
+4nmki 2 + 4n2 ks 2
+
+4n
+
+3n
+=
+0.6LST Mnonlinear
+3n
+2n
+
+3n2 + 3nm
+= 0.75LST Mweights
+
+-
+
+3knm
+3nm + 2n
+
+2n
+
+= LST Mnonlinear
+
+= LST Mbiases
+
+In the table we use the following symbols: m is the size of input vector xt , n is the number of hidden cells in ht , p is the size of the projection layer, o is the size of the output
+layer, r is the number of rows in a frame, c is the number of columns in a frame, ki is size of the 2D filter applied to xt , ks is the size of the 2D filter applied to ht−1 , and k is
+the size of 1D convolution filter. The term {po} is an optional term as discussed in Section III-B4.
+
+Rezk et al.: Recurrent Neural Networks: An Embedded Computing Perspective
+
+VOLUME , 2020
+
+TABLE 3: Comparing LSTM and its variations.
+
+9
+
+Rezk et al.: Recurrent Neural Networks: An Embedded Computing Perspective
+
+•
+
+Output computation The role of this block is to compute the hidden state vector ht . First, it computes the
+possible values for the hidden state vector e
+ht
+e
+ht = tanh(W [rt
+
+ht−1 , xt ]),
+
+(12)
+
+where xt is the input vector, ht−1 is the hidden state
+output vector, and W is the weight matrix. Then, the
+hidden state vector ht is computed from the old output
+ht−1 and the new possible output e
+ht as
+ht = (1 − zt )
+
+ht−1 + zt
+
+e
+ht .
+
+(13)
+
+As with LSTM, we visualize a GRU in Figure 3d as three
+blocks, not two gates, as it has three blocks of matrix to vector
+multiplications. In Table 3, we show the number of operations and parameters required for a GRU. The number of
+operations and parameters is approximately 0.75 the number
+of operations and parameters in the LSTM.
+6) QRNN and SRU
+
+The purpose of Quasi-RNN (QRNN) [46] and Simple Recurrent Unit (SRU) [47] is to make the recurrent unit friendlier
+for computation and parallelization. The bottleneck in an
+LSTM/GRU is the matrix to vector multiplications. It is
+difficult to parallelize this part because it depends on the
+previous time-step output ht−1 and previous time-step state
+Ct−1 . In QRNN/SRU, ht−1 and Ct−1 are removed from all
+matrix to vector multiplications and appear only in elementwise operations. QRNN has two gates and a memory state.
+It has three heavy computational blocks. In these blocks,
+only the input vector xt is used as input. It replaces the
+matrix to vector multiplications with 1D convolutions with
+inputs along the time-step dimension. For instance, if the
+filter dimension is two, convolution is applied on xt and xt−1 .
+The three computation blocks compute the forget gate vector
+et , and the output gate
+ft , candidate for new state vector C
+vector ot as
+ft = σ(Wf ∗ xt ),
+
+(14)
+
+et = tanh(Wc ∗ xt ),
+C
+
+(15)
+
+ot = σ(Wo ∗ xt ),
+
+(16)
+
+and
+
+ft = σ(Wf xt + vf
+
+ct−1 + bf )
+
+(18)
+
+rt = σ(Wr xt + vr
+
+ct−1 + br )
+
+(19)
+
+and
+respectively. In both gate calculations, Ct−1 is used but only
+for element-wise multiplications. The parameter vectors vf
+and vr are learned with weight matrices and biases during
+training.
+The third computational block is the state computation Ct
+Ct = ft
+
+Ct−1 + (1 − ft )
+
+(W xt ),
+
+(20)
+
+where Ct−1 is the old state vector and xt is the input
+vector. The computation is controlled by the forget gate
+output vector ft that decides what is to be forgotten and what
+is to be treated as new.
+Finally, the SRU output ht is computed from the new
+state Ct and the input vector xt checked by the update gate
+(which decides the parts of the output that are taken from the
+new state and the parts that are taken from input) using the
+equation
+ht = rt Ct + (1 − rt ) xt .
+(21)
+Figure 3f visualizes the SRU. The output computation is
+performed in the same block with the update gate. It is worth
+observing that in neither QRNN nor SRU, ht−1 are used in
+the equations – only the old state Ct−1 is used. The number
+of operations and parameters for an SRU is shown in Table 3.
+In Table 3, we compare the LSTM and all of its variations
+against the memory requirements for the weights and the
+number of computations per single time-step. This comparison helps to understand the required hardware platform for
+each of them. To make it easier for the reader to understand
+the difference between the LSTM and the other variants, we
+show the equations for operations and parameters in terms of
+LSTM operations and parameters if they are comparable.
+C. OUTPUT LAYERS
+
+The output layers in the RNN model are the FC layers and
+the output function.
+1) FC (Fully Connected) Layers
+
+where Wf and Wc , Wo are the convolution filter banks and
+“∗” is to denote the convolution operation.
+The state vector Ct is computed as
+Ct = ft
+
+Ct−1 + (1 − ft )
+
+et
+C
+
+(17)
+
+and the hidden state vector ht is computed using equation 6.
+Figure 3e is used to visualize the QRNN layer. The number
+of operations and parameters required for a QRNN is shown
+in Table 3, where k is the size of the convolution filter.
+The SRU has two gates and a memory state as well.
+The heavy computational blocks (three blocks) are matrix
+10
+
+to vector multiplications, not convolutions. The two gates
+(forget and update gates) are computed using the equations
+
+The RNN model might have one or more FC layers after
+the recurrent layers. Non-linear functions may be applied
+between the FC layers as well. This is called fully connected because each neuron in the input is connected to
+each neuron of the output. Computationally, this is done by
+matrix to vector multiplication using a weight matrix of size
+Inputsize × outputsize , where Inputsize is the size of the
+input vector and Outputsize is the size of the output vector.
+One purpose of the FC layer in RNN models can be to change
+the dimension of the hidden state output vector ht to the
+dimension of the RNN model output to prepare it for the
+output function. In this case, the FC layer might be replaced
+by adding a projection layer in the recurrent layer.
+VOLUME , 2020
+
+Rezk et al.: Recurrent Neural Networks: An Embedded Computing Perspective
+
+2) Output function
+
+The output function is the final step in the neural networks inference. It generates the output of the neural network model.
+This output can be a prediction, classification, recognition,
+and so on. For example, in a text prediction problem, the
+softmax function is used as an output function. The output
+is a vector of probabilities that sum to one. Each probability
+corresponds to one word. The word with the highest probability becomes the prediction of the neural network [48].
+
+•
+
+D. PROCESSING OF DATA IN RNN MODELS
+
+There are many ways that processing of data may vary in
+RNN models. The first is to vary the way time steps are
+treated. This is influenced by the nature of the application,
+which may have inputs with temporal relations, outputs with
+temporal relations, or both. The second form of variation
+is related to bidirectional RNNs. We discuss below how
+a bidirectional RNN can process inputs both forwards and
+backwards in time. We also discuss what is meant by a deep
+RNN model.
+
+•
+
+analysis [49] are two examples. In activity recognition,
+the model takes a sequence of images as input and
+determines the activity taking place in the images. In
+sentiment analysis, the model takes a sequence of words
+(sentence) as input and generates a single emotion at the
+end. In this case, the temporal sequence sequence is only
+in the input.
+Many to many A many to many model has a sequence
+in the input and a sequence in the output, as shown in
+Figure 4c. Language translation [2] and video description [3] are two examples. In language translation, the
+model has a sequence of words (sentence) as an input
+and a sequence of words (sentence) as an output. In
+video description applications, the model has a sequence
+of image frames as input and a sequence of words
+(sentence) as output.
+One to one There is no RNN model with one to one
+unrolling. One to one simply means that there is no
+temporal relation contained in the inputs or the outputs
+(a feedforward neural network).
+
+1) RNN unfolding variations through time-steps
+
+2) Bidirectional RNN
+
+RNN unfolding/unrolling is performed to reveal the repetition in the recurrent layer and to show the number of
+time steps required to complete a task. Unfolding the RNN
+illustrates the different types of RNN models one can meet.
+• One to many A one to many model generates a sequence of outputs for a single input, as shown in Figure 4a. Image captioning is one example [3]. The model
+takes one image as input and generates a sentence as an
+output. The words of the sentence compose a sequence
+of temporally related data. In this case, the temporal
+sequence is only in the output.
+
+In Bidirectional RNN, input can be fed into the recurrent
+layer from two directions: past to future and future to past.
+That requires a duplication of the recurrent layer, so that two
+recurrent layers work simultaneously, each processing input
+in a different temporal direction. This can help the network to
+better understand context by obtaining data from the past and
+the future at the same time. This concept can be applied to
+different variations of recurrent layers such as BiLSTM [50]
+and BiGRU [51].
+
+(a) One to Many RNN.
+
+(b) Many to One RNN.
+
+(c) Many to Many RNN.
+
+FIGURE 4: Unfolding RNN models through multiple time
+steps.
+•
+
+Many to one A many to one model combines a sequence of inputs to generate a single output, as shown
+in Figure 4b. Activity recognition [3] and sentiment
+
+VOLUME , 2020
+
+E. DEEP RECURRENT NEURAL NETWORKS (DRNN)
+
+Making a neural network a deep neural network is achieved
+by adding non-linear layers between the input layer and
+the output layer [52]. This is straightforward in feedforward
+NNs. However, in RNNs, there are different approaches that
+can be adopted. Similarly to feedforward NNs, there can be
+a stack of recurrent layers (stacked RNN) [41] as shown in
+Figure 5, where we have a stack of two recurrent layers.
+The output of the first layer is considered as the input for
+the second layer. Alternately, the extra non-linear layers
+can be within the recurrent layer computations [53]. Extra
+non-linear layers can be embedded within the hidden layer
+vector ht calculation, where the xt and ht−1 vectors used to
+calculate ht , pass through additional non-linear layers. This
+model is called the deep transition RNN model. The extra
+non-linear layers can also be added in computing the output
+from the hidden state vector; this model is called the deep
+output RNN model. It is possible to have an RNN model that
+is both a deep transition and a deep output RNN model [54].
+One other way to have extra non-linear functions within the
+recurrent layer is to have them within the gate calculations –
+a method called H-LSTM (Hidden LSTM).
+
+11
+
+Rezk et al.: Recurrent Neural Networks: An Embedded Computing Perspective
+
+the optimization method as
+a∆ = (−1)α
+
+FIGURE 5: Stacked RNN. The first layer output is h1t and the
+second layer output is h2t .
+
+IV. OPTIMIZATIONS FOR RNNS
+
+As with all neural network applications, RNN applications
+are based upon intensive operations performed on high precision values. They therefore require high computation power,
+large memory bandwidth, and high energy consumption.
+Because of the resource constraints of embedded platforms,
+there is a need to decrease the computation and memory
+requirements of RNN applications. In this section, we present
+optimizations that have been applied to RNNs to realize
+them on embedded systems. In Section V which follows,
+we discuss hardware implementations of RNNs on embedded
+platforms and how they relate to the optimizations presented
+here. Researchers have been working on two types of optimizations. The first type is related to the RNN algorithms
+themselves, where RNN algorithms are modified to decrease
+computation and memory requirements. The modification
+should have no effect or only a limited effect on accuracy.
+The second type of optimization is related to the embedded
+platform, where hardware improvements are applied to increase the parallelization of the application and decrease the
+overhead of memory accesses. Figure 6 illustrates these two
+types of optimizations.
+A. ALGORITHMIC OPTIMIZATIONS
+
+In this section, we discuss the different algorithmic optimizations that may be performed on the recurrent layer of an
+RNN application to decrease its computation and memory
+requirements. We discuss how these optimizations are carried
+out, and how they affect accuracy. Applying optimizations directly to inference can have unacceptable effects on accuracy.
+Thus, training the network would be required to enhance
+the accuracy. optimizations may be applied during the model
+main training or after the model is trained and then the model
+is retrained for some epochs (training cycles).
+Different datasets measure accuracy using different units.
+For some units higher values are better, while for others
+lower values are better. To provide a unified measure of the
+change in accuracy, we calculate the percentage change in
+accuracy from the original value to the value after applying
+12
+
+Va − Vb
+× 100,
+Vb
+
+(22)
+
+where a∆ is the effect of the optimization method on accuracy as a percentage of the original accuracy value, Vb is
+the value of accuracy before optimization, Va is the value of
+accuracy after optimization, and α is an indicator that has a
+value of 0 if higher accuracy values are better and 1 if lower
+accuracy values are better. Thus, if the baseline accuracy
+achieved by the original model without optimizations is 96%
+and the accuracy after optimization is 94%, the effect of
+optimization on accuracy is −2.1%. If the accuracy after
+optimization is 98%, the effect of optimization on accuracy
+is +2.1%. If the optimization has no effect on accuracy, then
+the effect on accuracy is 0%.
+As shown in Figure 6, the algorithmic optimizations are
+quantization, compression, deltaRNN, and nonlinear. The
+first three optimizations are applied to the matrix to vector
+multiplications operations and the last is applied to computation of non-linear functions. The table in Figure 6 compares quantization, compression, and deltaRNN with their
+effect on memory requirements, number of memory accesses,
+number of computations, and MAC operation cost. MAC
+operation cost can be decreased by decreasing the precision
+of operands.
+1) Quantization
+
+Quantization is a reduction in the precision of the operands.
+Quantization can be applied to the network parameters only,
+or to the activations and inputs as well. While discussing
+quantization, there are three important factors to consider.
+First, the number of bits used for weights, biases, activations, and inputs. Second, the quantization method. The
+quantization method defines how to store the full precision
+values in a lower number of bits. Third, discussing whether
+quantization was applied with training from the outset or the
+model was re-trained after applying quantization. These three
+factors all affect accuracy. However, they are not the only
+factors affecting accuracy, which may also be affected by
+model architecture, dataset, and other factors. Yet, these three
+factors have more relevance when applying quantization to
+the RNN model.
+In discussing quantization methods, we cover fixed-point
+quantization, multiple binary codes quantizations, and exponential quantization. We also study whether the selection of the quantized value is deterministic or stochastic.
+In deterministic methods, the selection is based on static
+thresholds. In contrast, selection in stochastic methods relies
+on probabilities and random numbers. Relying on random
+numbers is more difficult for hardware.
+a: Quantized values representation
+
+There are different methods for representing quantized values. In the following, we explain three commonly used
+methods.
+VOLUME , 2020
+
+Rezk et al.: Recurrent Neural Networks: An Embedded Computing Perspective
+
+FIGURE 6: Optimizations applied to RNN applications with section numbers indicated, comparing the effect of different
+algorithmic optimizations on memory and computation requirements.
+
+1) Fixed-point quantization In this quantization method,
+the 32-bit floating-point values are quantized into a
+fixed-point representation notated as Qm,f , where m
+is the number of integer bits, and f is the number
+of fractional bits. The total number of bits required
+is k. The sign bit may be included in the number of
+integer bits [55] or added as an extra bit added to
+m and f [56]. For example, in the first case [55],
+Q1.1 is used to represent 2 bits fixed-point that has
+three values {−0.5,0,0.5}. This quantization method is
+also called Pow2-ternarization [57]. Usually, fixed-point
+quantization is deterministic, in that for each floatingpoint value, there is one quantized fixed-point value
+defined by an equation (i.e. it is rule-based). Fixed-point
+quantization is performed by clipping the floating-point
+value between minimum and the maximum boundaries,
+and then rounding it.
+2) Exponential quantization Exponential quantization
+quantizes a value into an integer power of two. Exponential quantization is very beneficial for the hardware
+as multiplying with exponentially quantized value is
+equivalent to shift operations if the second operand is a
+fixed-point value, and addition to exponent if the second
+operand is a floating-point value [55], [58]. Exponential
+quantization can be both deterministic and stochastic.
+3) Binary and multi-bit codes quantization The lowest
+precision in RNNs is binary precision [59]. Each full
+precision value is quantized into one of two values.
+The most common two values are {−1, +1}, but it
+can also be {0, +1}, {−0.5, 0}, {−0.5, +0.5}, or any
+combination of two values [55]. Binarization can be
+deterministic or stochastic. For deterministic binarization, a sign function can be used for binarization. For
+stochastic binarization, selection thresholds depend on
+
+VOLUME , 2020
+
+probabilities to compute the quantized value
+
++1 with probability p = σh (x),
+xb =
+−1 with probability 1 − p,
+
+(23)
+
+where σh is the “hard sigmoid” function defined as
+x+1
+x+1
+σh (x) = clip(
+, 0, 1) = max(0, min(1,
+)).
+2
+2
+(24)
+Binarization has great value for hardware computation
+as it turns multiplication into addition and subtraction.
+The greatest value comes with full binarization, where
+both the weights and the activations have binary precision. In this case, it is possible to concatenate weights
+and activations into 32-bit operands and do multiple
+MAC operations using XNOR and bit-count operations.
+Full binarization can reduce memory requirements by
+a factor of 32 and decrease computation time considerably [60].
+Adding one more value to binary precision is called
+ternarization. Weights in ternarized NN are restricted
+to three values. These three values can be {−1, 0,
+1} [61]. Power two ternarization is discussed above as
+a form of fixed-point quantization, and is an example
+of ternarization with three different values {−0.5, 0,
+0.5}. Both deterministic and stochastic ternarization
+have been applied to RNNs [55].
+Having four possible quantization values is called Quaternarization. In quaternarization, the possible values
+can be {−1, −0.5, +0.5, +1} [62]. In order to benefit
+from the high computational benefit of having binary
+weights and activations while using a higher number
+of bits, multiple binary codes {−1,+1} has been used
+for quantization [63]. For example, two bit quantization
+has four possible values {{−1,−1}, {−1,1}, {1,−1},
+{1,1}}.
+The most common method for deterministic quantization is uniform quantization. Uniform quantization may
+13
+
+Rezk et al.: Recurrent Neural Networks: An Embedded Computing Perspective
+
+not be the best quantization method as it can change
+the distribution of the original data, especially for nonuniform data, which can affect accuracy. One solution
+is balanced quantization [64]. In balanced quantization,
+data is divided into groups of the same amount of data
+before quantization to ensure a balanced distribution of
+data following quantization. Other suggested solutions
+treat quantization as an optimization problem, and include greedy quantization, refined greedy quantization,
+and alternating multi-bit quantization [63], [65].
+b: Training/Retraining
+
+As mentioned earlier, there are three options to minimize
+accuracy loss due to quantization. The first is to apply
+quantization with training [66], where quantized weights are
+used during the forward and backward propagation only. Full
+precision weights are used for the parameters update step
+in the (Stochastic Gradient Descent) SGD. Copies for both
+quantized and full precision weights are kept to decide at
+inference time which one to use [55]. In the second approach,
+quantization is applied to pretrained parameters and the RNN
+model is retrained to decrease the accuracy loss. Also, binarization of LSTM gate outputs during training have been applied by using the GumbelSoftmax estimator [67]. Authors in
+one RNN implementation [56] adopted a mix of training and
+retraining approaches, where only the activations were not
+quantized from the beginning. Activations were quantized
+after training and then the model was retrained for 40 epochs.
+The third approach is to use quantized parameters without
+training/retraining. This is very commonly used with 16-bit
+fixed-point quantization. Usually, training happens at training
+servers and quantization is applied at the inference platform
+without having the opportunity to retrain the model. It is
+very common as well to use 16-bit fixed-point quantization
+with other optimization techniques such as circulant matrices
+compression [68], pruning [69], and deltaRNN (discussed
+later in Section IV-A3) [70].
+c: Effect on accuracy
+
+In Table 4, we list studies that included experiments on the
+quantization of RNN models. Not all of the studies have
+a hardware implementation, as the purpose is to show that
+quantization can be performed while keeping accuracy high.
+In the table, we put the three factors affecting the accuracy
+discussed earlier (number of bits, quantization method, and
+training) with an addition of the type of recurrent layer
+(LSTM, GRU...) and the dataset. Then, we show the effect
+of quantization on accuracy computed with respect to the
+accuracy achieved by full precision parameters and activation using Eq. 22. For the number of bits, we use W/A
+where W is the number of bits used for weights and A
+is the number of bits used for activations. For the RNN
+type, we put the recurrent layers used in the experiments.
+All recurrent layers are explained in Section III. We use
+x*y*z, where x is the number of layers, y is the type of the
+layers, and z is the number of hidden cells in each layer.
+14
+
+For training, if quantization was applied with training from
+the beginning, we write “With training”. If quantization was
+applied after training and the model was later retrained, we
+write “Retraining”. Positive values for accuracy means that
+quantization enhanced the accuracy and negative values for
+accuracy means that quantization caused the model to be less
+accurate.
+Each experiment in Table 4 is applied to a different model,
+different dataset, and may also have used different training
+methods. Thus, conclusions about accuracy from Table 4
+cannot be generalized. Still, we can make some observations:
+•
+
+•
+
+Fixed point quantization, exponential quantization and
+mixed quantization have no negative effect on accuracy.
+Accuracy increased after applying these quantization
+methods. Quantized models can surpass baseline models in accuracy as weight quantization has a regularization effect that overcomes over-fitting [56].
+Regarding binary quantization, the negative effect on
+accuracy varied within small ranges in some experiments [56], [62]. Experiments showed that using more
+bits for activations may enhance the accuracy [56].
+Using binary weights with convLSTM is not solely responsible for the poor accuracy obtained, as Ternary and
+Quaternary quantization resulted in poor accuracy with
+convLSTM as well [62]. However, these quantization
+methods were successful when applied on LSTM and
+GRU in the same work [62].
+
+2) Compression
+
+Compression decreases the model size by decreasing the
+number of parameters or connections. As the number of
+parameters is reduced, memory requirements and the number of computations decrease. Table 5 compares different
+compression methods. The compression ratio shows the ratio
+between the number of parameters of models before and
+after applying compression methods. Accuracy degradation
+is computed using Eq. 22.
+(i) Pruning Pruning is the process of eliminating redundancy. Computations in RNNs are mainly dense matrix
+operations. To improve computation time, dense matrices are transformed into sparse matrices, which affects
+accuracy. However, careful choice of the method used to
+transform a dense matrix to a sparse matrix may result
+in only a limited impact on accuracy while providing
+significant gains in computation time. Reduction in
+memory footprint along with computation optimization
+is essential for making RNNs viable. However, pruning
+results in two undesirable effects. The first is a loss in the
+regularity of memory organization due to sparsification
+of the dense matrix, and the second is a loss of accuracy
+on account of the removal of weights and nodes from the
+model under consideration. The transformation from a
+regular matrix computation to an irregular application
+often results in the use of additional hardware and
+computation time to manage data. To compensate for the
+VOLUME , 2020
+
+Rezk et al.: Recurrent Neural Networks: An Embedded Computing Perspective
+
+TABLE 4: Effect of quantization methods on accuracy.
+Method
+Fixed Point
+Exponential
+Mixed
+Binary
+
+Ternary
+Quaternary
+Multi-Binary
+1
+2
+
+W/A
+2/2
+P2T/real
+EQ/real
+EQ+ fixed6/8
+B/real
+B/real
+B/1
+B/4
+B/real
+T/real
+T/real
+T/real
+Q/real
+Q/real
+3/3
+2/2
+1/4
+
+RNN type
+1*BiLSTM*128
+4*BiLSTM*250
+1*GRU*200
+3*BiLSTM*512
+1*GRU*128
+ConvLSTM
+1*BiLSTM*128
+1*BiLSTM*128
+1*GRU*200/400
+1*GRU*128
+ConvLSTM
+1*GRU*200
+1*GRU*128
+ConvLSTM
+1*LSTM*512
+1*LSTM*512
+2*LSTM*256
+
+Training
+With training
+With training
+With training
+Retraining
+With training
+With training
+With training
+With training
+With training
+With training
+With training
+With training
+With training
+With training
+Retraining
+Retraining
+With training
+
+Accuracy
++0.7%
++6%
++1%
++10.7%1
+−5.3%
+−100%2
+−3.7%
++1%
+−80.9%
+−4%
+−50%2
+−1.6%
+−1.7%
+−75%2
++1.4%
+−6%
+−7.8%
+
+Paper
+[56]
+[55]
+[55]
+[58]
+[62]
+[62]
+[56]
+[56]
+[55]
+[62]
+[62]
+[55]
+[62]
+[62]
+[63]
+[63]
+[71]
+
+Accuracy is also affected by the compression scheme and nonlinear functions approximation used in this work.
+We calculate the error at the tenth frame (third predicted frame).
+In the table we have used the symbols: W/A for number of bits for weights/number of bits for activations, P2T for power
+two ternarization, EQ for exponential quantization, B for binary quantization, T for ternary quantization, and Q for quaternary
+quantization.
+
+loss of accuracy caused by pruning, various methods,
+including retraining, have been applied. The following
+sections describe methods of pruning and compensation
+techniques found in the literature. Table 5 summarizes
+the methods of pruning and its impact on sparsity and
+accuracy. Sparsity in this context refers to the number
+of empty entries in the matrices. In Table 5, sparsity
+indicates the impact on the number of entries eliminated because of the method of pruning used. Within
+RNNs, pruning can be classified as either magnitude
+pruning for weight matrix sparsification, or structurebased pruning.
+Magnitude pruning Magnitude pruning relies on eliminating all weight values below a certain threshold.
+In this method, the choice of threshold is crucial to
+minimize the negative impact on accuracy. Magnitude
+pruning is primarily based on identifying the correct
+threshold for pruning weights.
+• Weight Sub-groups For weight matrix sparsification,
+the RNN model is trained to eliminate redundant
+weights and only retain weights that are necessary.
+There are three categories to create weight subgroups
+to select the pruning threshold [72]. These three
+categories are class-blind, class-uniform, and classdistribution. In class-blind, x% of weights with the
+lowest magnitude are pruned, regardless (blind) of
+the class. In class-uniform, lower pruning x% of
+weights is uniformly performed in all classes. In
+class-distribution, weights within the standard deviation of that class are pruned.
+• Hard thresholding [73], [74] identifies the correct
+threshold value that preserves accuracy. ESE [74]
+uses hard thresholding during training to learn which
+VOLUME , 2020
+
+Dataset
+OCR dataset
+WSJ
+TIDIGITS
+AN4
+IMDB
+Moving MNIST
+OCR dataset
+OCR dataset
+TDIGITS
+IMDB
+Moving MNIST
+TDIGITS
+IMDB
+Moving MNIST
+WikiText2
+WikiText2
+PTB
+
+weights contribute to prediction accuracy.
+Gradual thresholding This method [75] uses a set of
+weight masks and a monotonically increasing threshold. Each weight is multiplied with its corresponding
+mask. This process is iterative, and the masks are
+updated by setting all parameters that are lower than
+the threshold to zero. As a result, this technique gradually prunes weights introduced within the training
+process, in contrast to hard thresholding.
+• Block Pruning In block pruning [76], magnitude
+thresholding is applied to blocks of a matrix instead of
+individual weights during training. The weight with
+the maximum magnitude is used as a representative
+for the entire block. If the representative weight is
+below the current threshold, all the elements in the
+blocks are set to zero. As a result, block sparsification
+mitigates the indexing overhead, irregular memory
+accesses, and incompatibility with array-data-paths
+that characterises unstructured random pruning.
+• Grow and prune Grow and prune [54] combines
+gradient-based growth [77] and magnitude-based
+pruning [74] of connections. The training starts with
+a randomly initialized seed architecture. Next, in the
+growth phase, new connections, neurons, and feature
+maps are added based on the average gradient over
+the entire training set. Once the required accuracy has
+been reached, redundant connections and neurons are
+eliminated based on magnitude pruning.
+Structure pruning Modifying the structure of the network by eliminating nodes or connections is termed
+structure pruning. Connections that may be important are learned in the training phase or pruned using
+probability-based techniques.
+•
+
+15
+
+Rezk et al.: Recurrent Neural Networks: An Embedded Computing Perspective
+
+Network sparsification Pruning through network
+sparsification [78] introduces sparsity for the connections at every neuron output, such that each output
+has the same number of inputs. Furthermore, an optimization strategy is formulated that replaces nonzero elements in each row with the highest absolute
+value. This step avoids any retraining, which may
+be compute-intensive and difficult in privacy critical
+applications. However, the impact of this method of
+pruning on accuracy has not been directly measured.
+Design space exploration over different levels of
+sparsity measures the quality of output and gives an
+indication of the relationship between the level of
+approximation and the application-level accuracy.
+• Drop-out DeepIoT [79] compresses neural network
+structures into smaller dense matrices by finding the
+minimum number of non-redundant hidden elements
+without affecting the performance of the network. For
+LSTM networks, Bernoulli random probabilities are
+used for dropping out hidden dimensions used within
+the LSTM blocks.
+Retaining accuracy levels Pruning alongside training
+and retraining has been employed to retain the accuracy
+levels of the pruned models. Retraining works on the
+pruned weights and/or pruned model until convergence
+to a specified level of accuracy is achieved. Pruning
+has shown a regularization effect on the retraining
+phase [72]. The regularization effect might be the reason
+for outperforming baseline model accuracy. Another
+benefit for pruning which might be the reason for outperforming the baseline accuracy is that pruning allows
+the finding of a better local minimum. Pruning increases
+the loss function immediately, which results in further
+gradient descent.
+Handling irregularity in pruned matrices Pruning to
+maximize sparsity results in a loss in regularity (or structure) of memory organization due to sparsification of the
+original dense matrix. Pruning techniques that are architecture agnostic, mainly result in unstructured irregular sparse matrices. Methods such as load balancingaware pruning [74] and block pruning (explained earlier within magnitude pruning) [76] have been applied
+to minimize these effects. Load balancing-aware pruning [74] works towards ensuring the same sparsity ratio
+among all the pruned sub-matrices, thereby achieving an
+even distribution of non-zero weights. These techniques
+introduce regularity in the sparse matrix to improve
+performance and avoid index tracking.
+(ii) Structured matrices
+Circulant matrices A circulant matrix is a matrix in
+which each column (row) is a cyclic shift of the preceeding column (row) [58]. It is considered as a special
+case of Toeplitz-like matrices. The weight matrices are
+reorganized into circular matrices. The redundancy of
+values in the matrices reduces the space complexity
+•
+
+16
+
+of the weights matrices. For large matrices, circulant
+matrices can use nearly 4× less memory space. The
+back-propagation algorithm is modified to allow training of the weights in the form of circulant matrices.
+Block-circulant matrices Instead of transforming the
+weight matrix into a circulant matrix, it is transformed
+into a set of circulant sub-matrices [68], [80]. Figure 7
+shows a weight matrix that has 32 parameters. The
+block size of the circular sub-matrices is 4. The weight
+matrix has transformed into two circulant sub-matrices
+with 8 parameters (4 parameters each). The compression
+ratio is 4×, where 4 is the block size. Thus, having
+larger block sizes will result in a higher reduction in
+model size. However, a high compression ratio may
+degrade the prediction accuracy. In addition, the Fast
+Fourier Transform (FFT) algorithm can be used to speed
+up the computations. Consequently, the computational
+complexity decreases by a factor of O( logk k ).
+
+FIGURE 7: Regular weight matrix transformed into blockcirculant sub-matrices of block size 4 [68].
+(iii) Tensor decomposition Tensors are multidimensional
+arrays. A vector is a tensor of rank one, and a 2-D
+matrix is a tensor of rank two and so on. Tensors can
+be decomposed into lower ranks tensors, and tensor
+operations can be approximated using these decompositions in order to decrease the number of parameters in
+the NN model. Canonical polyadic (CP) decomposition,
+Tucker decomposition, and tensor train decomposition
+are some of the techniques used to apply tensor decomposition [81]. Tensor decomposition techniques can be
+applied to the FC layers [82], convolution layers [83],
+and recurrent layers [81]. In Table 5, we show an example of applying tensor decomposition on a GRU layer
+using the CP technique. In another example, Adam’s
+algorithm has been used as an optimizer for the training process [84]. Tensor decomposition techniques can
+achieve a high compression ratio compared to other
+compression methods.
+
+VOLUME , 2020
+
+Method
+
+Magnitude
+pruning
+
+Structured
+pruning
+Structured matrices
+Tensor
+decomp.
+Knowledge
+distillation
+1
+2
+3
+
+Technique
+
+RNN Type
+
+Dataset
+
+Compression ratio
+(Sparsity for pruning )
+5× (80%)-10×(90%)
+
+Training
+
+Accuracy
+
+Paper
+
+Weight subgroups
+
+WMT’14
+
+Hard thresholding
+Gradual pruning
+Block pruning
+Grow&Prune
+Network sparsification
+Drop-out
+
+4*LSTM*1024 +
+4*LSTM*1024
+2*LSTM*512
+2*LSTM*1500
+7*BiLSTM*2560
+1*H-LSTM*512 1
+2*LSTM*512
+5*BiLSTM*512
+
+Retraining
+
++2.1%-−1.7%
+
+[72]
+
+1.1× (10%) -1.3×(24%)
+20× ( 90%)
+12.5× (92%)
+8× (87.5%) -19× (95%)
+2× (50%)
+10× (90%)
+
+None
+With training
+With training
+With training
+None
+None
+
+0%
+−2.3%
+−12%
+0%-−2.2%
+0%
+0%
+
+[73]
+[85]
+[75]
+[54]
+[78]
+[79]
+
+3*BiLSTM*512
+
+TIMIT
+PTB
+Speech Data2
+COCO
+COCO
+LibriSpeech
+ASR corpus
+AN4
+
+Circulant
+
+nearly 4×
+
+With training
+
++10.7%3
+
+[58]
+
+Block-circulant
+CP
+
+2*LSTM*1024
+1*GRU*512
+
+TIMIT
+Nottingham
+
+15.9×
+101× - 481×
+
+With training
+With training
+
+-5.5%
+−1% - −5%
+
+[68]
+[81]
+
+Plain
++Pruning
+
+4*LSTM*1000
+4*LSTM*1000
+
+WMT’14
+WMT’14
+
+3×
+26×
+
+With training
+With training +
+Retraining
+
+−1%
+−5.1%
+
+[86]
+
+H-LSTM is hidden LSTM. Non-linear layers are added in gate computations (Explained in Section III).
+Dataset name is not mentioned in the paper.
+Accuracy is also affected by quantization (Table 4) and nonlinear functions approximation used in this work.
+
+TABLE 6: Effect of DeltaRNN method on accuracy
+RNN model
+1*GRU*512
+CNN+ 1*GRU*512
+
+Dataset
+TIDIGITs
+Open-driving
+
+Training
+With training
+With training
+
+Accuracy
+−1.6%
+0%
+
+Speedup
+5.7×
+100×
+
+paper
+[70]
+[87]
+
+Rezk et al.: Recurrent Neural Networks: An Embedded Computing Perspective
+
+VOLUME , 2020
+
+TABLE 5: Effect of compression methods on accuracy.
+
+17
+
+Rezk et al.: Recurrent Neural Networks: An Embedded Computing Perspective
+
+(iv) Knowledge distillation Knowledge distillation is a
+method that replaces a large model with a smaller model
+that should behave like a large model. Starting from
+a large model (teacher) with trained parameters and a
+dataset, the small model (student) is trained to behave
+like the large model [86]. In addition to knowledge
+distillation, pruning can be applied to the resulted model
+to increase the compression ratio, as shown in Table 5.
+3) DeltaRNN
+
+Delta Recurrent Neural Networks (DeltaRNN) [87] makes
+use of the temporal relation between input sequences. For
+two consecutive input vectors xt and xt−1 , the difference
+between corresponding values in the two vectors may be zero
+or close to zero. The same holds for the hidden state output
+vector. The idea is to skip computations for input/hidden state
+values that when compared to input/hidden state values of the
+previous time step, have a difference that is less than a predefined threshold called delta (Θ). Improvement comes from
+decreasing the number of computations and the number of
+memory accesses required by the recurrent unit. However,
+memory requirements will not decrease because we still
+need to store all the weights as we cannot predict which
+computations will be skipped.
+The value of delta threshold affects both accuracy and
+speedup. In Table 6, we summarize the effect of DeltaRNN
+on accuracy for two different datasets. In some occasions, it
+was required to train the RNN using a delta algorithm before
+inference to obtain better accuracy at inference time. Furthermore, the speedup gained by the delta algorithm at one
+delta value is not static. It depends on the relation between
+the input sequences. The highest speedup could be reached
+using video frames (open driving dataset) as input data, as
+seen in Table 6. However, the time-consuming CNN before
+the recurrent layer negated the speedup gained by deltaRNN.
+Thus, the 100x speedup in GRU execution dropped down to
+a non-significant speedup for the model as a whole. On the
+other hand, CNN-Delta [88] applied a similar delta algorithm
+on CNNs. Applying delta algorithms to both recurrent layers
+and CNN layers might prove beneficial.
+4) Non-linear function approximation
+
+Non-linear functions are the second most used operations in
+the RNN after matrix to vector multiplications, as may be
+seen in Table 3. The non-linear functions used in the recurrent
+layers are tanh and sigmoid, respectively. Both functions
+require floating-point division and exponential operations,
+which are expensive in terms of hardware resources. In
+order to have an efficient implementation for an RNN, nonlinear function approximations are implemented in hardware.
+This approximation should satisfy a balance between high
+accuracy and low hardware cost. In what follows, we present
+the approximations used in the implementations under study.
+Look-up tables (LUTs): Replacement of non-linear
+function computation with look-up tables is the fastest
+method [89]. The input range is divided into segments with
+18
+
+constant output values. However, to achieve high accuracy,
+large LUTs are required and that consumes a large area of
+silicon, which is not practical. Several methods have been
+proposed to decrease the LUTs size while preserving high
+accuracy.
+Piecewise linear approximation: This approximation
+method is done by dividing the non-linear function curve
+into a number of line segments. Any line segment can be
+represented by only two values: the slope and the bias. Thus,
+for each segment, only two values are stored in the LUTs.
+The choice of the number of segments affects both accuracy
+and the size of LUTs. Thus, the choice of the number of
+segments must be made wisely to keep the accuracy high
+while keeping the LUTs as small as possible. The computational complexity of the non-linear function changes to
+be a single comparison, multiplication and addition, which
+may be implemented using shifts and additions. Compared to
+using look-up tables, piecewise linear approximation requires
+fewer LUTs and more computations.
+Hard tanh / Hard sigmoid: Hard tanh and hard sigmoid
+are two examples of piecewise linear approximation with
+three segments. The first segment is saturation to zero or −1
+(zero in case of sigmoid and −1 in case of tanh), the last
+segment is saturation to one, and the middle segment is a line
+segment that joins the two horizontal lines.
+There is a variant of piecewise linear approximation called
+piecewise non-linear approximation. The line segments are
+replaced by non-linear segments and the use of multipliers
+cannot be avoided as they can in the linear version. This made
+the linear approximation preferable in hardware design.
+RALUT One other method to reduce the size of the LUTs
+is to use RALUT (Range Addressable Look Up Tables) [90].
+In RALUTs, each group of inputs is mapped into a single
+output.
+B. PLATFORM SPECIFIC OPTIMIZATIONS
+
+In this section, we discuss the optimizations performed on
+the hardware level to run an RNN model efficiently. These
+optimizations may be related to computation or memory. For
+computation-related optimizations, techniques are applied
+to speedup the computations and obtain higher throughput.
+For memory-related optimizations, techniques are applied to
+carry out memory usage and accesses with reduced memory
+overhead.
+1) Compute-specific
+
+The bottleneck in RNN computations is the matrix to vector
+multiplications. It is difficult to fully parallelize matrix to
+vector multiplications over time-steps as the RNN model
+includes a feedback part. Each time-step computation waits
+for the preceding time-step computations to complete so it
+can use the hidden state output as an input for the new time
+step computation.
+• Loop unrolling Loop unrolling is a parallelization technique that creates multiple instances of the looped operations to gain speedup at the expense of resources.
+VOLUME , 2020
+
+Rezk et al.: Recurrent Neural Networks: An Embedded Computing Perspective
+
+•
+
+•
+
+•
+
+There are two kinds of loop unrolling used in RNN implementations. The first is inner loop unrolling, where
+the inner loop of the matrix to vector multiplication
+is unrolled [21], [91]. The second kind is unrolling
+over time-steps. RNN needs to run for multiple timesteps for each task to be completed. The computation of
+the recurrent unit can be unrolled over time-steps [92].
+However, this cannot be fully parallelized, as discussed
+earlier. Only computations that rely on inputs can be
+parallelized, while computations relying on hidden state
+outputs are performed in sequence. One solution can be
+to use QRNN or SRU, as discussed in Section III-B. In
+QRNN and SRU, the matrix to vector multiplications
+do not operate on the hidden state output and thus can
+be fully parallelized over unrolled time steps [93].
+Systolic arrays 2D Systolic arrays are a good candidate
+for matrix to vector multiplication [94], [95] and convolution units [15]. Systolic arrays are efficient as multiplications operands move locally between neighbor
+PEs (processing elements) [96]. Thus, systolic arrays
+require less area, less energy, and less control logic. Well
+designed systolic arrays can guarantee that PEs remain
+busy to maximize throughput.
+Pipelining Pipelining is an implementation technique
+that can increase throughput. Pipelining has been used in
+RNN implementations in various ways. Coarse-grained
+pipelining (CGPipe) is used to tailor the LSTM/variants
+data dependency [68], [80]. LSTM computation is performed in three stages, with double buffers in between.
+The first stage is for weight matrices multiplications
+with inputs and hidden cells vectors, the second stage
+is for non matrix to vector operations, and the third
+stage is for projection layer computations. Fine-Grained
+Pipelining (FGPipe) can be used to schedule the operations within the CGPipe stages. The design of the
+pipelining scheduler is a critical task due to the data dependency in LSTM/variants [74]. Some operations need
+to be performed sequentially, while some operations can
+be done concurrently. Having sparse weight matrices
+(due to applying pruning) increases the complexity of
+the scheduler design.
+Tiling Tiling consists of dividing one matrix to vector
+multiplication into multiple matrix to vector multiplications. Usually, tiling is used when a hardware solution
+has built-in support for matrix to vector multiplication of
+a specific size in one clock cycle. When the input vector
+or the weight matrix size is larger than the size of the
+vector or the matrix supported by the hardware, tiling
+is used to divide the matrix to vector multiplication to
+be performed on the hardware in multiple cycles [58],
+[91]. Thus, tiling can be combined with Inner-loop
+unrolling or systolic arrays. Figure 8 shows a vector
+that is broken into three vectors and a matrix that is
+broken into nine matrices. Thus, one matrix to vector
+multiplication is broken into nine matrix to vector multiplications. Each vector is multiplied with the matrices
+
+VOLUME , 2020
+
+having a similar color. The output vector is built from
+three vectors, where each of the three output vectors
+are accumulated together to form one vector in the
+output. This computation requires nine cycles to be
+completed, assuming that new weights can be loaded
+into the hardware multiplication unit within the cycle
+time.
+
+FIGURE 8: Tiling: converting one matrix to vector multiplication into nine matrix to vector multiplications.
+•
+
+•
+
+•
+
+Hardware sharing In the GRU recurrent layer, the
+execution of rt and e
+ht has to be in sequence as e
+ht
+computation depends on rt as shown in Eq. 12. Thus,
+the computation of rt and e
+ht is the critical path in the
+GRU computation. While zt can be computed in parallel
+as it is independent of e
+ht and rt . The same hardware
+can be shared for computing rt and zt to save hardware
+resources [97].
+Load balancing In the case of sparse weight matrices (resulting from pruning), load balancing techniques
+might be needed during parallelization of the matrix
+to vector multiplication over processing elements [73],
+[74].
+Analog computing Analog computing is a good candidate for neural network accelerators [98]. Analog
+neural networks [99] and analog CNNs [100] have been
+studied recently. Interestingly, RNN implementations
+using analog computing have started to attract attention
+from researchers [98], [101]. Analog computing brings
+significant benefits, especially for the critical matrixvector computation, by making it both faster and more
+energy-efficient. This is true for the non-linear functions
+that normally are calculated between the NN layers as
+well. Analog computing also allows for more efficient
+communication as a wire can represent many values
+instead of only a binary value. The performance of an
+analog computer will however, critically depend on the
+digital to analog and analog to digital converters, for
+both speed and energy consumption.
+
+2) Memory considerations
+
+For the processing of an RNN algorithm, memory is needed
+to store weight matrices, biases, inputs, and activations,
+where the weight matrices have the highest memory requirement. The first decision related to memory is the location of
+weights storage. If all the weights are stored in the off-chip
+memory, accessing the weights comprises the largest cost
+with respect to both latency and energy [91], [102].
+19
+
+Rezk et al.: Recurrent Neural Networks: An Embedded Computing Perspective
+
+On-chip memory After applying the algorithmic optimizations introduced in Section IV-A, the memory requirements of the RNN layer are reduced, which increases the
+possibility of storing the weights in the on-chip memory.
+However, this results in a restriction on the largest model size
+that can run on the embedded platform. On-chip memory has
+been used for storing the weights by many implementations
+[56], [58], [68], [70], [103].
+Hybrid memory Storing all the weights in the on-chip
+memory restricts the size of the model executed on the
+embedded solution. Storing some of the weights in on-chip
+memory with the remainder in off-chip memory might provide a solution [69].
+In addition to maximizing the use of on-chip memory,
+some researchers use techniques to reduce the number and
+the cost of memory accesses.
+•
+
+•
+
+•
+
+•
+
+Multi time-step parallelization
+The fact that QRNN and SRU remove the hidden state
+output from the matrix to vector multiplications can be
+leveraged to allow multi time-step parallelization [93].
+Multi time-step parallelization is performed by converting multiple matrix to vector multiplication into a fewer
+matrix to matrix multiplications. This method decreases
+the number of memory accesses by reusing the weights
+for computations involving multiple time-steps.
+Reordering weights Reordering weights so they occupy memory in the same order as computation helps
+decrease the memory access time [91]. Reordering the
+parameters in memory is carried out in a way that
+ensures memory accesses will be sequential.
+Compute/load overlap In order to compute matrix to
+vector multiplications, weights need to be accessed and
+loaded from memory and then used for computations.
+The total time is the sum of the access time and computation time. To decrease this time, memory access
+and computations can be overlapped. This overlap can
+be achieved by fetching the weights for the next timestep while performing the computation of the current
+time-step. The overlap would require the existence of
+extra buffers for storing the weights of the next time-step
+while using the weights of the current time-step [74].
+Doubling memory fetching In this method, twice
+the number of required weights for computation are
+fetched [104]. Half of the weights are consumed in
+the current time step t computations and the rest are
+buffered for the following time step t + 1. Doubling
+memory fetching can reduce memory bandwidth by
+half.
+
+Domain-wall memory (DWM) DWM is a new technology for non-volatile memories proposed by Parkin et al.
+from IBM in 2008 [105]. DWM technology is based on a
+magnetic spin [106]–[109]. Information is stored by setting
+the spin orientation of magnetic domains in a nanoscopic
+permalloy wire. Multiple magnetic domains can occupy one
+wire which is called race-tracking. Race-tracking allows the
+20
+
+representation of up to 64 bits. DWM density is hoped to
+improve SRAM by 30x and DRAM by 10x [110]. Using
+DWM in RNN accelerator can achieve better performance
+and lower energy consumption [106].
+Processing In Memory (PIM) PIM gets rid of the data
+fetching problem by allowing computation to take place
+in memory, eliminating memory access overhead. In such
+an architecture, a memory bank is divided into three subarray segments: memory sub-arrays, buffer sub-arrays, and
+processing sub-arrays, which are used as conventional memory, data buffer, and processing sub-arrays respectively.
+ReRAM-based PIM arrays is one approach used to accelerate CNNs [111]–[113] and RNNs [114]. ReRAM that
+supports XNOR and bit counting operations will only be
+sufficient for RNN implementation if binary or multi-bit
+code (Section IV-A1) quantization has been applied [71].
+Memristors crossbar arrays have successfully been used as
+an analog dot product engine to accelerate both CNNs [115]
+and RNNs [101].
+V. RNN IMPLEMENTATIONS ON HARDWARE
+
+In the previous section, we discussed the optimizations applied to decrease the computation and memory requirements
+of RNN models. In this section, we study recent implementations of RNN applications on embedded platforms. The
+implementations are divided into FPGA, ASIC, and other implementations. We analyze these implementations and study
+the effects of the applied optimizations. However, the effect
+of each optimization is not shown separately. Instead, the
+outcomes of applying the mix of optimizations are discussed
+with respect to the objectives presented in Section II. First,
+with regard to efficiency, the implementations are compared
+in terms of throughput, energy consumption, and meeting
+real-time requirements. Then, for flexibility, we discuss implementations that support variations in the models, online
+training, or different application domains.
+Table 7 shows the details of the implementations studied
+here. Authors names are shown, along with the name of
+the architecture; if named; the affiliation, and the year of
+publication. Table 8 and Table 9 present the implementations
+under study. Table 8 shows implementations performed on
+FPGAs, while Table 9 shows implementations performed
+on other platforms. Each implementation has an index. The
+index starts with “F” for FPGA implementations, “A” for
+ASIC implementations, and “C” for other implementations.
+For each implementation, the tables show the platform, the
+RNN model, the applied optimizations, and the runtime
+performance.
+In most cases, only the recurrent layers of the RNN model
+are shown, as most of the papers provided the implementation
+for these layers only. The recurrent layers are written in the
+format x*y*z, where x is the number of recurrent layers, y
+is the type of recurrent layers (e.g. LSTM, GRU, ..), and z
+is the number of hidden cells in each layer. If the model has
+different modules (e.g. two different LSTM models or LSTM
++ CNN), we give the number of executed time-steps of the
+VOLUME , 2020
+
+Rezk et al.: Recurrent Neural Networks: An Embedded Computing Perspective
+
+TABLE 7: Detailed information about papers under study
+Index
+F2 [80]
+
+Authors
+Li et al.
+
+Name
+E-RNN
+
+Year
+2019
+
+-
+
+Affiliation
+Syracuse University, Northeastern University,
+Florida International University,
+Mellon University,
+Carnegie University of Southern California,
+SUNY University
+Peking University, Syracuse University,
+City University of New York
+University of Kaiserslautern,
+Xilinix Research Lab
+Stanford University, DeePhi Tech,
+Tsinghua University, NVIDIA
+University of Zurich & ETH Zurich
+University of Kaiserslautern,
+German Research Center for Artificial Intelligence
+University of Illinois, Inspirit IoT Inc,
+Tsinghua University, Beihang University
+Seoul National University
+Shanghai Jiao Tong University,
+Chinese Academy of Sciences,
+University of Cambridge, Imperial College
+Peking University, University of California
+PKU/UCLA Joint Research Institute in Science and Engineering
+Imperial College London
+Purdue University
+Purdue University, Hewlett Packard Enterprise,
+University of Illinois at Urbana-Champaign
+Nanjing University
+Louisiana State University
+Georgia Institute of Technology, Atlanta
+Fudan University, Zhejiang University,
+University of Washington
+Pohang University of Science and Technology
+KU Leuven
+Arizona State University
+Goergia Institute of Technology
+Goergia Institute of Technology, Arm Inc.
+University of California (San Diego)
+Seoul National University
+
+F4 [68]
+
+Wang et al.
+
+C-LSTM
+
+F1 [56]
+
+Rybalkin et al.
+
+FINN-L
+
+F6 [74]
+
+Han et al.
+
+ESE
+
+F3 [70]
+F5 [92]
+
+Gao et al.
+Rybalkin et al.
+
+DeltaRNN
+-
+
+F7 [21]
+
+Zhang et al.
+
+F8 [103]
+F9 [16]
+
+Lee et al.
+Sun et al.
+
+-
+
+F10 [91]
+
+Guan et al.
+
+-
+
+F11 [78]
+F12 [69]
+A1 [101]
+
+Rizakis et al.
+Chang et al.
+Ankit et al.
+
+DeepRnn
+PUMA
+
+A2 [58]
+A3 [98]
+A8 [114]
+A4 [97]
+
+Wang et al.
+Zhao et al.
+Long et al.
+Chen et al.
+
+Ocean
+
+A5 [73]
+A6 [104]
+A7 [71]
+A9 [95]
+A10 [94]
+
+Park et al.
+Giraldo et al.
+Yin et al.
+Kwon et al.
+Sharma et al.
+
+Laika
+MAERI
+Bit Fusion
+
+C1 [93]
+C2 [93]
+C3 [116]
+
+Sung et al.
+Cao et al.
+
+MobiRNN
+
+Stony Brook University
+
+2017
+
+RNN model. Both algorithmic and platform optimizations
+are shown in the tables. All the optimizations found in the
+tables are explained above in Section IV using the same
+keywords as in the tables. For quantized models, “Quantization X” is written in the optimizations column, where X is
+the number of bits used to store the weights. The effective
+throughput and the energy efficiency given in the tables are
+discussed in detail in the sub-section below.
+A. IMPLEMENTATION EFFICIENCY
+
+To study the efficiency of the implementations understudy,
+we focus on three aspects: throughput, energy consumption,
+and meeting real-time requirements.
+1) Effective Throughput
+
+To compare the throughput of different implementations,
+we use the number of operations per second (OP/s) as a
+measure. Some of the papers surveyed did not directly state
+the throughput. For these papers, we have tried to deduce the
+throughput from other information given. One other aspect to
+VOLUME , 2020
+
+2018
+2018
+2017
+2018
+2017
+2017
+2016
+2018
+
+2017
+
+2018
+2017
+2019
+2017
+2019
+2018
+2017
+2018
+2018
+2018
+2018
+2018
+2018
+
+consider is that compression optimization results in decreasing the number of operations in the model before running it.
+Consequently, the number of operations per second is not a
+fair indicator of the implementation efficiency. In this case,
+the throughput is calculated using the number of operations
+in the dense RNN model, not the compressed model. We
+call this an Effective Throughput. Below, we list the methods
+used to deduce the throughput values for the different papers.
+• Case q1: Effective throughput is given in the paper.
+• Case q2: Number of operations in the dense model and
+computation time are given. By dividing number of
+operations nop by time, we get the effective throughput
+Qef f as shown in Eq. 25. In some papers, the number
+of operations and the computation time timecomp were
+given for multiple time steps (multiple inputs), which
+would require running the LSTM nsteps times.
+Qef f =
+•
+
+nop × nsteps
+tcomp
+
+(25)
+
+Case q3: The implemented RNN model information is
+21
+
+Rezk et al.: Recurrent Neural Networks: An Embedded Computing Perspective
+
+provided in the paper. Thus, we calculate the number of
+operations from the model information and then divide
+it by computation time to get the throughput as in case
+q2. To compute the number of operations, the number
+of operations in the matrix to vector multiplications is
+counted as they have the dominant effect on the performance. If the paper does not give enough information to
+calculate the number of operations, the number of operations can be approximately calculated by multiplying
+the number of parameters by two.
+• Case q4: The energy efficiency is given in terms of
+OP/s/watt and the power consumption is given in watt.
+By multiplying the two values, throughput is calculated.
+• Case q5: Effective throughput could not be computed.
+For a fair comparison between the ASIC implementations,
+we have applied scaling to 65 nm technology at 1.1 V using
+the general scaling equations in Rabaey [117] and scaling
+estimate equations for 45 nm and smaller technologies [118].
+If the voltage value is not mentioned in the paper, we assume
+the standard voltage for the implementation technology. For
+example, since A7 was implemented on 65 nm, we assume
+the voltage value to be 1.1 V.
+To analyze Table 8 and Table 9 and understand the effect
+of different optimizations on throughput, the tables entries
+are ordered in descending order, starting with the highest
+throughput implementation. There exist two optimization
+groups that appear more frequently among the high throughput implementations. The first group is related to decreasing
+memory access time. Memory access time is decreased either
+by using on-chip memory for all weights or overlapping the
+computation time and the weights loading time.
+The second group is related to algorithmic optimizations.
+Algorithmic optimizations present in all high throughput
+implementations are compression (pruning, block-circulant
+matrices, etc.), deltaRNN, and low precision quantization.
+Non-linear function approximations and 16-bit quantization
+are not within the groups of high effect optimizations. Quantization with 16-bit is present in many implementations that
+do not aim for lower precision, and it does not have a great
+effect on computation cost. Thus, it is not a differentiating
+factor. Non-linear function approximations do not contribute
+to the most used operations (matrix to vector multiplications).
+Finally, the throughput values are plotted against the implementations in Figure 9. The scaled effective throughput
+values for the ASIC implementations are used. Implementations that have memory access optimizations and/or algorithmic optimizations are highlighted by putting them inside
+a square and/or circle. It can be observed from Figure 9
+that all of the implementations with high throughput have
+some algorithmic optimization and applied memory access
+optimization. For example, F1 [56] applied low precision
+quantization and placed all the weights on the on-chip memory. F2 [80], F3 [70], F4 [68], and A2 [58], all applied both
+on-chip memory optimization and algorithmic optimizations.
+In F6 [74], the architecture had a scheduler that overlapped
+computation with memory accesses. All the weights required
+22
+
+for computation are fetched before the computation starts.
+Thus, they managed to eliminate the off-chip memory access
+overhead by having an efficient compute/load overlap.
+Both F2 and F4 applied block-circulant matrices optimization. In addition, A2 applied circulant matrices optimization.
+This indicates that restructuring weight matrices into circulant matrices and sub-matrices is one of the most fruitful
+optimizations. The reason could be that circulant matrices
+optimization does not cause the irregularity of weight matrices seen in pruning [68]. Additionally, circulant/blockcirculant matrices can be accompanied by low precision
+quantization without a harsh effect on accuracy as in A2 (6bit) and F2 (12-bit). It is observed in Table 8 that F2 and
+F4 optimizations are almost identical, but their performance
+is different. F2 and F4 have differences in the hardware
+architecture and F2 applied lower precision than F4, but the
+most important reason is that F2 used a better approach in
+training the compressed RNN model. F2 was able to reach
+the same accuracy level reached by F4 with block size 8
+while using block size 16. Thus, the RNN model size in F2 is
+approximately 2x less than F4.
+Nevertheless, it is noticed that the only computeoptimization in F2 and F4 is pipelining. In these two implementations, pipelining served in two roles. The first is coarsegrained pipelining between LSTM stages, and the second,
+fine-grained pipelining within each stage. It worth knowing
+that F1 is based on the same architecture as F5. F1 achieved
+higher throughput than F6 by applying higher frequency and
+using lower precision. Assuming linear frequency scaling,
+the ratio between the two implementations’ throughput is
+close to the ratio between the precisions used for storing the
+weights by the two implementations.
+The lack of algorithmic optimizations in A1 [101] was
+compensated by the use of analog crossbar-based matrix to
+vector multiplication units. Analog crossbar units allowed
+low latency matrix to vector multiplications. Implementations that used analog computing are marked with an “A”
+sign in Figures 9 and 10. Comparing A1 to A3, both were
+using analog crossbars. A1 surpassed A3 by applying PIM
+(Processing In Memory), which removes memory access
+overhead. Therefore, in Figures 9 and 10, we consider PIM
+as a memory access optimization.
+One implementation that stands out is A6 [104], which
+has a very low throughput for an ASIC implementation while
+applying on-chip and algorithmic optimizations. This particular implementation was meant to meet a latency deadline of
+16ms while consuming low power – at the micro-watt level.
+Thus, high throughput was not the objective from the beginning. Implementations that defined real-time requirements
+are marked by an “RT” sign in Figures 9 and 10. Another
+implementation that rewards close inspection is F8. Despite
+applying the two mentioned optimizations, it could not reach
+as high performance as expected. The conclusion here is that
+applying memory access optimization and algorithmic optimization is necessary but not sufficient for high performance.
+VOLUME , 2020
+
+Platform
+Optimizations
+On-chip,Pipelining
+Inner-loop-unrolling
+Unrolling-timesteps, Tiling
+On-chip
+Pipelining
+
+Qef f 1
+GOP/s
+< q1 > 3435
+
+Eef f 2
+GOP/s/watt
+< e4 > -
+
+< q3 > 2485
+
+< e1 > 99.4
+
+On-chip
+Pipelining
+On-chip
+Pipelining
+
+< q1 > 1198.3
+
+< e2 >164
+
+< q3 > 1167.3
+
+< e1 > 53
+
+< q1 > 308
+
+< e3 > 44
+
+< q3 > 78.6 3
+
+< e2 > 1.9
+
+< q2 > 36.254
+
+< e4 > -
+
+< q3 > 305
+
+< e2 > 5.4
+
+< q1 > 13.5
+
+< e4 > -
+
+< q1 > 7.3
+
+< e4 > -
+
+Pruning
+
+On-chip, Pipelining
+Inner-loop-unrolling
+Compute/load overlap
+Pipelining, Load balancing
+Inner-loop-unrolling
+Inner-loop-unrolling
+Reordering weights
+On-chip
+Inner-loop-unrolling
+Tiling,Inner-loop-unrolling
+Pipelining
+Tiling, Inner-loop-unrolling
+Pipelining, Reordering weights
+Compute/load overlap
+Tiling, Inner-loop-unrolling
+
+< q3 > 1.55
+
+< e4 > -
+
+Quantization 16
+Piecewise approx.
+
+Hybrid memory
+Compute/load overlap
+
+< q4 > 0.2
+
+< e1 > 0.11
+
+Index
+
+Platform
+
+Model
+
+F1 [56]
+
+Zync XCZU7EV @266 MHz
+
+1*BiLSTM*128
+
+F2 [80]
+
+Alpha Data ADM-7V3
+@200MHz
+
+2*LSTM*1024
+
+F3 [70]
+
+Zync 7100 @125 MHz
+
+1*GRU*256
+
+F4 [68]
+
+Alpha Data ADM-7V3
+@200MHz
+
+2*LSTM*1024
+
+F5 [92]
+
+1*BiLSTM*100
+
+F6 [74]
+
+Zynq- 7000 XC7Z045 @142
+MHz
+XCKU060 @200 MHz
+
+Block-circulant 16
+Piecewise approx.
+Quantization 12
+DeltaRNN, RALUT
+Quantization 16
+Block-circulant 8
+Piecewise approx.
+Quantization 16
+Quantization 5
+
+2*LSTM*1024
+
+Pruning, Quantization 12
+
+F7 [21]
+
+Virtex-7 VC709 @100 MHz
+
+Quantization 16
+
+F8
+[103]
+F9 [16]
+
+XC7Z045 @ 100 MHz
+VC707 @150 MHz
+
+AlexNet +
+15steps:1*LSTM*256
+100steps:3*LSTM*256
+3840steps:2*LSTM*256
+1*LSTM*10 + FC
+
+F10
+[91]
+
+VC707 @150 MHz
+
+3*LSTM*250
+
+Piecewise approx.
+
+F11
+[78]
+F12
+[69]
+
+Zynq ZC706 @100 MHz
+
+2 * LSTM*512
+
+Zynq-7000 XC7Z045
+@142MHz
+
+2*LSTM*128
+
+1
+2
+3
+4
+5
+
+Algorithmic
+Optimizations
+Quantization 1
+
+Quantization 6
+Hard Sigmoid
+
+The cases q1-q4 are explained in Section V-A1.
+The cases e1-e4 are explained in Section V-A2.
+The effective throughput in the paper was computed on a bit basis. For a fair comparison, we recalculated the number of operations on an operand basis.
+The throughput is for running CNN and LSTM combined together.
+The number of time steps the model should run per second to reach real-time behavior is given. We computed the number of operations in the model and multiplied by the number
+of time steps in one second, then multiplied by the speedup gained over the real-time threshold to get the implementation throughput.
+
+Rezk et al.: Recurrent Neural Networks: An Embedded Computing Perspective
+
+VOLUME , 2020
+
+TABLE 8: Comparison of RNNs implementations on FPGAs.
+
+23
+
+24
+
+TABLE 9: Comparison of RNNs implementations on ASIC and other platforms.
+Category
+
+< e1 >950/7044
+
+< q1 > 311.6
+
+< e1 > 2000/2380
+
+< q3 > 295
+
+< e3 > 122.9
+
+< q2 > 0.002 4
+
+< e2 > 469.3/128
+
+< q5 > -
+
+< e1 >27000
+
+< q3 > 22.3
+
+< e4 > -
+
+Unrolling-timesteps
+
+< q3 >19.2
+
+< e4 > -
+
+RenderScript5
+
+< q3 > 0.0011
+
+< e4 > -
+
+A1 [101]
+
+CMOS 32nm @1GHz
+
+LSTM 8
+
+Quantization 16
+
+A2 [58]
+
+TSMC 90nm
+@600MHz &1v
+
+1*LSTM*512
+
+A3 [98]
+
+CMOS 180nm
+
+1*LSTM*16
+
+Quantization 6
+Circulant matrices
+Piecewise approx.
+Quantization 4
+
+A4 [97]
+
+CMOS 65nm
+@400 MHz
+CMOS 65nm
+@200MHz
+CMOS 65nm
+@239 KHz
+CMOS 65nm
+
+GRU7
+
+1*LSTM*256
+
+Quantization 4
+Piecewise approx.
+Quantization 16
+
+ARMv8
+@ 2GHz
+Intel Core i7
+@ 3.2GHz
+Adreno 330 GPU
+@ 450 MHz
+
+1*SRU*1024
+
+SRU
+
+Memristor PIM
+Analog computing, Pipelining
+On-chip
+Tiling
+Inner-loop-unrolling
+Analog computing
+On-chip
+On-chip
+Hardware sharing, Pipelining
+Load balancing
+Inner-loop-unrolling
+On-chip
+Doubling memory fetching
+ReRAM PIM
+Analog computing
+Unrolling-timesteps
+
+1*SRU*1024
+
+SRU
+-
+
+C1 [93]
+C2 [93]
+C3
+[116]
+
+2*LSTM*512
+2*LSTM*32
+
+2*LSTM*32
+
+Quantization 16
+Piecewise approx.
+Pruning
+
+The cases q1-q4 are explained in Section V-A1.
+The cases e1-e4 are explained in Section V-A2.
+Scaled to 65 nm at 1.1 volt using general scaling [117] and scaling estimates for 45 nm and smaller technologies [118].
+The throughput is not high as the purpose was to reach very low power consumption while performing inference within 16ms.
+RenderScript is a mobile-specific parallelization framework [119].
+Quantization used 1 bit for weights and 4 bits for activations.
+A4 proposed a GRU core without providing specific model details.
+A1 did not specify which model achieved the provided throughput and energy efficiency.
+
+VOLUME , 2020
+
+Rezk et al.: Recurrent Neural Networks: An Embedded Computing Perspective
+
+< q4 >473.3/1211
+
+Platform
+Optimizations
+
+Others
+
+7
+8
+
+< e2 > 2436/2787
+
+Algorithmic
+Optimizations
+
+A6
+[104]
+A7 [71]
+
+4
+5
+6
+
+< q1 > 2460/3406
+
+Model
+
+A5 [73]
+
+2
+3
+
+Eef f 2 GOP/s/watt
+(original/scaled)3
+< e1 >837/250
+
+Platform
+
+ASIC
+
+1
+
+Qef f 1GOP/s
+(original/scaled)3
+< q1 >52300/16000
+
+Index
+
+Rezk et al.: Recurrent Neural Networks: An Embedded Computing Perspective
+
+In addition, Figure 9 shows that most of the ASIC implementations were not exceeding FPGA implementations in
+terms of throughput. We think the reason is that the ASIC
+implementations under study did not use the latest ASIC
+technologies, as shown in Table 9.
+For the low throughput implementations, Figure 9 shows
+that some implementations did not apply either of the two
+optimizations (memory access and algorithmic), such as
+F9 [16] that had a strict accuracy constraint bounding the use
+of algorithmic optimizations and C3 [116]. In addition, some
+implementations applied only one of the two optimizations,
+including F11 [78] and F12 [69].
+2) Energy efficiency
+
+To compare the implementations from the energy consumption perspective, we use the number of operations per second
+per watt as a measure. The last columns in Table 8 and
+Table 9 show the energy efficiency. Energy efficiency is
+calculated based on the dense model, not the sparse model,
+as for effective throughput. However, it was not possible to
+obtain values for energy efficiency for all implementations.
+In some cases, the power consumption was not mentioned
+in the paper, while in others, the consumed power was not
+provided in a precise manner. For instance, the power of the
+whole FPGA board may be provided, which does not indicate
+how much power is used by the implementation with respect
+to the peripherals [21], [91].
+Here, we list the cases used for computing the energy
+efficiency in Table 8 and Table 9. The case number appears
+in triangular brackets, <>, before the numeric value
+•
+•
+
+Case e1: The Eef f energy efficiency is given in the
+paper.
+Case e2: The power consumption is given in the paper.
+To compute the energy efficiency Eef f , the effective
+throughput Qef f (OP/s) is divided by the power P
+(watt) as
+Eef f =
+
+•
+
+•
+
+Qef f
+.
+P
+
+Case e3: Energy and computation time are provided.
+First, we divide energy by time to get power. Then, we
+divide effective throughput Qef f by the power to get
+energy efficiency, as in case e2.
+Case e4: energy efficiency could not be computed.
+
+Figure 10 is a plot of the energy efficiency found or
+deduced for the implementations under study against the
+implementation index. Implementations are sorted in the plot
+according to energy efficiency and the scaled values for the
+ASIC implementations are used. Again, to show the effect of
+optimizations, we chose the two most effective optimizations
+from Table 8 and Table 9 to include in the figure. They are
+the same as in Figure 9: memory access optimization and algorithmic optimizations. Comparing the effective throughput
+and energy efficiency of FPGA and ASIC implementations,
+it is observed that FPGA and ASIC have close values for
+VOLUME , 2020
+
+effective throughput while ASIC implementations are more
+energy efficient. The credit should go to ASIC technology.
+It can be observed that the highest energy efficiency was
+achieved by A7 [120] and A3 [98]. Both implementations
+used analog crossbar based matrix to vector multiplications.
+A7 managed to save memory access time by computing in
+memory. The quantization method used was multi-bit code
+quantization (1-bit for weights and 4-bit for activations).
+Multi-bit code quantization enables replacing the MAC operation with XNOR and bit-counting operations, as discussed
+in Section IV-A1. It was sufficient to use an XNOR-RRAM
+based architecture to implement the RNN.
+Both A1 (applying PIM and analog computing) and A6
+(Applying memory and algorithmic optimizations) were less
+energy efficient than expected. They were both less energy
+efficient than A4 (Applying only memory optimization). A1
+had a quite high clock frequency of 1 GHz. This high frequency helped the implementation to achieve high throughput. However, we suspect that this high frequency is the main
+reason for the energy efficiency degradation compared to the
+other implementations. A6 had the least power consumption
+among all implementations (≤ 5 µW ). The low throughput
+of A6 affected the overall energy efficiency value.
+3) Meeting real-time requirements
+
+In some of the implementations, real-time requirements for
+throughput and power have been determined. For example,
+in F8 [103], the speech recognition system had two RNN
+models. One model for acoustic modeling and the other for
+character-level language modeling. The real-time requirement was to run the first model 100 times per second and the
+second model 3,840 times per second. While in A6 [104],
+an LSTM accelerator for an always-on Keyword Spotting
+System (KWS), the real-time response demanded that a new
+input vector should be consumed every 16 ms and the power
+consumption should not exceed 10 µW .
+B. FLEXIBILITY
+
+Flexibility, as defined in Section II is the ability of the
+solution to support different models and configurations. The
+flexibility of the solution can be met by supporting variations
+in the model. Models can vary in the number of layers, the
+number of hidden units per layer, optimizations applied on
+the model, and more. Flexibility can be met by supporting
+online training or meeting different application domain requirements.
+Flexibility is not quantitative, like throughput. Thus, we
+use a subjective measure for flexibility to reach a flexibility
+score for each implementation. Table 10 shows the flexibility
+aspects supported by each implementation, as discussed in
+the papers and the flexibility score for each implementation.
+Papers that do not discuss any flexibility aspects are omitted
+from Table 10. In A4 [97], the architecture should be able to
+support various models, but the number of cells and layers
+the architecture can support are not mentioned in the paper.
+Hence, we cannot deduce how the implementation could
+25
+
+Rezk et al.: Recurrent Neural Networks: An Embedded Computing Perspective
+
+FIGURE 9: Effective throughput of different implementations and the key optimizations affecting them.
+
+FIGURE 10: Energy efficiency of different implementations and the key optimizations used.
+
+support variations in the RNN model. Also, the variations
+should be supported on the hardware platform and not only
+by the method before fabrication. In A2 [58], the design
+method can support two different RNN layers. However, the
+fabricated chip supports only one of them. Thus, we do not
+consider A2 [58] to meet the flexibility objective.
+To understand how far flexibility is met by the implementations, Figure 11 shows the percentage of implementations
+supporting each flexibility aspect. Flexibility is visualized
+as levels. Level 0 is used to indicate no flexibility. Level 0
+requires the implementation to support only one recurrent
+layer configuration. All papers meet level 0 requirement but
+thereafter they vary in meeting other flexibility aspects. The
+flexibility aspects and how they can be met are discussed
+below.
+Supporting variations in RNN layers (level 1) Recurrent
+layers can vary in the type of layers, the number of cells
+in each layer, and the number of layers (the depth of the
+RNN model). One optimization that might have a side effect
+on the flexibility of the solution is the choice of using onchip or off-chip memory to store the weights. Being able to
+26
+
+store all the weights in on-chip memory is very beneficial.
+It leads to better performance and less energy consumption
+by decreasing the cost of memory accesses. However, this
+solution may be unfeasible for larger problems. For example,
+in F8 [103], the number of weights in the model and their
+precision are restricted by the on-chip memory size. It is not
+possible to run a model with an increased number of hidden
+cells or increased precision. A possible solution is to use
+an adaptable approach, where the location chosen to store
+the weights is dependent on the model size and thus can a
+wide range of models can be supported. Another solution was
+adopted in F12 [69], where some of the weights are stored in
+internal memory, and the rest are stored in off-chip memory
+(Hybrid memory).
+Supporting other NN layers (level 2) Supporting other
+NN layers allows the solution to run a broader range of NN
+applications. Also, other NN layers may exist in the RNN
+model, such as convolutions used as a feature extractor. Supporting such a convolution in the implementation increases
+the flexibility of the solution, as it can run RNN models with
+visual inputs and run CNN independent applications.
+VOLUME , 2020
+
+Rezk et al.: Recurrent Neural Networks: An Embedded Computing Perspective
+
+FIGURE 11: Percentage of implementations meeting flexibility aspects for different flexibility levels and the definition of
+flexibility levels.
+
+TABLE 10: Flexibility score of implementations under study.
+Index
+F2 [80]
+
+F4 [68]
+
+F1 [56]
+
+F5 [92]
+F7 [21]
+F8 [103]
+
+F10
+[91]
+A4 [97]
+A5 [73]
+A6 [104]
+
+A8 [114]
+
+A9 [95]
+
+A10 [94]
+
+A1 [101]
+
+C2 [93]
+C3
+[116]
+
+VOLUME , 2020
+
+Flexibility aspects in papers
+Varying layer (LSTM/GRU)
+Varying number of cells
+Varying block size (block circulant matrices)
+Varying layer (LSTM/BiLSTM)
+Varying number of layers
+Varying number of cells
+Varying layer (LSTM/BiLSTM)
+Varying precision
+FC supported
+Varying layer (LSTM/BiLSTM)
+FC supported
+Convolution supported
+FC supported
+Varying number of layers
+Varying number of cells
+Input layer
+Varying number of layers
+Varying number of cells
+Online training
+Varying number of cells
+FC supported
+Varying number of layers
+Varying number of cells
+Linear/nonlinear quantization
+FC supported
+Varying type of layer(LSTM/GRU)
+Convolution supported
+FC supported
+Varying number of cells
+Varying number of layers
+Dense/Sparse
+Convolution supported
+Varying number of cells
+Varying number of layers
+Convolution supported
+Varying precision
+Varying number of cells
+Varying number of layers
+Varying type of layers
+Convolution supported
+FC supported
+Varying layer (LSTM/SRU/QRNN)
+Varying number of cells
+Varying number of layers
+Varying number of cells
+
+Score
+XXX
+XXX
+XXX
+XX
+XX
+XXX
+XX
+X
+XX
+XXXX
+
+XXX
+XXXX
+
+XXXX
+
+XXXXX
+
+XX
+XX
+
+Supporting algorithmic optimization variations (Level
+3) Variations in the optimizations applied are also considered
+as variations in the model. For example, variation due to
+applying or not applying pruning is related to the presence
+of sparse or dense matrices in the matrix to vector multiplications computations. The design in A9 [95] employed
+a configurable interconnection network topology to increase
+the flexibility of the accelerator. The accelerator in A9 [95]
+supported both LSTM and CNN layers. The accelerators supported both sparse and dense matrices. One other variation
+in the precision of the weights and activations. The design
+in A10 [94] supported varying precision models by allowing
+dynamic precision per layer for both CNN and RNN models.
+Similarly, the Microsoft NPU brainwave architecture [121]
+supported varying precision using a narrow precision block
+floating-point format [122]. To maximize the benefit of
+varying precision, F1 [56] applied a parameterizable parallelization scheme. When lower precision is required, LSTM
+units are duplicated to exploit the unused resources to gain
+speedup. And, when higher precision is used SIMD folding
+is applied to save resources for the needed high precision.
+Online training (Level 4) Incremented online training
+was included in A4 [97] to support retraining pre-trained
+networks to enhance accuracy. Changes in hardware design
+were applied to support both training and inference without
+affecting the quality of inference. For example, three modes
+of data transfer were applied. The first to load new weights;
+the second to load input sequences; and the third to update
+certain weights. Extra precision was only used for training.
+Meeting different applications domains constraints
+(Level 5) None of the implementations target variations
+in the application domain constraints. NetAdapt is a good
+example of an implementation that can adapt to different
+metric budgets [123]. However, it only targets CNNs.
+
+27
+
+Rezk et al.: Recurrent Neural Networks: An Embedded Computing Perspective
+
+VI. DISCUSSIONS AND OPPORTUNITIES
+
+In the previous section, we studied the implementations of
+RNN on embedded platforms. In Section II, we defined
+objectives for realizing RNN models on embedded platforms.
+In this section, we investigate how these objectives are being
+met by the implementations.
+Throughput It is clear that throughput was the main objective for most of the implementations. As seen in Figure 9,
+high throughput was achieved by many of them. Algorithmic
+and memory optimizations are present in most of these high
+throughput implementations. The algorithmic optimizations
+applied were effective because they decrease both the computation and the memory requirements of the RNN models.
+For example, if 4-bit precision is used instead of 32-bit
+for weights storage, the memory requirement is decreased
+to 1/8. Multiple 4-bit weights can be concatenated during
+weights fetching. Thus, the number of memory accesses can
+decrease as well. Furthermore, the hardware required for 4bit operations is simpler than the hardware required for 32-bit
+floating-point operations.
+Memory-specific optimizations are effective because they
+decrease or hide the overhead of accessing the large number
+of weights used in RNN computations. Memory access time
+can be decreased by storing all weights in on-chip memory.
+However, this can bound the validity of the solution for
+larger models as on-chip memory may not be sufficient to
+store the weights. Overlapping the memory access time with
+computation and computation in memory are also considered
+to be memory optimizations.
+Energy efficiency Applying algorithmic and memory access optimizations has a positive effect on energy efficiency
+as well. Algorithmic optimizations lead to a decrease in the
+number of computations, the complexity of computations,
+and the number of memory accesses, and so decrease the
+energy consumed by the implementation. Also, minimizing
+off-chip memory use by storing weights on on-chip memory
+is an effective way to enhance energy efficiency. Analog computing and processing in memory implementations showed
+superior energy efficiency in ASIC implementations.
+Meeting real-time requirements was not an objective for
+many of the implementations. In a few of them, real-time
+deadlines were mentioned and followed in the design of the
+solution.
+Flexibilty In Section II-A, flexibility is defined as a secondary objective. Thus, we do not expect flexibility to be
+fully met by the implementations. Variations in the RNN
+model was partially fulfilled by many implementations. However, the number of variations covered by each implementation is quite low. Few implementations included other NN
+layers and variations in algorithmic optimizations. Onlinetraining was targeted by only one implementation. Embedded implementations do not usually support online-training.
+However, on the algorithmic side, researchers are carrying
+out interesting work based on online or continuous training [10], [11]. None of the RNN implementations support
+different applications, but this has been done by the CNN
+28
+
+solution in [123]. Following a similar method in RNNs, and
+in addition, also supporting model variations, could lead to
+interesting solutions.
+Opportunities for future research
+Based on the survey reported on in this article, we list some
+opportunities for future research.
+QRNN and SRU: QRNN and SRU (Section III-B6) are
+two alternatives to LSTM where the matrix to vector computations for the current time-step are independent of previous
+time-step computations. Thus, using them in RNN models
+can make the parallelization more efficient and consequently
+lead to better performance.
+DeltaRNN [87] and DeltaCNN [88]: We believe that
+applying the delta algorithm to both recurrent and convolution layers is a logical step because of the temporal relation
+between the input sequences. Adding a delta step to other
+algorithmic optimizations such as pruning and quantization
+would decrease memory access and computation requirements.
+Block-circulant matrices Using block-circulant matrices
+as an algorithmic optimization decreases the RNN size while
+avoiding irregularity of computation as introduced by pruning [68]. Applying circulant matrices can be accompanied by
+low precision parameters and activations, with a small effect
+on accuracy [58]. With the addition of the delta algorithm, as
+mentioned earlier, RNN inference can achieve a promising
+throughput and energy efficiency.
+Hybrid optimizations: It has been shown that a mix of
+algorithmic optimizations can be applied to an RNN model
+with a loss in accuracy that is acceptable [58]. Applying a
+mix of optimizations would enable the implementations to
+benefit from each optimization. For an RNN implementation,
+three classes of optimizations can be mixed with tuning.
+The first optimization is the delta algorithm, and the corresponding parameter is delta. The second is quantization
+and the corresponding parameters are the number of bits and
+the quantization method. The third optimization is compression. If the applied compression technique is block-circulant
+matrices, the parameter is the block size. Tuning the three
+parameters delta, number of bits, quantization method, and
+block size, the designer can achieve the highest performance
+while keeping the accuracy within an acceptable range (the
+range is dependent on the application).
+Analog computing and processing in memory: Analog
+computing [98] and processing in memory [71], [101] have
+shown promising performance, especially in energy efficiency. Analog crossbar based matrix to vector multiplication
+units can provide low latency and computing in memory
+overcomes the memory access problems.
+Flexible neural networks and domain-specific architectures Domain-specific architectures (DSAs) have been
+highlighted as a future opportunity in the field of computer
+architecture [124]. DSAs (also called accelerators or custom
+hardware) for neural networks applications can reach high
+performance and energy efficiency. Designing an architecture for neural networks applications as a specific domain
+VOLUME , 2020
+
+Rezk et al.: Recurrent Neural Networks: An Embedded Computing Perspective
+
+with known memory access patterns enhances parallelism
+and the use of the memory hierarchy. It is possible to use
+lower precision and benefit from domain-specific languages
+(DSLs). Google Edge TPU is an example of a DSA for neural
+networks inference using 8-bit precision [125]. Based on the
+study in this article, we add that the neural networks DSA
+needs to support flexibility. For the flexibility aspects defined
+earlier in Section II to be fulfilled, there are some features
+need to be supported in the underlying hardware.
+• Variable bit-width operations as in A10 [94] to support
+different quantization schemes.
+• Some optimizations require pre/post-processing on input vectors and weights. Support for weights reordering,
+delta vectors computation, retaining circulant matrices
+from equivalent vectors, and other operations required
+by miscellaneous optimizations would be useful.
+• Support for training that would imply the support of
+back-propagation and the allowance of weights modification.
+VII. SUMMARY
+
+Today we see a trend towards more intelligent mobile devices
+that are processing applications with streamed data in the
+form of text, voice, and video. To process these applications,
+RNNs are important because of their efficiency in processing
+sequential data. In this article, we have studied the state-ofthe-art in RNN implementations from the embedded systems
+perspective. The article includes all the aspects required for
+the efficient implementation of an RNN model on embedded platforms. We study the different components of RNN
+models, with an emphasis on implementation rather than on
+algorithms. Also, we define the objectives that are required
+to be met by the hardware solutions for RNN applications,
+and the challenges that make them difficult to implement. For
+an RNN model to run efficiently on an embedded platform,
+some optimizations need to be applied. Thus, we study both
+algorithmic and platform-specific optimizations. Then, we
+analyze existing implementations of RNN models on embedded systems. Finally, we discuss how the objectives defined
+earlier in the article have been met and highlight possible
+directions for research in this field in the future.
+We conclude from the analysis of the implementations
+that there are two optimizations that are used for most of
+the efficient implementations. The first is algorithmic optimizations. The second is to decrease the memory access time
+for weights retrieval, which can be implemented by relying
+on on-chip memory for storing the weights, applying an
+efficient overlap between weights loading and computations,
+or by computing in memory. However, using analog crossbar based multipliers can achieve high performance without
+relying too much on algorithmic optimizations. A study of
+the implementations in the literature shows performance high
+enough for many streaming applications while also showing
+a lack of flexibility. Finally, we deduce some opportunities
+for research to fill the gap between the defined objectives and
+the research work under study. We highlight some hardware
+VOLUME , 2020
+
+efficient recurrent layers and algorithmic optimizations that
+can enhance implementations’ efficiency. Additionally, we
+describe how custom embedded hardware implementations
+can support flexible RNNs solutions.
+REFERENCES
+[1] A. Graves, A. Mohamed, and G. E. Hinton, “Speech recognition with
+deep recurrent neural networks,” CoRR, vol. abs/1303.5778, 2013.
+[2] I. Sutskever, O. Vinyals, and Q. V. Le, “Sequence to sequence learning
+with neural networks,” CoRR, vol. abs/1409.3215, 2014.
+[3] J. Donahue, L. A. Hendricks, S. Guadarrama, M. Rohrbach, S. Venugopalan, K. Saenko, and T. Darrell, “Long-term recurrent convolutional networks for visual recognition and description,” CoRR, vol.
+abs/1411.4389, 2014.
+[4] H. Salehinejad, J. Baarbe, S. Sankar, J. Barfett, E. Colak, and
+S. Valaee, “Recent advances in recurrent neural networks,” CoRR, vol.
+abs/1801.01078, 2018.
+[5] Z. C. Lipton, “A critical review of recurrent neural networks for sequence
+learning,” CoRR, vol. abs/1506.00019, 2015.
+[6] V. Sze, Y. Chen, T. Yang, and J. S. Emer, “Efficient processing of deep
+neural networks: a tutorial and survey,” Proceedings of the IEEE, vol.
+105, no. 12, pp. 2295–2329, Dec 2017.
+[7] S. I. Venieris, A. Kouris, and C. Bouganis, “toolflows for mapping
+convolutional neural networks on FPGAs: a survey and future directions,”
+CoRR, vol. abs/1803.05900, 2018.
+[8] Y. Cheng, D. Wang, P. Zhou, and T. Zhang, “A survey of model
+compression and acceleration for deep neural networks,” CoRR, vol.
+abs/1710.09282, 2017.
+[9] E. Wang, J. J. Davis, R. Zhao, H. Ng, X. Niu, W. Luk, P. Y. K. Cheung,
+and G. A. Constantinides, “Deep neural network approximation for
+custom hardware: Where we’ve been, where we’re going,” CoRR, vol.
+abs/1901.06955, 2019. [Online]. Available: http://arxiv.org/abs/1901.
+06955
+[10] A. Teichman and S. Thrun, “Practical object recognition in autonomous
+driving and beyond,” in Advanced Robotics and its Social Impacts, Oct
+2011, pp. 35–38.
+[11] C. Käding, E. Rodner, A. Freytag, and J. Denzler, “Fine-tuning deep
+neural networks in continuous learning scenarios,” in Asian Conference
+on Computer Vision. Springer, 2016, pp. 588–605.
+[12] Y. Wang, S. Liang, S. Yao, Y. Shan, S. Han, J. Peng, and H. Luo,
+“Reconfigurable processor for deep learning in autonomous vehicles,”
+2017.
+[13] N. D. Lane, S. Bhattacharya, P. Georgiev, C. Forlivesi, L. Jiao, L. Qendro,
+and F. Kawsar, “DeepX: a software accelerator for low-power deep learning inference on mobile devices,” in 2016 15th ACM/IEEE International
+Conference on Information Processing in Sensor Networks (IPSN), April
+2016, pp. 1–12.
+[14] C. Zhang, P. Patras, and H. Haddadi, “Deep learning in mobile and
+wireless networking: a survey,” CoRR, vol. abs/1803.04311, 2018.
+[15] Y.-H. Chen, J. Emer, and V. Sze, “Eyeriss: a spatial architecture for
+energy-efficient dataflow for convolutional neural networks,” in Proceedings of the 43rd International Symposium on Computer Architecture, ser.
+ISCA ’16. Piscataway, NJ, USA: IEEE Press, 2016, pp. 367–379.
+[16] Z. Sun, Y. Zhu, Y. Zheng, H. Wu, Z. Cao, P. Xiong, J. Hou, T. Huang,
+and Z. Que, “FPGA acceleration of LSTM based on data for test flight,”
+in 2018 IEEE International Conference on Smart Cloud (SmartCloud),
+Sept 2018, pp. 1–6.
+[17] E. Sejdić, I. Djurović, and J. Jiang, “Time–frequency feature representation using energy concentration: An overview of recent advances,” Digital
+signal processing, vol. 19, no. 1, pp. 153–183, 2009.
+[18] K. Gupta and D. Gupta, “An analysis on LPC, RASTA and MFCC
+techniques in automatic speech recognition system,” in 2016 6th International Conference-Cloud System and Big Data Engineering (Confluence), Noida, India. IEEE, 2016, pp. 493–497.
+[19] L. Deng, “A tutorial survey of architectures, algorithms, and applications
+for deep learning,” APSIPA Transactions on Signal and Information
+Processing, vol. vol.3, 2014.
+[20] A. Karpathy and L. Fei-Fei, “Deep visual-semantic alignments for generating image descriptions,” in 2015 IEEE Conference on Computer Vision
+and Pattern Recognition (CVPR), June 2015, pp. 3128–3137.
+[21] X. Zhang, X. Liu, A. Ramachandran, C. Zhuge, S. Tang, P. Ouyang,
+Z. Cheng, K. Rupnow, and D. Chen, “High-performance video content
+29
+
+Rezk et al.: Recurrent Neural Networks: An Embedded Computing Perspective
+
+[22]
+
+[23]
+
+[24]
+
+[25]
+
+[26]
+
+[27]
+[28]
+
+[29]
+
+[30]
+
+[31]
+
+[32]
+
+[33]
+[34]
+
+[35]
+[36]
+[37]
+[38]
+
+[39]
+[40]
+
+[41]
+[42]
+
+[43]
+
+[44]
+
+30
+
+recognition with long-term recurrent convolutional network for FPGA,”
+in 2017 27th International Conference on Field Programmable Logic and
+Applications (FPL), Sept 2017, pp. 1–4.
+Y. Xu, Q. Kong, Q. Huang, W. Wang, and M. D. Plumbley, “Convolutional gated recurrent neural network incorporating spatial features
+for audio tagging,” in 2017 International Joint Conference on Neural
+Networks (IJCNN). IEEE, 2017, pp. 3461–3466.
+T. Young, D. Hazarika, S. Poria, and E. Cambria, “Recent trends in deep
+learning based natural language processing,” CoRR, vol. abs/1708.02709,
+2017.
+B. Pang and L. Lee, “Opinion mining and sentiment analysis,” Foundations and Trends in Information Retrieval, vol. 2, no. 1-2, pp. 1–135, Jan.
+2008.
+Y. Li, Q. Pan, T. Yang, S. Wang, J. Tang, and E. Cambria, “Learning word
+representations for sentiment analysis,” Cognitive Computation, vol. 9,
+no. 6, pp. 843–851, Dec 2017.
+R. Leonard, “A database for speaker-independent digit recognition,” in
+ICASSP ’84. IEEE International Conference on Acoustics, Speech, and
+Signal Processing, vol. 9, March 1984, pp. 328–331.
+“AN4 dataset,” http://www.speech.cs.cmu.edu/databases/an4/, accessed
+on: Oct. 2018.
+J. Garofolo, L. Lamel, W. Fisher, J. Fiscus, and D. Pallett, “DARPA
+TIMIT acoustic-phonetic continous speech corpus cd-rom. nist speech
+disc 1-1.1,” NASA STI/Recon Technical Report N, vol. 93, p. 27403, 01
+1993.
+J. Garofalo, D. Graff, D. Paul, and D. Pallet, “WSJ dataset,” https://
+catalog.ldc.upenn.edu/LDC93S6A, linguistic Data Consortium, Philadelphia. Accessed on: Oct. 2019.
+V. Panayotov, G. Chen, D. Povey, and S. Khudanpur, “Librispeech:
+an ASR corpus based on public domain audio books,” in 2015 IEEE
+International Conference on Acoustics, Speech and Signal Processing
+(ICASSP), April 2015, pp. 5206–5210.
+T. Lin, M. Maire, S. J. Belongie, L. D. Bourdev, R. B. Girshick, J. Hays,
+P. Perona, D. Ramanan, P. Dollár, and C. L. Zitnick, “Microsoft COCO:
+common objects in context,” CoRR, vol. abs/1405.0312, 2014.
+N. Srivastava, E. Mansimov, and R. Salakhutdinov, “Unsupervised learning of video representations using lstms,” CoRR, vol. abs/1502.04681,
+2015.
+E. Santana and G. Hotz, “Learning a driving simulator,” CoRR, vol.
+abs/1608.01230, 2016.
+M. P. Marcus, M. A. Marcinkiewicz, and B. Santorini, “Building a large
+annotated corpus of English: the Penn treebank,” Comput. Linguist.,
+vol. 19, no. 2, pp. 313–330, Jun. 1993.
+S. Merity, C. Xiong, J. Bradbury, and R. Socher, “Pointer sentinel mixture
+models,” CoRR, vol. abs/1609.07843, 2016.
+M. Mahoney, “About the test data,” http://mattmahoney.net/dc/textdata,
+accessed on: Oct. 2018.
+“Wmt’14 dataset,” https://nlp.stanford.edu/projects/nmt/, accessed on:
+Jan. 2019.
+A. L. Maas, R. E. Daly, P. T. Pham, D. Huang, A. Y. Ng, and C. Potts,
+“Learning word vectors for sentiment analysis,” in Proceedings of the
+49th Annual Meeting of the Association for Computational Linguistics:
+Human Language Technologies. Portland, Oregon, USA: Association
+for Computational Linguistics, June 2011, pp. 142–150.
+S. Hochreiter and J. Schmidhuber, “Long short-term memory,” Neural
+Comput., vol. 9, no. 8, pp. 1735–1780, Nov. 1997.
+F. A. Gers and J. Schmidhuber, “Recurrent nets that time and count,” in
+Proceedings of the IEEE-INNS-ENNS International Joint Conference on
+Neural Networks. IJCNN 2000. Neural Computing: New Challenges and
+Perspectives for the New Millennium, July 2000, pp. 189–194 vol.3.
+A. Graves, “Generating sequences with recurrent neural networks,”
+CoRR, vol. abs/1308.0850, 2013.
+X. Shi, Z. Chen, H. Wang, D. Yeung, W. Wong, and W. Woo, “Convolutional LSTM network: a machine learning approach for precipitation
+nowcasting,” CoRR, vol. abs/1506.04214, 2015.
+H. Sak, A. Senior, and F. Beaufays, “Long short-term memory recurrent neural network architectures for large scale acoustic modeling,” in
+Fifteenth annual conference of the international speech communication
+association, 2014.
+K. Cho, B. van Merrienboer, D. Bahdanau, and Y. Bengio, “On the
+properties of neural machine translation: encoder-decoder approaches,”
+CoRR, vol. abs/1409.1259, 2014.
+
+[45] J. Chung, Ç. Gülçehre, K. Cho, and Y. Bengio, “Empirical evaluation
+of gated recurrent neural networks on sequence modeling,” CoRR, vol.
+abs/1412.3555, 2014.
+[46] J. Bradbury, S. Merity, C. Xiong, and R. Socher, “Quasi-recurrent neural
+networks,” CoRR, vol. abs/1611.01576, 2016.
+[47] T. Lei, Y. Zhang, and Y. Artzi, “Training RNNs as fast as CNNs,” CoRR,
+vol. abs/1709.02755, 2017.
+[48] Y. Bengio, R. Ducharme, P. Vincent, and C. Janvin, “A neural probabilistic language model,” J. Mach. Learn. Res., vol. 3, pp. 1137–1155, Mar.
+2003.
+[49] A. S. Timmaraju, “Sentiment analysis on movie reviews using recursive
+and recurrent neural network architectures,” Semantic scholar, 2015.
+[50] J. Li and Y. Shen, “Image describing based on bidirectional LSTM and
+improved sequence sampling,” in 2017 IEEE 2nd International Conference on Big Data Analysis (ICBDA), March 2017, pp. 735–739.
+[51] V. Vukotic, C. Raymond, and G. Gravier, “A step beyond local observations with a dialog aware bidirectional GRU network for spoken language
+understanding,” in Interspeech, San Francisco, United States, Sep. 2016.
+[52] Y. Bengio, “Learning deep architectures for AI,” Found. Trends Mach.
+Learn., vol. 2, no. 1, pp. 1–127, Jan. 2009.
+[53] R. Pascanu, Ç. Gülçehre, K. Cho, and Y. Bengio, “How to construct deep
+recurrent neural networks,” CoRR, vol. abs/1312.6026, 2013.
+[54] X. Dai, H. Yin, and N. K. Jha, “Grow and prune compact, fast, and
+accurate lstms,” CoRR, vol. abs/1805.11797, 2018.
+[55] J. Ott, Z. Lin, Y. Zhang, S. Liu, and Y. Bengio, “Recurrent neural
+networks with limited numerical precision,” CoRR, vol. abs/1608.06902,
+2016.
+[56] V. Rybalkin, A. Pappalardo, M. M. Ghaffar, G. Gambardella, N. Wehn,
+and M. Blott, “FINN-L: library extensions and design trade-off analysis for variable precision LSTM networks on FPGAs,” CoRR, vol.
+abs/1807.04093, 2018.
+[57] E. Stromatias, D. Neil, M. Pfeiffer, F. Galluppi, S. B. Furber, and
+S.-C. Liu, “Robustness of spiking deep belief networks to noise and
+reduced bit precision of neuro-inspired hardware platforms,” Frontiers
+in Neuroscience, vol. 9, p. 222, 2015.
+[58] Z. Wang, J. Lin, and Z. Wang, “Accelerating recurrent neural networks:
+a memory-efficient approach,” IEEE Transactions on Very Large Scale
+Integration (VLSI) Systems, vol. 25, no. 10, pp. 2763–2775, Oct 2017.
+[59] I. Hubara, M. Courbariaux, D. Soudry, R. El-Yaniv, and Y. Bengio,
+“Binarized neural networks,” in Proceedings of the 30th International
+Conference on Neural Information Processing Systems, ser. NIPS’16.
+USA: Curran Associates Inc., 2016, pp. 4114–4122.
+[60] M. Rastegari, V. Ordonez, J. Redmon, and A. Farhadi, “XNOR-Net:
+imageNet classification using binary convolutional neural networks,”
+CoRR, vol. abs/1603.05279, 2016.
+[61] F. Li and B. Liu, “Ternary weight networks,” CoRR, vol. abs/1605.04711,
+2016.
+[62] M. Z. Alom, A. T. Moody, N. Maruyama, B. C. V. Essen, and T. M.
+Taha, “Effective quantization approaches for recurrent neural networks,”
+CoRR, vol. abs/1802.02615, 2018.
+[63] C. Xu, J. Yao, Z. Lin, W. Ou, Y. Cao, Z. Wang, and H. Zha, “Alternating multi-bit quantization for recurrent neural networks,” CoRR, vol.
+abs/1802.00150, 2018.
+[64] S. Zhou, Y. Wang, H. Wen, Q. He, and Y. Zou, “Balanced quantization:
+an effective and efficient approach to quantized neural networks,” CoRR,
+vol. abs/1706.07145, 2017.
+[65] Y. Guo, A. Yao, H. Zhao, and Y. Chen, “Network sketching: exploiting
+binary structure in deep CNNs,” CoRR, vol. abs/1706.02021, 2017.
+[66] M. Courbariaux, Y. Bengio, and J. David, “Binaryconnect: training deep
+neural networks with binary weights during propagations,” CoRR, vol.
+abs/1511.00363, 2015.
+[67] Z. Li, D. He, F. Tian, W. Chen, T. Qin, L. Wang, and T. Liu,
+“Towards binary-valued gates for robust LSTM training,” CoRR, vol.
+abs/1806.02988, 2018. [Online]. Available: http://arxiv.org/abs/1806.
+02988
+[68] S. Wang, Z. Li, C. Ding, B. Yuan, Y. Wang, Q. Qiu, and Y. Liang,
+“C-LSTM: enabling efficient LSTM using structured compression techniques on FPGAs,” CoRR, vol. abs/1803.06305, 2018.
+[69] A. X. M. Chang and E. Culurciello, “Hardware accelerators for recurrent
+neural networks on FPGA,” in 2017 IEEE International Symposium on
+Circuits and Systems (ISCAS), May 2017, pp. 1–4.
+[70] C. Gao, D. Neil, E. Ceolini, S.-C. Liu, and T. Delbruck, “DeltaRNN: A
+power-efficient recurrent neural network accelerator,” in Proceedings of
+the 2018 ACM/SIGDA International Symposium on Field-Programmable
+VOLUME , 2020
+
+Rezk et al.: Recurrent Neural Networks: An Embedded Computing Perspective
+
+[71]
+
+[72]
+[73]
+
+[74]
+
+[75]
+[76]
+
+[77]
+
+[78]
+
+[79]
+
+[80]
+
+[81]
+
+[82]
+
+[83]
+
+[84]
+[85]
+
+[86]
+
+[87]
+[88]
+
+[89]
+[90]
+
+[91]
+
+[92]
+
+Gate Arrays, ser. FPGA âĂŹ18. New York, NY, USA: Association
+for Computing Machinery, 2018, pp. 21–30. [Online]. Available:
+https://doi.org/10.1145/3174243.3174261
+S. Yin, X. Sun, S. Yu, J. Seo, and C. Chakrabarti, “A parallel RRAM
+synaptic array architecture for energy-efficient recurrent neural networks,” in 2018 IEEE International Workshop on Signal Processing
+Systems (SiPS), Oct 2018, pp. 13–18.
+A. See, M. Luong, and C. D. Manning, “Compression of neural machine
+translation models via pruning,” CoRR, vol. abs/1606.09274, 2016.
+J. Park, J. Kung, W. Yi, and J. J. Kim, “Maximizing system performance
+by balancing computation loads in LSTM accelerators,” in 2018 Design,
+Automation Test in Europe Conference Exhibition (DATE), March 2018,
+pp. 7–12.
+S. Han, J. Kang, H. Mao, Y. Hu, X. Li, Y. Li, D. Xie, H. Luo, S. Yao,
+Y. Wang, H. Yang, and W. J. Dally, “ESE: efficient speech recognition
+engine with compressed LSTM on FPGA,” CoRR, vol. abs/1612.00694,
+2016.
+S. Narang, G. F. Diamos, S. Sengupta, and E. Elsen, “Exploring sparsity
+in recurrent neural networks,” CoRR, vol. abs/1704.05119, 2017.
+S. Narang, E. Undersander, and G. F. Diamos, “Block-sparse recurrent
+neural networks,” CoRR, vol. abs/1711.02782, 2017. [Online]. Available:
+http://arxiv.org/abs/1711.02782
+X. Dai, H. Yin, and N. K. Jha, “NeST: a neural network synthesis
+tool based on a grow-and-prune paradigm,” CoRR, vol. abs/1711.02017,
+2017.
+M. Rizakis, S. I. Venieris, A. Kouris, and C. Bouganis, “Approximate
+FPGA-based LSTMs under computation time constraints,” CoRR, vol.
+abs/1801.02190, 2018.
+S. Yao, Y. Zhao, A. Zhang, L. Su, and T. Abdelzaher, “DeepIoT:
+compressing deep neural network structures for sensing systems with a
+compressor-critic framework,” in Proceedings of the 15th ACM Conference on Embedded Network Sensor Systems, ser. SenSys ’17. New
+York, NY, USA: ACM, 2017, pp. 4:1–4:14.
+Z. Li, C. Ding, S. Wang, W. Wen, Y. Zhuo, C. Liu, Q. Qiu, W. Xu,
+X. Lin, X. Qian, and Y. Wang, “E-RNN: design optimization for efficient
+recurrent neural networks in FPGAs,” CoRR, vol. abs/1812.07106, 2018.
+[Online]. Available: http://arxiv.org/abs/1812.07106
+A. Tjandra, S. Sakti, and S. Nakamura, “Tensor decomposition for compressing recurrent neural network,” 2018 International Joint Conference
+on Neural Networks (IJCNN), pp. 1–8, July 2018.
+A. Novikov, D. Podoprikhin, A. Osokin, and D. P. Vetrov, “Tensorizing
+neural networks,” CoRR, vol. abs/1509.06569, 2015. [Online]. Available:
+http://arxiv.org/abs/1509.06569
+V. Lebedev, Y. Ganin, M. Rakhuba, I. V. Oseledets, and V. S. Lempitsky, “Speeding-up convolutional neural networks using fine-tuned cpdecomposition,” CoRR, vol. abs/1412.6553, 2014.
+D. P. Kingma and J. Ba, “Adam: A method for stochastic optimization,”
+CoRR, vol. abs/1412.6980, 2014.
+M. Zhu and S. Gupta, “To prune, or not to prune: Exploring the efficacy
+of pruning for model compression,” in 6th International Conference on
+Learning Representations, ICLR 2018, Vancouver, BC, Canada, April 30
+- May 3, 2018, Workshop Track Proceedings, 2018. [Online]. Available:
+https://openreview.net/forum?id=Sy1iIDkPM
+Y. Kim and A. M. Rush, “Sequence-level knowledge distillation,”
+CoRR, vol. abs/1606.07947, 2016. [Online]. Available: http://arxiv.org/
+abs/1606.07947
+D. Neil, J. Lee, T. Delbrück, and S. Liu, “Delta networks for optimized
+recurrent network computation,” CoRR, vol. abs/1612.05571, 2016.
+L. Cavigelli, P. Degen, and L. Benini, “CBinfer: change-based inference for convolutional neural networks on video data,” CoRR, vol.
+abs/1704.04313, 2017.
+F. Piazza, A. Uncini, and M. Zenobi, “Neural networks with digital LUT
+activation functions,” pp. 1401–1404 vol.2, Oct 1993.
+R. Muscedere, V. Dimitrov, G. A. Jullien, and W. C. Miller, “Efficient
+techniques for binary-to-multidigit multidimensional logarithmic number
+system conversion using range-addressable look-up tables,” IEEE Transactions on Computers, vol. 54, no. 3, pp. 257–271, March 2005.
+Y. Guan, Z. Yuan, G. Sun, and J. Cong, “FPGA-based accelerator for
+long short-term memory recurrent neural networks,” in 2017 22nd Asia
+and South Pacific Design Automation Conference (ASP-DAC), Jan 2017,
+pp. 629–634.
+V. Rybalkin, N. Wehn, M. R. Yousefi, and D. Stricker, “Hardware
+architecture of bidirectional long short-term memory neural network for
+optical character recognition,” in Proceedings of the Conference on De-
+
+VOLUME , 2020
+
+[93]
+
+[94]
+
+[95]
+
+[96]
+
+[97]
+
+[98]
+
+[99]
+
+[100]
+
+[101]
+
+[102]
+
+[103]
+
+[104]
+
+[105]
+[106]
+
+[107]
+
+[108]
+
+[109]
+
+[110]
+
+sign, Automation & Test in Europe. European Design and Automation
+Association, 2017, pp. 1394–1399.
+W. Sung and J. Park, “Single stream parallelization of recurrent neural
+networks for low power and fast inference,” CoRR, vol. abs/1803.11389,
+2018.
+H. Sharma, J. Park, N. Suda, L. Lai, B. Chau, J. K. Kim, V. Chandra,
+and H. Esmaeilzadeh, “Bit fusion: Bit-level dynamically composable
+architecture for accelerating deep neural networks,” CoRR, vol.
+abs/1712.01507, 2017. [Online]. Available: http://arxiv.org/abs/1712.
+01507
+H. Kwon, A. Samajdar, and T. Krishna, “MAERI: Enabling
+flexible dataflow mapping over DNN accelerators via reconfigurable
+interconnects,” SIGPLAN Not., vol. 53, no. 2, pp. 461–475, Mar. 2018.
+[Online]. Available: http://doi.acm.org/10.1145/3296957.3173176
+A. Samajdar, Y. Zhu, P. N. Whatmough, M. Mattina, and T. Krishna,
+“Scale-sim: Systolic CNN accelerator,” CoRR, vol. abs/1811.02883,
+2018. [Online]. Available: http://arxiv.org/abs/1811.02883
+C. Chen, H. Ding, H. Peng, H. Zhu, R. Ma, P. Zhang, X. Yan, Y. Wang,
+M. Wang, H. Min, and R. C. . Shi, “OCEAN: an on-chip incrementallearning enhanced processor with gated recurrent neural network accelerators,” in ESSCIRC 2017 - 43rd IEEE European Solid State Circuits
+Conference, Sept 2017, pp. 259–262.
+Z. Zhao, A. Srivastava, L. Peng, and Q. Chen, “Long short-term memory
+network design for analog computing,” J. Emerg. Technol. Comput.
+Syst., vol. 15, no. 1, pp. 13:1–13:27, Jan. 2019. [Online]. Available:
+http://doi.acm.org/10.1145/3289393
+D. Maliuk and Y. Makris, “An experimentation platform for on-chip
+integration of analog neural networks: A pathway to trusted and robust
+analog/RF ICs,” IEEE Transactions on Neural Networks and Learning
+Systems, vol. 26, no. 8, pp. 1721–1734, Aug 2015.
+K. Bong, S. Choi, C. Kim, S. Kang, Y. Kim, and H. Yoo, “14.6 A
+0.62mw ultra-low-power convolutional-neural-network face-recognition
+processor and a CIS integrated with always-on haar-like face detector,” in
+2017 IEEE International Solid-State Circuits Conference (ISSCC), Feb
+2017, pp. 248–249.
+A. Ankit, I. E. Hajj, S. R. Chalamalasetti, G. Ndu, M. Foltin, R. S.
+Williams, P. Faraboschi, W. Hwu, J. P. Strachan, K. Roy, and D. S.
+Milojicic, “PUMA: A programmable ultra-efficient memristor-based
+accelerator for machine learning inference,” CoRR, vol. abs/1901.10351,
+2019. [Online]. Available: http://arxiv.org/abs/1901.10351
+S. Han, X. Liu, H. Mao, J. Pu, A. Pedram, M. A. Horowitz, and
+W. J. Dally, “EIE: efficient inference engine on compressed deep neural
+network,” CoRR, vol. abs/1602.01528, 2016.
+M. Lee, K. Hwang, J. Park, S. Choi, S. Shin, and W. Sung, “FPGAbased low-power speech recognition with recurrent neural networks,” in
+Signal Processing Systems (SiPS), 2016 IEEE International Workshop
+on. IEEE, 2016, pp. 230–235.
+J. S. P. Giraldo and M. Verhelst, “Laika: a 5uW programmable LSTM accelerator for always-on keyword spotting in 65nm CMOS,” in ESSCIRC
+2018 - IEEE 44th European Solid State Circuits Conference, Sept 2018,
+pp. 166–169.
+S. S. Parkin, M. Hayashi, and L. Thomas, “Magnetic domain-wall racetrack memory,” Science, vol. 320, no. 5873, pp. 190–194, 2008.
+M. H. Samavatian, A. Bacha, L. Zhou, and R. Teodorescu, “RNNFast: An
+accelerator for recurrent neural networks using domain wall memory,”
+CoRR, vol. abs/1812.07609, 2018.
+Y. Wang, H. Yu, L. Ni, G. Huang, M. Yan, C. Weng, W. Yang, and J. Zhao,
+“An energy-efficient nonvolatile in-memory computing architecture for
+extreme learning machine by domain-wall nanowire devices,” IEEE
+Transactions on Nanotechnology, vol. 14, no. 6, pp. 998–1012, Nov 2015.
+H. Yu, Y. Wang, S. Chen, W. Fei, C. Weng, J. Zhao, and Z. Wei,
+“Energy efficient in-memory machine learning for data intensive imageprocessing by non-volatile domain-wall memory,” in 2014 19th Asia and
+South Pacific Design Automation Conference (ASP-DAC), Jan 2014, pp.
+191–196.
+J. Chung, J. Park, and S. Ghosh, “Domain wall memory based
+convolutional neural networks for bit-width extendability and energyefficiency,” in Proceedings of the 2016 International Symposium on Low
+Power Electronics and Design, ser. ISLPED ’16. New York, NY, USA:
+ACM, 2016. [Online]. Available: http://doi.acm.org/10.1145/2934583.
+2934602
+A. J. Annunziata, M. C. Gaidis, L. Thomas, C. W. Chien, C. C. Hung,
+P. Chevalier, E. J. O’Sullivan, J. P. Hummel, E. A. Joseph, Y. Zhu,
+T. Topuria, E. Delenia, P. M. Rice, S. S. P. Parkin, and W. J. Gallagher,
+31
+
+Rezk et al.: Recurrent Neural Networks: An Embedded Computing Perspective
+
+[111]
+
+[112]
+
+[113]
+
+[114]
+
+[115]
+
+[116]
+
+[117]
+[118]
+
+[119]
+[120]
+
+[121]
+
+[122]
+[123]
+
+[124]
+
+[125]
+
+“Racetrack memory cell array with integrated magnetic tunnel junction
+readout,” in 2011 International Electron Devices Meeting, Dec 2011, pp.
+24.3.1–24.3.4.
+P. Chi, S. Li, C. Xu, T. Zhang, J. Zhao, Y. Liu, Y. Wang, and Y. Xie,
+“PRIME: A novel processing-in-memory architecture for neural network
+computation in ReRAM-Based main memory,” in 2016 ACM/IEEE 43rd
+Annual International Symposium on Computer Architecture (ISCA),
+June 2016, pp. 27–39.
+L. Song, X. Qian, H. Li, and Y. Chen, “Pipelayer: A pipelined rerambased accelerator for deep learning,” in 2017 IEEE International Symposium on High Performance Computer Architecture (HPCA), Feb 2017,
+pp. 541–552.
+S. Yu, Z. Li, P. Chen, H. Wu, B. Gao, D. Wang, W. Wu, and H. Qian,
+“Binary neural network with 16 Mb RRAM macro chip for classification and online training,” in 2016 IEEE International Electron Devices
+Meeting (IEDM), Dec 2016, pp. 16.2.1–16.2.4.
+Y. Long, T. Na, and S. Mukhopadhyay, “ReRAM-Based processing-inmemory architecture for recurrent neural network acceleration,” IEEE
+Transactions on Very Large Scale Integration (VLSI) Systems, vol. 26,
+no. 12, pp. 2781–2794, Dec 2018.
+A. Shafiee, A. Nag, N. Muralimanohar, R. Balasubramonian, J. P. Strachan, M. Hu, R. S. Williams, and V. Srikumar, “ISAAC: A convolutional
+neural network accelerator with In-Situ analog arithmetic in crossbars,”
+in 2016 ACM/IEEE 43rd Annual International Symposium on Computer
+Architecture (ISCA), June 2016, pp. 14–26.
+Q. Cao, N. Balasubramanian, and A. Balasubramanian, “Mobirnn: efficient recurrent neural network execution on mobile GPU,” CoRR, vol.
+abs/1706.00878, 2017.
+J. M. Rabaey, Digital Integrated Circuits: A Design Perspective. Upper
+Saddle River, NJ, USA: Prentice-Hall, Inc., 1996.
+A. Stillmaker and B. Baas, “Scaling equations for the accurate
+prediction of CMOS device performance from 180nm to 7nm,”
+Integration, vol. 58, pp. 74 – 81, 2017. [Online]. Available: http:
+//www.sciencedirect.com/science/article/pii/S0167926017300755
+“Android renderscript kernel description,” https://developer.android.com/
+guide/topics/renderscript/compute.html., accessed on: Jan. 2019.
+Y. Long, T. Na, and S. Mukhopadhyay, “ReRAM-based processing-inmemory architecture for recurrent neural network acceleration,” IEEE
+Transactions on Very Large Scale Integration (VLSI) Systems, pp. 1–14,
+2018.
+J. Fowers, K. Ovtcharov, M. Papamichael, T. Massengill, M. Liu, D. Lo,
+S. Alkalay, M. Haselman, L. Adams, M. Ghandi, S. Heil, P. Patel,
+A. Sapek, G. Weisz, L. Woods, S. Lanka, S. K. Reinhardt, A. M.
+Caulfield, E. S. Chung, and D. Burger, “A configurable cloud-scale
+DNN processor for real-time AI,” in 2018 ACM/IEEE 45th Annual
+International Symposium on Computer Architecture (ISCA), June 2018,
+pp. 1–14.
+J. H. Wilkinson, Rounding Errors in Algebraic Processes. New York,
+NY, USA: Dover Publications, Inc., 1994.
+T. Yang, A. G. Howard, B. Chen, X. Zhang, A. Go, V. Sze, and H. Adam,
+“Netadapt: platform-aware neural network adaptation for mobile applications,” CoRR, vol. abs/1804.03230, 2018.
+J. L. Hennessy and D. A. Patterson, “A new golden age for computer
+architecture,” Commun. ACM, vol. 62, no. 2, pp. 48–60, Jan. 2019.
+[Online]. Available: http://doi.acm.org/10.1145/3282307
+“Google edge TPU,” https://cloud.google.com/edge-tpu/, accessed on:
+Nov. 2019.
+
+NESMA M. REZK received her bachelor and
+masters degrees in computer and systems engineering from the faculty of engineering, Ain
+Shams University, Egypt in 2010 and 2015, respectively.
+From 2011 to 2016 she was a teaching and
+research assistant in the faculty of engineering,
+Ain Shams University. Since 2016, she has been a
+PhD student in the School of Information Technology at Halmstad University, Sweden. Her research
+interests include embedded systems, deep learning applications, and design
+of domain-specific architectures.
+32
+
+MADHURA PURNAPRAJNA received her
+BachelorŠs degree in Electronics and Communication Engineering from P.E.S Institute of Technology, Bengaluru in August 1998; her Master’s
+in Electrical and Computer Engineering from University of Alberta, Canada in January 2005; and
+her PhD in Electrical Engineering from the Heinz
+Nixdorf Institute, University of Paderborn, Germany in December 2009.
+Madhura Purnaprajna was a post-doctoral fellow with an International Research Fellowship from the German Research Foundation (Deutsche Forschungsgemenischaft) and MHV Fellowship (SNSF), at the Processor Architecture Lab, EPFL, Switzerland and the
+High-performance Computing Lab, IISc., Bangalore. Currently, she serves
+as Associate Professor at the Department of Computer Science, School of
+Engineering, Bengaluru, since February 2015. Her research interests are in
+Reconfigurable Computing and Processor Architectures.
+
+TOMAS NORDSTRÖM received his M.S.E.E.
+degree in 1988, his licentiate degree in 1991,
+and his Ph.D. in 1995, all from Luleå University of Technology, Sweden. His PhD Thesis
+"Highly Parallel Computers for Artificial Neural
+Networks" bridged the two fields of computer
+engineering and signal processing, between which
+he has been moving ever since.
+Between 1996 and 1999, Tomas Nordström was
+with Telia Research (the research branch of the
+major Swedish telephone operator) where he developed broadband Internet
+communication over twisted copper pair. He also became Telia’s leading
+expert in speaker verification during these years. In December 1999, he
+joined the FTW Telecommunications Research Center Vienna, Austria,
+where he has been working as a Key Researcher in the field of Şbroadband
+wireline accessŤ. During his years at FTW, he worked on various aspects
+of wireline communications such as the simulation of xDSL systems, cable
+characterization, RFI suppression, exploiting the common-mode signal in
+xDSL, and more recently, dynamic spectrum management. In 2009 was
+appointed Associate Professor in computer systems engineering at Halmstad
+University (HH), Sweden. At HH he has returned to the area of computer
+architecture and his current research interests include all aspects of energyefficient embedded computers. In 2012 he became full Professor in Computer Engineering at HH and has built up a research group focusing on
+heterogeneous many-core architectures. Additionally, he has been working in the field of dependable wireless communication studying optimal
+usage of communication resources, dynamic spectrum management, and
+IoT reference architectures. In 2019 he became full Professor in Embedded
+and Intelligent Systems at Umeå University, Sweden, where his research
+focuses on edge computing, intelligent IoT systems, and high-performance
+embedded computing architectures and platforms.
+
+VOLUME , 2020
+
+Rezk et al.: Recurrent Neural Networks: An Embedded Computing Perspective
+
+ZAIN-UL-ABDIN completed his PhD degree in
+Computer Science from Örebro University in 2011
+and until recently held an appointment as Associate Professor at Halmstad University.
+He has played a key role in a number of research projects such as Smart Multicore Embedded Systems (SMECY), High-Performance Embedded Computing (HiPEC), and Towards Next
+Generation Embedded Systems (NGES). In these
+projects he has worked in close collaboration with
+the Swedish Defence Research Agency (FOI) and industrial partners such as
+ST- Microelectronics, Ericsson, Adapteva, and Saab. He has authored more
+than 42 journal and conference articles and has been awarded the best paper
+prize in the PhD forum of 19th Field-programmable Logic and Applications
+conference (FPLŠ09). He has sat on the technical program committee of
+several leading conferences and has served as an external reviewer for
+journals (IJRC, IEEE-TSP, IEEE-Micro, JSP). His main research interests
+are high-performance embedded computing and the parallel programming
+models.
+
+VOLUME , 2020
+
+33
+
+

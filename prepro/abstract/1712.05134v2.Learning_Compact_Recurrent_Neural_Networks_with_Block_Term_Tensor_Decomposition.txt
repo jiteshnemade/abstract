@@ -1,0 +1,15 @@
+
+recurrent neural networks (rnns) are powerful sequence modeling tools. however, when dealing with high
+dimensional inputs, the training of rnns becomes computational expensive due to the large number of model parameters. this hinders rnns from solving many important computer vision tasks, such as action recognition in videos and
+image captioning. to overcome this problem, we propose
+a compact and flexible structure, namely block-term tensor decomposition, which greatly reduces the parameters
+of rnns and improves their training efficiency. compared
+with alternative low-rank approximations, such as tensortrain rnn (tt-rnn), our method, block-term rnn (btrnn), is not only more concise (when using the same rank),
+but also able to attain a better approximation to the original rnns with much fewer parameters. on three challenging tasks, including action recognition in videos, image
+captioning and image generation, bt-rnn outperforms
+tt-rnn and the standard rnn in terms of both prediction accuracy and convergence rate. specifically, bt-lstm
+utilizes 17,388 times fewer parameters than the standard
+lstm to achieve an accuracy improvement over 15.6% in
+the action recognition task on the ucf11 dataset.
+
+1. 

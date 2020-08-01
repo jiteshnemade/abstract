@@ -1,0 +1,15 @@
+
+lake and baroni (2018) introduced the scan
+dataset probing the ability of seq2seq models
+to capture compositional generalizations, such
+as inferring the meaning of “jump around” 0shot from the component words. recurrent
+networks (rnns) were found to completely
+fail the most challenging generalization cases.
+we test here a convolutional network (cnn)
+on these tasks, reporting hugely improved performance with respect to rnns. despite the
+big improvement, the cnn has however not
+induced systematic rules, suggesting that the
+difference between compositional and noncompositional behaviour is not clear-cut.
+
+1
+

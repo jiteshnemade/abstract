@@ -1,0 +1,11 @@
+
+in this paper, we propose a new recurrent neural network
+(rnn) architecture. the novelty is simple: we use diagonal
+recurrent matrices instead of full. this results in better test
+likelihood and faster convergence compared to regular full
+rnns in most of our experiments. we show the benefits of
+using diagonal recurrent matrices with popularly used lstm
+and gru architectures as well as with the vanilla rnn architecture, on four standard symbolic music datasets.
+index terms— recurrent neural networks, symbolic
+music modeling
+1. 

@@ -1,0 +1,10 @@
+
+we introduce a general and simple structural design called “multiplicative integration” (mi) to improve recurrent neural networks (rnns). mi changes the way in
+which information from difference sources flows and is integrated in the computational building block of an rnn, while introducing almost no extra parameters.
+the new structure can be easily embedded into many popular rnn models, including lstms and grus. we empirically analyze its learning behaviour and conduct
+evaluations on several tasks using different rnn models. our experimental results
+demonstrate that multiplicative integration can provide a substantial performance
+boost over many of the existing rnn models.
+
+1
+

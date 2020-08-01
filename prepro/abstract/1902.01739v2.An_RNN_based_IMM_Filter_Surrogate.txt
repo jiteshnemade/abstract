@@ -1,0 +1,13 @@
+ the problem of varying dynamics of tracked objects, such as
+pedestrians, is traditionally tackled with approaches like the interacting
+multiple model (imm) filter using a bayesian formulation. by following
+the current trend towards using deep neural networks, in this paper an
+rnn-based imm filter surrogate is presented. similar to an imm filter
+solution, the presented rnn-based model assigns a probability value
+to a performed dynamic and, based on them, puts out a multi-modal
+distribution over future pedestrian trajectories. the evaluation is done
+on synthetic data, reflecting prototypical pedestrian maneuvers.
+keywords: trajectory forecasting, path prediction, imm filter, multiple model filter
+
+1
+

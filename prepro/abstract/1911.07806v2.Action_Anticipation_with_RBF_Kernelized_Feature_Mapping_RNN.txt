@@ -1,0 +1,13 @@
+ we introduce a novel recurrent neural network-based algorithm for
+future video feature generation and action anticipation called feature mapping rnn .
+our novel rnn architecture builds upon three effective principles of machine
+learning, namely parameter sharing, radial basis function kernels and adversarial training. using only some of the earliest frames of a video, the feature mapping rnn is able to generate future features with a fraction of the parameters
+needed in traditional rnn. by feeding these future features into a simple multilayer perceptron facilitated with an rbf kernel layer, we are able to accurately
+predict the action in the video.
+in our experiments, we obtain 18% improvement on jhmdb-21 dataset, 6% on
+ucf101-24 and 13% improvement on ut-interaction datasets over prior stateof-the-art for action anticipation.
+keywords: human action prediction, novel recurrent neural network, radial
+basis function kernel, adversarial training
+
+1
+

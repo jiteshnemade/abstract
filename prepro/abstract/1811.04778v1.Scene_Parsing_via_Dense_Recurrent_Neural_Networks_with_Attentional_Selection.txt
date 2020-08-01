@@ -1,0 +1,14 @@
+
+recurrent neural networks (rnns) have shown the ability to improve scene parsing through capturing long-range
+dependencies among image units. in this paper, we propose
+dense rnns for scene labeling by exploring various longrange semantic dependencies among image units. different
+from existing rnn based approaches, our dense rnns are
+able to capture richer contextual dependencies for each image unit by enabling immediate connections between each
+pair of image units, which significantly enhances their discriminative power. besides, to select relevant dependencies
+and meanwhile to restrain irrelevant ones for each unit from
+dense connections, we introduce an attention model into
+dense rnns. the attention model allows automatically assigning more importance to helpful dependencies while less
+weight to unconcerned dependencies. integrating with convolutional neural networks (cnns), we develop an end-toend scene labeling system. extensive experiments on three
+large-scale benchmarks demonstrate that the proposed approach can improve the baselines by large margins and outperform other state-of-the-art algorithms.
+
+1. 

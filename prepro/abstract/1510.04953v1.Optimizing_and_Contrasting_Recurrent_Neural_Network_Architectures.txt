@@ -1,0 +1,15 @@
+
+recurrent neural networks (rnns) have long been recognized for their potential to
+model complex time series. however, it remains to be determined what optimization
+techniques and recurrent architectures can be used to best realize this potential. the experiments presented take a deep look into hessian free optimization, a powerful second
+order optimization method that has shown promising results, but still does not enjoy
+widespread use. this algorithm was used to train to a number of rnn architectures
+including standard rnns, long short-term memory, multiplicative rnns, and stacked
+rnns on the task of character prediction. the insights from these experiments led
+to the creation of a new multiplicative lstm hybrid architecture that outperformed
+both lstm and multiplicative rnns. when tested on a larger scale, multiplicative
+lstm achieved character level modelling results competitive with the state of the art
+for rnns using very different methodology.
+
+1
+

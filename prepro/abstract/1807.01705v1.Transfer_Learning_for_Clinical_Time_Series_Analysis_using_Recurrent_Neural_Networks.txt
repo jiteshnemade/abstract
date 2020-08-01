@@ -1,0 +1,30 @@
+
+deep neural networks have shown promising results for various
+clinical prediction tasks such as diagnosis, mortality prediction,
+predicting duration of stay in hospital, etc. however, training deep
+networks – such as those based on recurrent neural networks
+(rnns) – requires large labeled data, high computational resources,
+and significant hyperparameter tuning effort. in this work, we investigate as to what extent can transfer learning address these
+issues when using deep rnns to model multivariate clinical time
+series. we consider transferring the knowledge captured in an rnn
+trained on several source tasks simultaneously using a large labeled
+dataset to build the model for a target task with limited labeled
+data. an rnn pre-trained on several tasks provides generic features, which are then used to build simpler linear models for new
+target tasks without training task-specific rnns. for evaluation,
+we train a deep rnn to identify several patient phenotypes on
+time series from mimic-iii database, and then use the features
+extracted using that rnn to build classifiers for identifying previously unseen phenotypes, and also for a seemingly unrelated task
+of in-hospital mortality. we demonstrate that (i) models trained
+on features extracted using pre-trained rnn outperform or, in the
+worst case, perform as well as task-specific rnns; (ii) the models
+using features from pre-trained models are more robust to the size
+of labeled data than task-specific rnns; and (iii) features extracted
+using pre-trained rnn are generic enough and perform better than
+typical statistical hand-crafted features.
+
+keywords
+transfer learning, rnn, ehr data, clinical time series, patient
+phenotyping, in-hospital mortality prediction
+
+1
+

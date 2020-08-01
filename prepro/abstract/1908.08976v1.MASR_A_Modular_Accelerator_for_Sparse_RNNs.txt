@@ -1,0 +1,21 @@
+recurrent neural networks (rnns) are becoming
+the de facto solution for speech recognition. rnns exploit longterm temporal relationships in data by applying repeated, learned
+transformations. unlike fully-connected (fc) layers with single
+vector matrix operations, rnn layers consist of hundreds of
+such operations chained over time. this poses challenges unique
+to rnns that are not found in convolutional neural networks
+(cnns) or fc models, namely large dynamic activation. in this
+paper we present masr, a principled and modular architecture
+that accelerates bidirectional rnns for on-chip asr. masr is
+designed to exploit sparsity in both dynamic activations and
+static weights. the architecture is enhanced by a series of
+dynamic activation optimizations that enable compact storage,
+ensure no energy is wasted computing null operations, and
+maintain high mac utilization for highly parallel accelerator
+designs. in comparison to current state-of-the-art sparse neural
+network accelerators (e.g., eie), masr provides 2× area 3×
+energy, and 1.6× performance benefits. the modular nature
+of masr enables designs that efficiently scale from resourceconstrained low-power iot applications to large-scale, highly
+parallel datacenter deployments.
+
+i. 

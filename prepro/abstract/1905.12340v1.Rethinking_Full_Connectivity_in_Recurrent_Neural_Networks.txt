@@ -1,0 +1,17 @@
+
+recurrent neural networks (rnns) are omnipresent in sequence modeling tasks.
+practical models usually consist of several layers of hundreds or thousands of
+neurons which are fully connected. this places a heavy computational and memory
+burden on hardware, restricting adoption in practical low-cost and low-power
+devices. compared to fully convolutional models, the costly sequential operation
+of rnns severely hinders performance on parallel hardware. this paper challenges
+the convention of full connectivity in rnns. we study structurally sparse rnns,
+showing that they are well suited for acceleration on parallel hardware, with a
+greatly reduced cost of the recurrent operations as well as orders of magnitude
+less recurrent weights. extensive experiments on challenging tasks ranging from
+language modeling and speech recognition to video action recognition reveal that
+structurally sparse rnns achieve competitive performance as compared to fullyconnected networks. this allows for using large sparse rnns for a wide range of
+real-world tasks that previously were too costly with fully connected networks.
+
+1
+

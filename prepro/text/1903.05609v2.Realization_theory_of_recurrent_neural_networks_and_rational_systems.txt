@@ -1,0 +1,1428 @@
+Realization theory of recurrent neural networks and rational systems
+
+arXiv:1903.05609v2 [math.OC] 18 Mar 2019
+
+Thibault Defourneau, Mihály Petreczky
+
+Abstract— In this paper, we show that, under mild assumptions, input-output behavior of a continuous-time recurrent
+neural network (RNN) can be represented by a rational or
+polynomial non-linear system. The assumptions concern the
+activation function of RNNs, and they are satisfied by many
+classical activation functions such as the hyperbolic tangent.
+We also present an algorithm for constructing the polynomial
+and rational system. This embedding of RNNs into rational
+systems can be useful for stability, identifiability, and realization
+theory for RNNs, as these problems have been studied for polynomial/rational systems. In particular, we use this embedding
+for deriving necessary conditions for realizability of an inputoutput map by RNN, and for deriving sufficient conditions for
+minimality of an RNN.
+
+I. INTRODUCTION
+One of the challenges in machine learning is to provide
+a mathematical theory for analyzing learning algorithms.
+Recently, there has been a surge of interest in the use of
+neural networks, leading to the emergence of the field of
+deep learning. One of the most widespread models used in
+deep learning are recurrent neural networks (RNNs). RNNs
+can seen as non-linear dynamical systems equipped with an
+internal state, input and output. Learning such an RNN from
+data is equivalent to estimating the parameters of the RNN,
+viewed as a dynamical system. That is, learning algorithms
+for RNNs correspond to system identification algorithms,
+and developing a mathematical theory for learning RNNs
+is equivalent to developing system identification for RNNs.
+There is a rich literature on system identification, in particular on system identification for linear systems [15]. Note that
+linear dynamical systems are a particular class of RNNs.
+One of the principal building blocks of system identification theory for linear systems is realization theory.
+Realization theory can be viewed as an attempt to solve
+an idealized system identification problem, where there is
+infinite data, not modelling error, etc. In general, the aim of
+realization theory is to understand the relationship between
+an observed behavior and dynamical systems producing this
+observed behavior. For the particular case of RNNs, the main
+questions of realization theory can be stated as follows:
+1) Which class of observed behaviors (input-output maps)
+can be represented by an RNN ?
+Centre de Recherche en Informatique, Signal et Automatique de Lille
+(CRIStAL), CNRS, Ecole Centrale, Universit de Lille, Avenue Carl Gauss,
+59650 Villeneuve-d’Ascq, France (e-mail:thibault.defourneau@univ-lille.fr,
+mihaly.petreczky@centralelille.fr)
+This work was partially funded by CPER Data project, which is cofinanced by European Union with the financial support of European Regional Development Fund (ERDF), French State and the French Region of
+Hauts-de-France. This work was partially funded by Agence Nationale pour
+la Recherche Project ROCC-SYS under the Grant agreement ANR-14-C270008
+
+2) How can we characterize minimal RNNs (RNNs of
+the least complexity) representing a certain observed
+behavior ? What is the appropriate definition of minimality (smallest number of neurons, etc.) for RNNs,
+are minimal RNNs are related by some transformation
+?
+3) Is there a constructive procedure for constructing a
+RNN representation from input-output behavior which
+can be proven to be mathematically correct ?
+For linear systems, realization theory [12], [26] has been
+useful for system identification, for example it helped to
+address identifiability, canonical forms and gave rise to
+subspace identification algorithms. We expect that realization
+theory of RNNs will lead to similarly useful results for the
+latter dynamical systems.
+In order to develop realization theory of RNNs, we embed
+RNNs into the class of rational systems, and then we use
+realization theory of rational/polynomial systems in order to
+derive new results on realization theory of RNNs. Then the
+proposed embedding could also be useful beyond realization
+theory, as it could open up the possibility of studying for
+example stability of RNNs by using existing results on
+stability of rational/polynomial systems. For example, for a
+large class of activation functions, RNNs can be embedded
+into a homogeneous polynomial systems and the states of the
+latter systems are continuous functions of the states of the
+original RNNs. This then opens up the possibility of studying
+stability of RNNs by using stability theory of homogeneous
+systems [24], [25].
+In this paper, we consider RNNs in continuous-time, in
+order to avoid some technical difficulties encountered in
+the discrete-time case. Note that discrete-time RNNs can be
+viewed as discretizations of continuous-time RNNs, i.e. they
+arise by discretizing the differential equations describing the
+state evolution of continuous-time RNNs, which indicates
+that the results of this paper could be relevant for the discretetime case.
+In this paper we assume that the high-order derivatives of
+the activation function satisfy a polynomial equation. Several
+widely-used activation functions have this property.
+•
+
+•
+
+We show that an input-output map can be realized by a
+RNN, only if it can be realized by a rational system, i.e.
+a non-linear system defined by vector fields and readout
+maps which are fractions of polynomials. We present an
+explicit construction of such a rational system.
+We present a necessary condition for existence of a
+realization by RNNs, using results from realization
+theory of rational systems. This necessary condition is
+
+a generalization of the well-known rank condition for
+Hankel matrices of linear systems.
+• We formulate sufficient conditions for observability/reachability/minimality of RNNs, using existing realization theory for rational systems [19], [16], [4], [22].
+Note that RNNs could be viewed as analytic systems and
+one could try to apply realization theory of analytic systems
+[11], [10], [9]. However, realization theory for analytic
+systems is not computationally effective, i.e., there are no
+algorithms for checking minimality, deciding equivalence of
+two systems, transforming a system to a minimal one, etc.
+This is inherent to the system class: analytical functions
+do not have a finite representation. This is in contrast to
+rational and polynomial systems, where tools from computer
+algebra could be used [18]. In addition, since rational and
+polynomial systems have much more algebraic structures
+than analytic systems, we expect them to yield richer results
+for realization theory of RNNs than analytical systems. In
+fact, the conditions for observability/reachability/minimality
+of RNNs which are derived in this paper are less restrictive
+than those which can be obtained by viewing RNNs as
+analytic systems [11], [10], [9].
+To the best of our knowledge, the results of the paper
+are new. RNNs have been widely used in the machine
+learning literature, both in discrete-time and continuoustime, [27], [28]. Observability of RNNs was studied in [3],
+controllability in [21] and minimality in [2]. This paper was
+inspired by [3], [21], [2], but in contrast to [3], [21], [2],
+we do not use any assumption on the structure of the weight
+matrices, except for observability issues. This means that the
+results of this paper can be applied even when the results of
+[3], [21], [2] are not applicable.
+In Section II we present the basic notation and terminology, and we present the formal definition of RNNs,
+rational systems and their input-output maps. In Section III
+we present the construction of the rational system which
+realizes the same input-output map as an RNN. In Section
+IV, we use the results of Section III to derive necessary
+conditions for existence of a realization by RNN. Finally, in
+Section V we use the results of Section III to derive sufficient
+conditions for minimality of RNNs. An extended version of
+this paper containing detailed proofs can be found in the
+technical report [8].
+II. BASIC
+
+DEFINITIONS
+
+In this section, we give fix some notation and we recall
+some algebraic tools necessary for this paper. Then we recall
+the definition of RNNs and of rational systems.
+A. Preliminaries
+We use the standard terminology and notation from commutative algebra and algebraic geometry see [14], [23], [6].
+In particular, by R[X1 , . . . , Xn ] we denote the algebra of real
+polynomials in n variables and by R(X1 , . . . , Xn ) we denote
+the quotient field of R[X1 , . . . , Xn ]. We refer to the element
+of R(X1 , . . . , Xn ) as rational functions in n variables. If S
+is an integral domain over R then the transcendence degree
+
+trdegS of S over R is defined as the transcendence degree
+over R of the field F of fractions of S and it equals the
+greatest number of algebraically independent elements of F
+over R.
+B. Recurrent neural networks.
+Below we define formally what we mean by recurrent
+neural networks in continuous-time. We will follow the
+notation of [3], [21], [2].
+Definition 1: A recurrent neural network, abbreviated by
+RNN, with input-space U ⊂ Rm and output-space Rp , is a
+dynamical system
+
+
+→
+σ Ax(t) + Bu(t)
+ ẋ(t) = −
+Σ:
+
+
+
+x(0) = x0
+y(t) = Cx(t)
+
+(1)
+
+where
+• σ : R → R is a continuous globally Lipschitz scalar
+function. It is called the activation function (of the
+RNN).
+n×n
+• A ∈ R
+, B ∈ Rn×m and C ∈ Rp×n are matrices,
+called weight matrices,
+→
+−
+n
+n
+• the map σ : R → R is defined by
+→
+−
+σ : (x , . . . , x )T 7→ (σ(x ), . . . , σ(x ))T ,
+1
+
+1
+
+n
+
+n
+
+n
+
+u(t) is an input, x(t) ∈ R is the state and y(t) is the
+output at time t, and x0 ∈ Rn is the initial-state.
+We denote such a system by Σ = (A, B, C, U, σ, x0 ).
+If we take σ the identity map in Definition 1, it is the
+same as a linear system in control theory. It follows that
+RNNs provide a class of semi-linear systems, for which one
+might expect that a theory closer to that of linear system
+than in case of general non-linear smooth systems.
+Next we define formally what we mean by a solution and
+an input-output map of a system Σ = (A, B, C, U, σ, x0 ). To
+this end, in the sequel, we denote by P C([0; +∞[, X) the
+set of piecewise-continuous functions from [0; +∞[ to X,
+where X ⊆ Rk , k > 0.
+Definition 2: A triple (x, u, y) is a solution of an RNN
+Σ = (A, B, C, U, σ, x0 ) if u ∈ P C([0; +∞[, U), x :
+[0; +∞[→ Rn , y : [0; +∞[→ Rp , x is absolutely continuous, and (1) holds.
+Remark 1: Let Σ = (A, B, C, U, σ, x0 ) be an RNN. As
+the activation function σ is globally Lipschitz, we know
+that, for every piecewise continuous input u : [0; +∞[→ U,
+there exists a unique absolutely continuous functions x :
+[0; +∞[→ Rn and a function y : [0; +∞[→ Rp such that
+(x, u, y) is a solution of Σ.
+In this paper, we focus on solutions (x, u, y) of an RNN
+such that u is piecewise constant.
+Notation 1 (Piecewise-constant inputs): We denote by
+Upc the set of all piecewise-constant functions of the form
+u : [0; +∞[→ U.
+Definition 3: Let p : Upc → P C([0; +∞[, Rp ) be an
+input-output map, and let Σ = (A, B, C, U, σ, x0 ) be an
+RNN. Σ is said to be a realization of the input-output map p
+if for every u ∈ Upc , the unique solution (x, u, y), x(0) = x0
+of Σ is such that p(u) = y.
+•
+
+C. Rational and polynomial systems.
+Informally, rational respectively polynomial systems are
+control systems in continuous time, whose differential equations and readout maps are rational functions, i.e. they are
+fractions of polynomials, respectively polynomial functions.
+Definition 4 (Polynomial and rational systems): A rational system with input-space U ⊂ Rm , state-space Rn and
+output-space Rp is a dynamical system as
+(
+P
+(υ(t))
+, i = 1, . . . , n , υ(0) = υ0
+υ˙i (t) = Qi,u(t)
+i,u(t) (υ(t))
+(2)
+R:
+hk,1 (υ(t))
+yk (t) = hk,2 (υ(t))) , k = 1, . . . , p
+
+III. E MBEDDING
+
+OF A CLASS OF RECURRENT NEURAL
+
+NETWORK REALIZATIONS INTO RATIONAL
+REALIZATIONS .
+
+In this section we show that an RNN realization of a given
+input-output map imply the existence of a rational system
+which is a realization of the same map. Moreover, we present
+the construction of such a rational realization.
+In order to state the announced result, we have to restrict
+the class of activation function σ by introducing the following assumption.
+Assumption 1 (A1): The function σ : R → R is analytic,
+and there exist an integer N > 0 and N analytic functions
+ξ1 , . . . , ξN : R → R such that
+where
+
+T
+• u(t) is the input, υ(t) = (υ1 (t), . . . , υn (t)) is the state  σ V0 (ξ1 , . . . , ξN ) = U0 (ξ1 , . . . , ξN )
+and y(t) = (y1 (t), . . . , yk (t))T is the output at time t.
+(4)
+ ˙
+Moreover υ0 ∈ Rn is the initial state;
+ξi Vi (ξ1 , . . . , ξN ) = Ui (ξ1 , . . . , ξN ) , if 1 6 i 6 N
+• hk,1 , hk,2 , k = 1, . . . , p are non-zero polynomials in n
+where Uk , Vk are polynomials in N variables.
+variables and for all α ∈ U, i = 1, . . . , n, Pi,α , Qi,α are
+Assumption (A1) involves existence of analytic functions
+polynomials in n variables, Qi,α is non-zero.
+{ξi }N
+i=1 and hence it is not easy to check it. In fact, AsWe will identify the rational system R with the tuple sumption (A1) can be replaced by the following hypothesis,
+({Pi,α , Qi,α }i=1,...,n,α∈U , {hk,1 , hk,2 }pk=1 , U, υ0 ). We will which involves only derivatives of the activation function σ.
+say that R is polynomial, if hk,2 = 1, Qi,α = 1 for all
+Assumption 2 (A2): The function σ : R → R is analytic,
+k = 1, . . . , p, i = 1, . . . , n, α ∈ U.
+and there exist an integer N > 0 and a no-zero polynomial
+Informally, a rational system is a non-linear control system Q in N + 1 variables, such that
+for which the right-hand sides of the differential equation
+Q(σ, σ (1) . . . , σ (N ) ) = 0
+(5)
+and output equations are rational functions, i.e. fractions of
+two polynomials. Note that the existence and uniqueness of
+(i)
+a state trajectory of a rational system requires some care, where σ denotes the i-th derivative of σ.
+Lemma 1 (Equivalence of (A1) and (A2)): A function σ
+as in our definition we did not exclude the possibility that
+satisfies
+Assumption (A1) if and only if it satisfies Assumpx(t) passes through the zero set of a denominator Qi,α . In
+tion
+(A2).
+order to avoid technical difficulties, we define a solution of
+The proof of Lemma 1 is presented in [8].
+a rational system as follows:
+Now we show that some widely used activation functions
+Definition 5: A triplet (υ, u, y) is a solution of a rational
+satisfy
+Assumption (A2).
+system R of the form (2), if the input u : [0; +∞[→ U is
+Example
+1: Let consider an analytic RNN of a response
+n
+piecewise constant, the state υ : [0; +∞[→ R is absolutely
+map
+for
+which
+the activation function σ is the hyperbolic
+p
+continuous, the output y : [0; +∞[→ R is piecewise
+tangent
+th,
+or
+the
+sigmoid function S given below:
+continuous, and they satisfy
+1
+ex − e−x
+, S(x) =
+.
+υ̇i (t) Qi,u(t) (υ(t)) = Pi,u(t) (υ(t))
+∀x ∈ R , th(x) = x
+(3)
+e + e−x
+1 + e−x
+yk (t) hk,2 (υ(t)) = hk,1 (υ(t)) ,
+These functions are analytic and satisfy a differential polynofor 1 6 i 6 n, and 1 6 k 6 p.
+mial equation, more precisely the hyperbolic tangent verifies
+Remark 2 (Uniqueness of a solution): Let (υ, u, y) be a y (1) = 1 − y 2 with y(0) = 0, and the sigmoid function
+solution of a rational system as above. If, for any t > 0 satisfies y (1) = y(1 − y) with y(0) = 1 . It follows that
+2
+such that Qi,u(t) (υ(t)) 6= 0 and hk,1 (υ(t)) 6= 0, for all i ∈ Assumption (A2) holds.
+{1, . . . , n} and k ∈ {1, . . . , p}, then (2) holds. Hence, by
+Then we restrict the set of input maps, by supposing the
+uniqueness of a solution of an analytic differential equation, following assumption.
+for any initial state υ0 ∈ Rn such that Qi,u(t) (υ0 ) 6= 0 and
+Assumption 3 (Finite input set): In the rest of the paper
+hk,1 (υ0 ) 6= 0, there exist at most one solution (υ, u, y) of we assume that U ⊂ Rm is a finite set.
+R such that υ(0) = υ0 . In particular, if R is a polynomial
+Notation 2: We denote by |U| the cardinality of U. We set
+system, then for any initial state υ0 ∈ Rn there exist at most U = {α1 , . . . , αK }, where αi ∈ Rm , and αi 6= αj if i 6= j.
+one solution (υ, u, y) of R such that υ(0) = υ0 .
+In that case, we have |U| = K.
+Definition 6: Let p : Upc → P C([0; +∞[, Rp ) be an
+The assumption that U is finite is not an overly restrictive
+input-output map, and let R be a rational system of the form one, and it is satisfied in many potential applications.
+(2). We say that R realizes p, if for any u ∈ Upc there exists
+Next we present the main theorem of this paper.
+a solution (υ, u, y) of R such that υ(0) = υ0 and p(u) = y.
+Theorem 1 (Embedding RNNs into rational systems):
+I
+Let σ : R → R be a globally Lipschitz function which
+
+satisfies (A1) and assume that U is finite. Consider an
+input-output map p : Upc → P C([0; +∞[, Rp ). If Σ is a
+RNN with activation function σ and input space U, and
+Σ is a realization of p, then there exists a rational system
+which is a realization of p.
+The proof of Theorem 1 is presented in [8].
+The proof of the theorem relies on defining a rational system associated with the RNN. In order to define this rational
+system without excessive notation, in the sequel wePidentify
+N
+Pi
+the sum of fraction of multi-variable polynomials k=1 Q
+i
+with the fraction obtained
+all summands to the
+PNby bringing
+N
+Pi Π
+=k Qi
+.
+same denominator, i.e., k=1 ΠN r=1,r6
+k=1 Qi
+Definition 7: Let Σ be an RNN, whose activation function
+satisfies (A1), assume that ξ = (ξ1 , . . . , ξN )T satisfies
+(4). Define the rational system R(Σ) associated with the
+RNN Σ = (A, B, C, U, σ, x0 ), A = (ai,j )ni,j=1 , C =
+(ck,i )k=1,...,p,i=1,...,n as follows:
+∀i = 1, . . . , N, j = 1, . . . , n, α ∈ U :
+n
+Ui (υj,α (t)) X
+U0 (υl,β (t))
+υ̇i,j,α (t) =
+{
+aj,l
+} if u(t) = β
+Vi (υj,α (t))
+V0 (υl,β (t))
+
+clear that R(Σ) can be computed from the matrices A, B, C
+and from the polynomials {Ui , Vi }N
+i=0 of Assumption (A1).
+Remark 4 (Polynomial and homogeneous R(Σ)): If Assumption (A1) is satisfied with polynomial equations, i.e.
+Vi = 1, i = 0, . . . , N , like in examples from Example 1,
+then R(Σ) is a polynomial system. If Assumption (A1)
+is satisfied with homogeneous polynomial equations, i.e.
+Vi = 1, i = 0, . . . , N and Ui are homogeneous polynomials,
+then R(Σ) is a polynomial system and h1,k , Pi,α , α ∈ U,
+i = 1, . . . , (N |U| + 1)n, k = 1, . . . , p are homogeneous
+polynomials too.
+The proof of Theorem 1 relies on the following simple
+result, which is interesting on its own right. Let ξ =
+(ξ1 , . . . , ξn ) is from (4), and define F : Rn → RL , as
+F (x) = (z1 , . . . , znN |U | , xT )T , and using the notation of
+Remark 3, let zφ(i,j,α) = ξi (eTj (Ax + Bα)).
+Lemma 2: If (x, u, y) is a solution of the RNN Σ =
+(A, B, C, U, σ, x0 ), then (υ, u, y), with υ(t) = F (x(t)) for
+t ≥ 0, is a solution of R(Σ).
+The proof of Lemma 2 is presented in the technical report
+[8].
+
+l=1
+
+υj,α (t) = (υ1,j,α (t), . . . , υN,j,α (t)),
+
+υj,α (0) = ξ eTj (Ax0 + Bα))
+U0 (υj,β (t))
+if u(t) = β, and xj (0) = eTj x0 ,
+ẋj (t) =
+V0 (υj,β )
+n
+X
+ck,i xi (t), k = 1, . . . , p
+yk (t) =
+i=1
+
+Remark 3 (Constructing R(Σ)): That is R(Σ)
+=
+({Pi,α , Qi,α }i=1,...,L,α∈U , {hk,1 , hk,2 }pk=1 , U, υ0 ),
+where
+L = n + nN |U|, and Pi,α , Qi,α , hk,1 , hk,2 are polynomials
+in the variables X1 , . . . , XL of the following form: for
+any i = 1, . . . , N, j = 1, . . . , n, α ∈ U, let φ(i, j, α) =
+N · |U| · (j − 1) + N · (r − 1) + i if α = αr , r = 1, . . . , K,
+and let Xj,α denote the tuple Xφ(1,j,α) , . . . , Xφ(N,j,α ).
+Note that any k ∈ {1, . . . , L − n} arises as φ(i, j, α)
+for suitable i = 1, . . . , N, j = 1, . . . , n, α ∈ U. In
+particular, if R is a polynomial in N variables, then
+R(Xj,α ) = R(Xφ(1,j,α) , . . . , Xφ(N,j,α ) is a polynomial in
+Xφ(1,j,α) , . . . , Xφ(N,j,α ). With this notation and using that
+ξ = (ξ1 , . . . , ξn ) is from (4),
+∀k = 1, . . . , p :
+hk,1 = 1, hk,2 =
+
+n
+X
+
+ck Xj+|U|N n
+
+i=1
+
+∀ i = 1, . . . , N, j = 1, . . . , n, α ∈ U :
+PN |U |n+j,α = U0 (Xj,α ), QN |U |n+j,α = V0 (Xj,α )
+n
+X
+Pφ(i,j,α),β = Ui (Xj,α )(
+aj,k U0 (Xk,β )ΠN
+r=1,r6=k V0 (Xr,β ))
+k=1
+
+Qφ(i,j,α),β = Vi (Xj,α )ΠN
+r=1 V0 (Xr,β )
+
+T
+(υ0 )φ(i,j,α) = ξi ej (Ax0 + Bα) , (υ0 )N |U |+j = eTj x0 .
+
+Here (υ0 )k denotes the k-th entry of υ0 ∈ RL . It is then
+
+IV. A PPLICATION
+
+OF THE EMBEDDING THEOREM :
+
+EXISTENCE OF AN
+
+RNN
+
+REALIZATION
+
+Theorem 1 allows us to formulate a necessary condition
+for realizability of an input-output map by an RNN, using
+conditions of [19, Theorem 5.16] for existence of a realization by a rational system. In order to present this condition,
+we need to introduce additional notation and terminology. In
+particular, we have to define the class of input-output maps
+which could potentially be realized by an RNN.
+The most basic requirement for an input-output map to be
+realizable by a control system is causality:
+Definition 8: An input-output map p : Upc →
+P C([0; +∞[, Rp ) is causal if, for all t > 0 and for all
+u, v ∈ Upc such that ∀s ∈ [0, t] : u(s) = v(s), it holds
+that ∀s ∈ [0, t] : p(u)(s) = p(v)(s).
+In other words, p is causal, if p(u)(t) depends only on the
+values of u on the interval [0, t]. If p is the input-output map
+of a control system, then causality must necessarily hold.
+Another basic requirement is analyticity: if p is the inputoutput map of a control system defined by a differential equation with analytic right-hand side, then for any piecewiseconstant input, p(u) should be analytic in a suitable defined
+sense, i.e., in the dwell time of the constant pieces of u.
+Definition 9: An input-output map p : Upc →
+P C([0; +∞[, Rp ) is analytic if, for all k ∈ {1, . . . , p} and
+for all α1 , . . . , αl ∈ U, l > 0, the function φp,k,α1 ,...,αl :
+([0, +∞[)l → R is analytic, where
+,...,αl
+φp,k,α1 ,...,αl (t1 , . . . , tl ) = pk (utα11,...,t
+)(Tl )
+l
+
+αi if t ∈ [Ti−1 , Ti [, i = 1, . . . , l
+1 ,...,αl
+uα
+t1 ,...,tl (t) =
+αl if t ≥ Tl
+
+T0 = 0 , Ti =
+
+i
+X
+j=1
+
+tj , i = 1, 2, . . . , l.
+
+(6)
+
+Notation 3: We denote by A(Upc ) the set of causal
+analytic input-output maps of the form p : Upc →
+P C([0; +∞[, R).
+Note that the set A(Upc ) forms an algebra over the field of
+real numbers with the usual point-wise addition, multiplication and multiplication by scalar.
+Remark 5: It can be shown that the algebra A(U
+ pc ) is
+isomorphic to the ring of functions A g
+Upc → R defined
+in [19, Definition 4.3], if we take the set of all piecewiseconstant input functions defined on a finite interval as the
+set of admissible inputs g
+Upc . Therefore, A(U
+ pc ) has the
+same algebraic properties as A g
+Upc → R , in particular,
+by [19, Theorem 4.4], A(Upc ) is an integral domain. The
+isomorphism is defined as follows. For every ψ ∈ A(Upc )
+e
+Upc → R, such that ψ(v)
+=
+let us define the function ψe : g
+ψ(u)(T ) for any piecewise-constant function v : [0, T ] →
+U, where u is any piecewise-constant function defined on
+[0, +∞[ such that the restriction of u to [0, T ] equals v. Then
+e
+the map ψ 7→ ψ
+ is an algebraic isomorphism from A(Upc )
+g
+to A Upc → R .
+Definition 10: Let ϕ ∈ A(Upc ) and define the derivative
+Dα ϕ of ϕ along α ∈ U as the function Dα ϕ : Upc →
+P C([0; +∞[, R), such that for all u ∈ Upc , for all t > 0,
+
+
+d
+Dα ϕ(u) (t) =
+,
+ϕ uα )(t + s)
+ds
+| s=0
+
+u(τ ) τ ∈ [0, t[
+uα (τ ) =
+α τ >t
+It is easy to see that Dα ϕ is also causal and analytic,
+and hence Dα ϕ belongs to A(Upc ). Now we define the
+observation algebra of an input-output map.
+Definition 11: Let p : Upc → P C([0; +∞[, Rp ) be an analytic and causal input-output map. The observation algebra
+of p, denoted by
+ Aobs (p), is the smallest sub-algebra of the
+algebra A Upc such that the following holds.
+• Consider the components pk : Upc → P C([0; +∞[, R),
+k = 1, . . . , p of p, i.e., ∀u ∈ Upc : p(u) =
+(p1 (u), . . . , pp (u))T . For every k = 1, . . . , p, pk ∈
+Aobs (p).
+• For every g ∈ Aobs (p), Dα g ∈ Aobs (p), α ∈ U, i.e.,
+Aobs (p) is closed under taking derivatives Dα , α ∈ U.
+We call the observation field, denoted by Qobs (p), the field
+of fractions of Aobs (p).
+Remark 6: Observation algebra / field have already been
+introduced in [19, Definition 5.9] or in [16, Definition 4.7]
+for response maps. Moreover we know that the field Qobs (p)
+is well-defined because, from Remark 5 we know that the algebra A(Upc ) is an integral domain. Thus the transcendence
+degree of Aobs (p), denoted by trdegAobs (p), is well-defined,
+see Section II for the definition of transcendence degree.
+Now if an input-output map p : Upc → P C([0; +∞[, Rp )
+is realized by an RNN Σ = (A, B, C, U, σ, x0 ), with σ
+satisfying Assumption (A1), then the rational system R(Σ),
+given in Definition 7, also realizes the input-output map
+p by Theorem 1 and Lemma 1. Thus the transcendence
+degree of the observation algebra Aobs (p) of p should be
+necessary finite by [19, Theorem 5.16]. We are now in the
+
+position to state a necessary condition for existence of an
+RNN realization, which summarizes the arguments above.
+Theorem 2 (Existence of an RNN: necessary condition):
+The input-output map p : Upc → P C([0; +∞[, Rp ) has
+a realization by an RNN whose activation function
+satisfies Assumption (A1) only if p is causal, analytic and
+trdeg Aobs (p) < +∞.
+The proof of Theorem 2 is presented in [8].
+V. M INIMALITY,
+
+REACHABILITY AND OBSERVABILITY OF
+
+RNN S
+In this section, we first provide sufficient conditions for
+minimality of a given RNN Σ by assuming minimality of
+the rational system R(Σ) given in Definition 7. Since the
+latter rational system is often non-minimal, we introduce
+in the sequel another rational system, called the auxiliary
+rational system of the RNN Σ, denoted by Raux (Σ), also
+used for providing sufficient minimal conditions of Σ. Then
+we provide a Hankel-rank like condition for minimality of
+the RNN Σ. Finally we relate reachability and observability
+properties of Raux (Σ), well-known for rational systems, to
+similar properties for Σ, namely span-reachability introduced
+later in this paper and a necessary condition of observability
+provided in [3, Theorem 1].
+A. Sufficient conditions for minimality of RNNs
+As the first step, we define the notion of dimension
+for RNNs and rational systems. Let Σ be an RNN as in
+Definition 1. The dimension of Σ is the dimension of its
+state-space (i.e. the number of states), and it is denoted by
+dim(Σ). In this case, we have dim(Σ) = n. Consider a
+rational system R of the form (2). The dimension of R,
+denoted by dim(R), is here defined as the number of statevariables, i.e. dim(R) = n.
+Remark 7 (Dimension of rational systems): In [20, Definition 13] rational systems were defined as systems statespace of which is an irreducible algebraic variety and the
+dimension of a rational system was defined as the transcendence degree of the ring of all polynomial functions
+on this variety. In our case the state-space of the system
+is Rn which is a trivial algebraic variety. Our definition of
+dimension coincides with that of [20, Definition 13], as the
+transcendence degree of the ring of polynomials on Rn is n.
+Now we are able to define minimal RNN realization and
+minimal rational realization.
+Definition 12 (Minimality): We say that a rational system
+R is a minimal realization of an input-output map p, if R is
+′
+a realization of p and there exists no rational system R such
+′
+′
+that R is a realization of p and dim(R ) < dim(R). An
+RNN Σ with activation function σ is said to be a σ-minimal
+realization of an input-output function p, if Σ is a realization
+′
+of p and there exists no RNN Σ with activation function σ,
+′
+′
+such that Σ is a realization of p and dim(Σ ) < dim(Σ).
+By considering the rational system R(Σ), we provide sufficient condition for minimality of RNNs as follows.
+Lemma 3: Let Σ = (A, B, C, σ, x0 ) be an RNN, whose
+activation function σ satisfies (A1) and assume that Σ is a
+
+realization of the input-output map p. If the rational system
+R(Σ), given in Definition 7, is a minimal realization of p,
+then Σ is a minimal RNN realization of p.
+The proof of Lemma 3 is presented in [8].
+Unfortunately, in most of the cases, R(Σ) will not be
+minimal. Intuitively, this has to do with the fact that the
+states x1 (t), . . . , xn (t) of R(Σ) are integrals of the other
+states, leading to lack of observability if n > 1 and x(0) is
+chosen so that Cx(0) = 0.
+In order to remedy this problem, we introduce another
+rational system, called the auxiliary rational system depending on the RNN Σ with less components in the state.
+In order to define this rational system without excessive
+notation, we will use the same convention as for defining
+R(Σ), namely we identify
+sum of fraction of multiPN the
+Pi
+with
+the fraction obtained
+variable polynomials
+k=1 Qi
+by
+bringing
+all
+summands
+to
+the
+same
+denominator, i.e.,
+PN
+N
+k=1 Pi Πr=1,r6=k Qi
+.
+ΠN
+k=1 Qi
+Definition 13: Let Σ = (A, B, C, U, σ, x0 ) be an RNN,
+whose activation function satisfies (A1), assume that ξ =
+(ξ1 , . . . , ξN ) satisfies (4). Define the auxiliary rational system Raux (Σ) associated with the RNN Σ, A =
+(ai,j )ni,j=1 , C = (ck,i )k=1,...,p,i=1,...,n as follows:
+∀i = 1, . . . , N, j = 1, . . . , n, α ∈ U :
+n
+U0 (υl,β (t))
+Ui (υj,α (t)) X
+υ̇i,j,α (t) =
+{
+aj,l
+} , if u(t) = β
+Vi (υj,α (t))
+V0 (υl,β (t))
+l=1
+
+υj,α (t) = (υ1,j,α (t), . . . , υn,j,α (t))T ,
+
+υj,α (0) = ξ eTj (Ax0 + Bα) ,
+n
+X
+U0 (υi,α (t))
+, k = 1, . . . , p
+ck,i
+yk,α (t) =
+V0 (υi,α (t))
+i=1
+
+Remark 8 (Polynomial Raux (Σ)): If Assumption (A1) is
+satisfied with polynomial equations, i.e. Vi = 1, i =
+0, . . . , N , like in examples from Example 1, then Raux (Σ)
+is a polynomial system.
+Note that the rational system Raux (Σ), given in Definition
+13, does not realize the input-output map pΣ,x0 of the
+RNN Σ = (A, B, C, U, σ, x0 ) in general. Roughly speaking, it realizes the input-output map constructed with the
+derivatives of pΣ,x0 along α1 , . . . , αK ∈ U in the sense
+of Definition 10. We now formalize it properly. Let p :
+Upc → P C([0; +∞[, Rp ) be an input-output map realized
+by the RNN Σ. Define the input-output map p̂ : Upc →
+P C([0; +∞[, RpK ), where K = |U|, as follows:
+∀u ∈ Upc ,
+
+p̂(u) = (Dα1 p(u), . . . , DαK p(u))T ,
+
+(7)
+
+with, for α ∈ U, Dα p(u) = (Dα pk (u))16k6p , where
+Dα pk (u) is defined in Definition 10.
+Lemma 4: Let Σ = (A, B, C, U, σ, x0 ) be an RNN and
+let p : Upc → P C([0; +∞[, Rp ) be an input-output map.
+If the RNN Σ realizes p, then the rational system Raux (Σ)
+realizes the input-output map p̂ defined in (7).
+The proof of Lemma 4 is presented in [8].
+
+Lemma 5: Let Σ = (A, B, C, U, σ, x0 ) be an RNN and
+let p : Upc → P C([0; +∞[, Rp ) be an input-output map
+realized by Σ. If the rational system Raux (Σ) is a minimal
+realization of p̂, then the RNN Σ is σ-minimal realization of
+p.
+The proof of Lemma 5 is presented in [8].
+It is known from [16], [17] that the properties of algebraic, rational and semi-algebraic observability and algebraic reachability characterize minimality of rational systems
+and these properties can be checked using methods of computational algebra [18]. In particular, we can derive sufficient
+conditions for the minimality of the RNN Σ using these
+reachability and observability concepts for rational systems.
+In order to explore these sufficient conditions in more
+details, we will recall below the notions of algebraic reachability and algebraic/semi-algebraic observability for rational
+systems. Define the set of reachable states of a rational
+system R of the form (2) as RR (υ0 ):
+RR (υ0 ) = {υ(t) | t > 0, (υ, u, y)
+is a solution of R, υ(0) = υ0 } .
+The system R is said to be algebraically reachable, if there
+is no non-trivial polynomial which is zero on RR (υ0 ). The
+system R is called accessible, if RR (υ0 ) contains an open
+subset of Rn . It is clear that accessibility of R implies
+algebraic reachability of R.
+For a rational system R as in Definition 4 with statespace Rn , recall from [16, Definition 3.19] or from [5,
+Definition 4] that observation algebra of R, denoted by
+Aobs (R), is the smallest sub-algebra of the field of rational
+hk,1
+, k = 1, . . . , p
+functions R(X1 , . . . , Xn ) which contains hk,2
+and which is closed under taking the formalP
+Lie derivatives
+P
+∂
+with respect to the formal vector fields fα = ni=1 Qi,α
+.
+i,α ∂Xi
+If R is polynomial, i.e. Qi,α = 1, i = 1, . . . , n, hk,2 = 1,
+k = 1, . . . , p, then Aobs (R) is the sub-algebra of the ring of
+polynomials R[X1 , . . . , Xn ]. Following [16] we say that the
+rational system R is algebraically observable, if Aobs (R) =
+R[X1 , . . . , Xn ]. Following [17] that R is semi-algebraically
+observable if trdeg(Aobs (R)) = n. We will say that R
+′
+is observable, if for every two distinct initial states υ0 , υ0
+′
+′
+there exists solutions (υ, u, y) and (υ , u, y ) of R such that
+′
+′
+′
+υ(0) = υ0 , υ (0) = υ0 , and y 6= y . It is easy to see that
+algebraic observability implies semi-algebraic observability.
+Moreover, for polynomial systems algebraic observability
+implies observability [4].
+Recall from [20, Theorem 4] that a rational system R
+is minimal, if and only if it is algebraically reachable and
+semi-algebraically observable.
+Lemma 6 (Sufficient conditions for minimality): If one of
+the conditions below holds, then Σ is σ-minimal realization
+of p:
+• Raux (Σ) is semi-algebraically observable and algebraically reachable.
+• Raux (Σ) is polynomial, it is algebraically observable
+and algebraically reachable.
+• Raux (Σ) is polynomial, it is algebraically observable
+and accessible.
+
+The above lemma is then a direct consequence of Lemma 5
+and [20, Proposition 6], its detailed proof is presented in [8].
+B. A Hankel-rank like condition for minimality of RNNs
+In this part, we relate minimality of an RNN Σ with
+the transcendence degree of the observation algebra Aobs (p)
+defined in Definition 11. Recall that a linear system is a
+minimal realization of its input-output map, if and only if
+the dimension of this system equals the rank of the Hankelmatrix constructed from the Markov parameters of this inputoutput map. We would like to formulate a similar result,
+where the role of the rank of the Hankel-matrix is played
+by the observation algebra Aobs (p). To this end, recall from
+[20, Lemma 1, Theorem 4] that R(Σ) is minimal if and
+only if dim(R(Σ)) = trdegAobs (p). In a similar manner, if
+Aobs (p̂) is the observation algebra of the input-output map
+p̂ defined in (7), then Raux (Σ) is minimal if and only if
+dim(Raux (Σ)) = trdegAobs (p̂). Note that Aobs (p̂) is a subalgebra of Aobs (p) generated by the elements of the form
+Dα1 · · · Dαl pk , l > 0, k = 1, . . . , p, α1 , . . . , αl ∈ U. The
+following lemma is then a direct consequence of Lemma 3
+and Lemma 5.
+Lemma 7 (Hankel-rank like conditions for minimality):
+Assume that σ satisfies (A1), and let the RNN
+Σ = (A, B, C, U, σ, x0 ) be a realization of the inputoutput map p. If one of the following conditions hold for
+n = dim(Σ):
+• trdegAobs (p) = n(1 + |U|N ), or
+• trdegAobs (p̂) = n|U|N ,
+then Σ is a σ-minimal realization of p.
+The proof of Lemma 7 is presented in [8].
+C. Some aspects of reachability and observability of RNNs
+One may wonder how restrictive the conditions of Lemma
+6 are, and how they relate to accessibility/reachability and
+observability of the RNN Σ studied in [3], [21], [1]. In
+fact, observability and reachability properties of Raux (Σ)
+imply similar properties of the RNN Σ. In order to present
+this relationship more precisely, we introduce the following
+terminology. Define the reachable set of an RNN Σ =
+(A, B, C, U, σ, x0 )
+RΣ (x0 ) = {x(t) | t > 0 , (x, u, y)
+is a solution of Σ, x(0) = x0 }.
+We will say that Σ is accessible, if RΣ (x0 ) contains an open
+subset of Rn , we say that Σ is algebraically reachable if
+there is no non-trivial polynomial which is zero on RΣ (x0 ).
+We say that Σ is span-reachable, if the linear span of the
+elements RΣ (x0 ) is Rn , i.e. Σ is reachable if there exist
+no linear function which is zero on RΣ (x0 ). Clearly, if Σ
+is accessible, then it is algebraically reachable, and if Σ is
+algebraically reachable, then it is span-reachable. We say that
+the RNN Σ is weakly observable if for every initial state
+x̂ ∈ Rn there is an open subset V of Rn such that x̂ ∈ V
+and for every x̂ 6= x ∈ V , there exist solution (x, u, y) and
+(x′ , u, y ′ ) of Σ, with x(0) = x̂ and x′ (0) = x, such that
+
+y 6= y ′ . Then the RNN Σ is observable if for every initial
+state x̂ ∈ Rn , V = Rn in the latter definition.
+Lemma 8: Let Σ = (A, B, C, U, σ, x0 ) be an RNN.
+• If Raux (Σ) is algebraically reachable, then Σ is spanreachable. In particular, if Raux (Σ) is accessible, then
+Σ is span-reachable.
+• If Raux (Σ) is polynomial, and it is observable, and if
+the function σ is invertible and Ker(A) is trivial, then
+Σ is observable. In particular, if Raux is algebraically
+observable, then Σ is observable.
+• If Raux (Σ) is polynomial, and it is semi-algebraically
+observable, and if the function σ is invertible and
+Ker(A) is trivial, then Σ is weakly observable.
+The proof of Lemma 8 is presented in [8].
+Remark 9 (Invertibility of σ): Note that assuming that the
+activation function σ is invertible is not too restrictive as
+it holds for many commonly used activation functions, see
+Example 1.
+Observe that accessibility, and algebraic / semi-algebraically
+observability conditions for rational / polynomial systems
+can be checked by using methods of computer algebra [18].
+In contrast, for checking accessibility and (weak) observability of an RNN the only systematic tools are the rank
+conditions [9, Theorem 2.2, Theorem 2.5, Theorem 3.1,
+Theorem 3.5] or [10, Corollary 2.2.5, Corollary 2.3.5], which
+are not computationally effective.
+Remark 10 (Minimality of RNN as an analytic system):
+From [11, Theorem 1.12] it follows that if the RNN Σ
+is accessible and weakly observable, then it is a minimal
+realization of its input-output map p. From the comparison
+between the conditions of Lemma 6 with those of Lemma
+8 it is clear that minimality of Raux (Σ) is a much weaker
+condition than accessibility and weak observability of
+Σ. This suggests that using realization theory of rational
+systems is likely to yield more useful results for RNNs than
+using realization theory of general analytic systems.
+Recall from [3, Theorem 1] that a necessary condition for
+observability of Σ = (A, B, C, U, σ, x0 ) is that the largest
+A-invariant coordinate subspace of Σ included in Ker(C)
+is trivial. More precisely, following [3] we say that a vector
+subspace V of Rn is a coordinate subspace if it is spanned by
+some vectors from the canonical basis of Rn , i.e. there exists
+an integer s > 0 and integers i1 , . . . , is ∈ {1, . . . , n} such
+that V is spanned by ei1 , . . . , eis , where (e1 , . . . , en ) denotes
+the canonical basis of Rn . We write Oc (A, C) the largest
+coordinate subspace which is A-invariant and contained in
+Ker(C).
+Lemma 9: If Raux (Σ) is polynomial and it is semialgebraically observable, then there exists no non-trivial
+coordinate subspace which is A-invariant and contained in
+Ker(C), i.e. Oc (A, C) = {0}.
+The proof of Lemma 9 is presented in [8].
+By [3, Theorem 1] Oc (A, C) = {0}, it is also sufficient
+if ker(C) ∩ ker(A) = {0}, the activation function σ satisfies
+only the IPP property, given in [3] for example, and if B
+verifies a condition on its rows. But here we do not need the
+latter hypothesis on Σ.
+
+Example 2: Let σ : R → R be the sigmoid function as
+in Example 1. Consider the RNN with activation function σ,
+defined as follows:
+(
+x˙1 = σ(x2 + u), x˙2 = σ(x1 + u)
+Σ :
+x1 (0) = x2 (0) = 0, y = x1
+
+
+0 1
+Here A =
+, B = (1, 1)T , C = (1, 0) and u ∈
+1 0
+R = U is a fixed real number. The auxiliary rational system
+associated with Σ is then given by
+
+υ˙1 = υ1 υ2 (1 − υ1 ), υ˙2 = υ1 υ2 (1 − υ2 )
+
+
+
+1
+Raux (Σ) :
+υ1 (0) = υ2 (0) = σ( + u)
+
+2
+
+
+ŷ = υ1
+
+where υk = x˙k for k = 1, 2. Denote by f the vector field
+generated by Raux (Σ). The output map is here h(υ1 , υ2 ) =
+υ1 , simply written h = υ1 ∈ A(Raux (Σ)). We clearly have
+Lf h = h υ2 (1 − h) ∈ A(Raux (Σ)), where Lf is the Lie
+derivative operator along the vector field f . Moreover we get
+Lf h
+υ2 = h(1−h)
+, and the latter belongs to the field of fractions
+of A(Raux (Σ)). Thus the latter field is equal to R(υ1 , υ2 ),
+which shows that Raux (Σ) is semi-algebraically observable.
+By Lemma 8, the RNN Σ is weakly observable.
+VI. C ONCLUSIONS
+We have shown that input-output maps of a large class
+of recurrent neural networks can be represented by rational/polynomial systems, and we used this fact to derive
+necessary and sufficient conditions for existence of a realization by a recurrent neural network and its minimality.
+Future research will be directed towards deriving a more
+complete realization theory of recurrent neural network and
+for using the results of realization theory for analyzing
+machine learning algorithms.
+A PPENDIX
+In this appendix, we write all the technical proofs.
+Proof: [Proof of Lemma 1] If σ verifies (A1) , it
+satisfies (A2)
+Consider the algebra Aobs (ξ1 , . . . , ξN ) genereted
+by ξ1 , . . . , ξN and their high-order derivatives, i.e.,
+(k)
+Aobs (ξ1 , . . . , ξN ) is generated by {ξj }N
+k∈N,j=1 . Since
+ξ1 , . . . , ξN are analytic, Aobs (ξ1 , . . . , ξN ) is the sub-algebra
+of the algebra of all real analytic functions, and hence it
+is an integral domain. Note that ξ̇i , σ is algebraic over
+ξ1 , . . . , ξn . Indeed, it suffices to take Qk (X1 , . . . , XN +1 ) =
+XN +1 Vk (X1 , . . . XN ) − Uk (X1 , . . . , XN ), for 0 ≥ k 6 N ,
+and then Qi (ξ˙i , ξ1 , . . . , ξN ) = 0, i = 1, . . . , N and
+QO (σ, ξ1 , . . . , ξN ) = 0 By taking the rth derivative of
+Qi (ξ˙i , ξ1 , . . . , ξN ), QO (σ, ξ1 , . . . , ξN ) = 0, we can conclude
+(r)
+that the rth derivative ξi , σ (r) of ξi and σ respectively,
+(l) r−1,N
+r−1,N
+are algebraic over {ξk }l=1,k=1 and {ξkl , σ (l) }l=1,k=1
+, and
+(r)
+hence, by induction on r, we can conclude that ξi , σ (r)
+are algebraic over ξ1 , . . . , ξN . Hence, the algebra Aobs (σ)
+generated by {σ (r) }∞
+r=0 is algebraic over ξ1 , . . . , ξN and
+
+hence the transcedence degree of Aobs (Σ) is at most N .
+The latter means that there exist a non-zero polynomial Q
+such that Q(σ, . . . , σ (N ) ) = 0, i.e. Assumption (A2) holds.
+If σ satisfies (A2), then it satisfes (A2). Let k ∈
+{0, . . . , N }. It suffices here to take derivatives the equation
+(5) in Assumption (A2), as follows:
+∂Q
+(σ1 , . . . , σ (N ) ) σ (N +1) +
+∂XN +1
+N
+X
+∂Qk
+(σ, . . . , σ (N ) )σ (l) = 0 ,
+∂Xl
+l=1
+
+Then set ξi = σ (i−1) , i = 1, . . . , N + 1 and Vk = 1, Uk =
+, and UN +1 =
+Xk+1 , k = 0, 1, . . . , N , and VN +1 = ∂X∂Q
+N +1
+PN ∂Q
+i=1 ∂Xi (X1 , . . . , XN )Xi .
+Proof: [Proof of Lemma 2] Let Σ = (A, B, C, σ, x0 ) be
+an RNN and let (x, u, y) be a solution of Σ, for a given u ∈
+Upc . Without loss of generality, we suppose that u(t) = β ∈
+U. As in the statement of Lemma 2, write υ(t) = F (x(t)),
+
+for t > 0. Clearly we have υi,j,α = ξi eTj (Ax + Bα) , for
+i ∈ {1, . . . , N }, j ∈ {1, . . . , n} and α ∈ U, where ξ =
+(ξ1 , . . . , ξN ) are analytic functions as in (4). Thus it suffices
+to prove that υi,j,α satisfies the differential equation given in
+Definition 7. By taking the first derivative, we obtain
+υ̇i,j,α (t)
+(1)
+
+= ξi
+
+n
+ X
+eTj (Ax + Bα) {
+aj,l ẋl (t; β)}
+l=1
+
+=
+
+n
+
+Ui (υ1,j,α (t), . . . , υN,j,α (t)) X
+{
+aj,l σ eTl (Ax + Bβ) }
+Vi (υ1,j,α (t), . . . , υN,j,α (t))
+l=1
+
+n
+U0 (υj,β (t)) 
+Ui (υj,α (t)) X
+},
+aj,l
+=
+{
+Vi (υj,α (t))
+V0 (υj,β (t))
+l=1
+
+(1)
+
+where ξi denotes the first derivative of ξi . Thus it follows
+that (υ, u, y) of a solution of the rational system R(Σ) given
+in Definition 7.
+
+Proof: [Proof of Lemma 4] Let p : Upc →
+P C([0; +∞[, Rp ) be an input-output map. Suppose that the
+RNN Σ = (A, B, C, σ, x0 ) realizes p, i.e. for all u ∈ Upc ,
+there exists a solution (x, u, y) of Σ such that, for all t > 0,
+y(t) = p(u)(t). It suffices to prove that, for all α ∈ U and
+k ∈ {1, . . . , p}, yk,α = Dα pk (u) where yk,α is defined in
+Definition 13, the map pk : Upc → P C([0; +∞[, R) is the
+k-th component of p, and Dα pk is the derivative of pk along
+α ∈ U in the sense of Definition 10.
+
+For all α ∈ U, k ∈ {1, . . . , p}, u ∈ Upc and t > 0, we have
+
+d
+pk (uα )(t + s)
+Dα pk (u)(t) =
+ds
+| s=0
+n
+
+
+X
+d
+ck,i
+xi (t + s; uα )
+=
+ds
+| s=0
+i=1
+n
+n
+
+X
+X
+ai,j xj (t; u) + eTi Bα
+ck,i σ
+=
+=
+=
+
+i=1
+n
+X
+
+i=1
+n
+X
+i=1
+
+j=1
+
+ck,i
+
+U0 (υ1,i,α (t), . . . , υN,i,α (t))
+V0 (υ1,i,α (t), . . . , υN,i,α (t))
+
+ck,i
+
+U0 (υi,α (t)
+V0 (υi,α (t))
+
+= yk,α (t) ,
+as desired. Here we recall that the input uα ∈ Upc is given
+in Definition 10.
+Proof: [Proof of Lemma 5] Recall that |U| = K. We
+know that dim(Raux (Σ) = nKN . Now assume that there
+is a recurrent neural networks Σ̂, with n̂ = dim(Σ̂) <
+dim(Σ) = n. It is clear that we have dim(Raux (Σ̂)) <
+dim(Raux (Σ)), where Raux (Σ̂) is the rational system given
+in Definition 13, associated with Σ̂. Hence it contradicts the
+fact that Raux (Σ) is a minimal rational realization as claimed
+in the statement of Lemma 5. Thus Σ is a minimal RNN
+realization of its input-output map.
+Proof: [Proof of Lemma 8] Let Σ = (A, B, C, σ, x0 ) be
+an RNN.
+1) Assume that Raux (Σ) is algebraically reachable, i.e.
+there is no non-trivial polynomial vanishing in the
+reachable set
+RRaux (Σ) (υ0 ) = {υ(t) | t > 0, (υ, u, y)
+is a solution of Raux (Σ), υ(0) = υ0 } .
+Hence the components of υ(t) are algebraically independent, for t > 0. Now take u ∈ Upc and (x, u, y)
+a solution of the RNN Σ. Suppose that, for t > 0,
+x1 (t), . . . xn (t) are linearly dependant. Without loss of
+generality, we can say that there are real values not all
+trivial λ1 , . . . , λn−1 such that
+xn (t) =
+
+n−1
+X
+
+λi xi (t) .
+
+i=1
+
+By taking the first derivative of the latter equation, we
+get
+x˙n (t) =
+
+n−1
+X
+i=1
+
+λi ẋi (t) ,
+
+which implies that we have
+x˙n (t)
+
+n
+Y
+
+V0 (vl,u(t) ) =
+
+n−1
+X
+
+λi ẋi (t)
+
+i=1
+
+l=1
+
+⇔ U0 (vn,u(t) )
+
+n−1
+Y
+
+n
+Y
+
+V0 (vl,u(t) )
+
+l=1
+
+V0 (vl,u(t) )
+
+l=1
+
+−
+
+n−1
+X
+i=1
+
+U0 (vi,u(t) )
+
+n
+Y
+
+V0 (vl,u(t) ) = 0 .
+
+l=1,l6=i
+
+This is a contradiction by hypothesis of the statement.
+Finally x1 (t), . . . , xn (t) are linearly independent. Thus
+it says that the RNN is span-reachable.
+2) Assume that Raux (Σ) is polynomial and observable in
+the sense of distinguishable states. Moreover suppose
+that the activation function σ is invertible and that
+Ker(A) is trivial. Take two initial states x, x̂ ∈ Rn
+such that there exist solutions (x, u, y) and (x′ , u, y ′ )
+of Σ, such that x(0) = x, x′ (0) = x̂ and y = y ′ .
+We now prove that x = x̂. By using Lemma 2 and
+Definition 13, it is easy to prove that there are solutions
+′
+(υ, u, (yk,α )k,α ) and (υ ′ , u, (yk,α
+)k,α ) of the rational
+
+system Raux (Σ), with υj,α (0)
+=
+ξ
+eTj (Ax+Bα) and
+
+′
+′
+υj,α
+(0) = ξ eTj (Ax̂ + Bα) , such that yk,α = yk,α
+,
+for j ∈ {1, . . . , n}, k ∈ {1, . . . , p} and α ∈ U. As
+Raux (Σ) is polynomial, it follows that we have
+
+σ eTj (Ax + Bα) = U0 (υj,α (0))
+′
+= U0 (υj,α
+(0))
+
+
+= σ eTj (Ax̂ + Bα) ,
+
+by using Assumption (A1). As σ is invertible, we get
+x − x̂ ∈ Ker(A), which implies that x = x̂ because
+Ker(A) = {0}. Thus the RNN Σ is observable.
+3) Assume that Raux (Σ) is polynomial and it is semialgebraically observable. Moreover suppose that the
+activation function σ is invertible and that Ker(A) is
+trivial. From [17, Proposition 4.20, Corollary 4.22],
+Raux (Σ) is weakly observable, i.e. for every initial
+state υ̂ ∈ Rn|U |N there exists an open set W of
+Rn|U |N such that, for all υ ∈ W , there are solutions
+(υ, u, y) and (υ ′ , u, y ′ ) of Raux (Σ) verifying υ(0) =
+υ̂, υ ′ (0) = υ and y 6= y ′ . Consider now the map
+F̂ : Rn → Rn|U |N , x 7→ (z1 , . . . , znN |U |), which is
+the composition of a projection map with the map
+F : Rn → Rn|U |(N +1) defined in Lemma 2. Thus
+it is a continuous map, and it is straightforward to
+check that, for u ∈ Upc and (x, u, y) a solution of
+the RNN Σ, (υ, u, (yk,α )) is a solution of the rational
+system Raux (Σ), where υ(t) = F̂ (x(t)) for t > 0.
+By continuity of the map F̂ : R → Rn(|U |N +1) ,
+V = (F̂ )−1 (W ) is an open set of Rn . Thus, by using
+similar arguments as in the proof of second point of
+Lemma 8, for every initial states x̂, x ∈ V , there are
+solutions (x, u, y) and (x′ , u, y ′ ) of the RNN Σ such
+that x(0) = x̂, x′ (0) = x and y 6= y ′ . Hence the RNN
+Σ is weakly observable.
+
+Proof: [Proof of Lemma 9] Assume that the rational system Raux (Σ) is semi-algebraically observable, i.e.
+trdegAobs (Raux (Σ)) = nKN . Suppose that there is a nontrivial coordinate space V which is A-invariant and included
+in Ker(C). We have
+V = span{ei | i ∈ I} ,
+
+with ∅ 6= I ⊂ {1, . . . , n} .
+
+As V is included in Ker(C), it means that, for i ∈ I, the
+i-th column of C is trivial. Moreover saying that V is Ainvariant means that, for j 6∈ I and k ∈ I, ajk = 0. We
+recall that the output of the rational system R(Σ) is given
+as follows:
+n
+X
+X
+ck,i xi (t) =
+ck,j xj (t) ,
+∀k ∈ {1, . . . , p} , yk (t) =
+i=1
+
+j∈J
+
+where J = {1, . . . , n}\I. The output map yα,k (t) of the
+rational system Raux (Σ) at time t is constructed from
+the output map of R(Σ) by taking the first derivative, by
+Leamma 4. Thus, for k ∈ {1, . . . , p} and α ∈ U, we get
+yk,α (t) =
+
+n
+X
+i=1
+
+ck,i
+
+U0 (υi,α (t)) X
+U0 (υj,α (t))
+=
+ck,j
+V0 (υi,α (t))
+V0 (υj,α (t))
+j∈J
+
+for k = 1, . . . , p. As aj,l = 0 for j ∈ J and l ∈ I, we
+just need to take the variables υi,j,α with i ∈ {1, . . . , N },
+j ∈ J and α ∈ U. Because υi,j,α satisfies now the following
+differential equation:
+n
+
+υ̇i,j,α (t) =
+
+U0 (υl,β (t))
+Ui (υj,α (t)) X
+{
+aj,l
+}
+Vi (υj,α (t))
+V0 (υl,β (t))
+l=1
+
+n
+Ui (υj,α (t)) X
+U0 (υl,β (t))
+=
+{
+aj,l
+} , if u(t) = β .
+Vi (υj,α (t))
+V0 (υl,β (t))
+l∈J
+
+By some calculations, it is possible to prove that the fraction
+of field of Aobs (Raux (Σ)) is included in the fraction of field
+of the ring
+R[υi,j,α | α ∈ U , i ∈ {1, . . . , N } , j ∈ J} ,
+so that trdegAobs (Raux (Σ)) 6 |J| d N < n dN , because
+I 6= ∅ implying that |J| < n. This is a contradiction.
+Hence there is no non-trivial coordinate subspace A-invariant
+included in Ker(C).
+REFERENCES
+[1] F. Albertini, P. Dai Pra, Forward accessibility for recurrent neural
+networks, IEEE Transactions on Automatic Control, 1995, pages 19621968, volume 40
+[2] F. Albertini, E.D. Sontag, For Neural Networks, Function Determines
+Form, Neural Networks 6(1993): 975-990
+[3] F. Albertini and E.D. Sontag, State observability in recurrent neural
+networks, Systems f3 Control Letters 22(1994): 235-244.
+[4] Z. Bartoszewicz, Minimal polynomial realizations, Mathematics of
+control, signals, and systems, 1988, pages 227-237, volume 1
+[5] Z. Bartoszewicz, Rational systems and observation fields, Systems &
+Control Letters 9, 1987, pages 379-386
+[6] D. Cox, J. Little, and D. OShea, Ideals, varieties, and algorithms: An
+introduction to computational algebraic geometry and commutative
+algebra, Springer, third edition, 2007.
+
+[7] P. DAlessandro, A. Isidori, and A. Ruberti. Realization and structure
+theory of bilinear dynamical systems. SIAM J. Control and Optimization, 517535, 1974.
+[8] T. Defourneau, M. Petreczky, and L. Hetel, Realization theory
+of recurrent neural networks and rational systems, arXiv preprint,
+arXiv:1903.05609
+[9] R. Hermann, and A. J. Krener, Nonlinear controllability and observability, IEEE Transactions on automatic control, 1977, pages 728-740,
+volume 22
+[10] A. Isidori, Nonlinear control systems, Springer, third edition, 2013
+[11] B. Jakubczyk. Realization theory for nonlinear systems: three approaches. In M. Fliess and M. Hazenwinkel, editors, Algebraic and
+Geometric Methods in Nonlinear Control Theory, pages 331. D. Reidel
+Publishing Company, Dordrecht, 1986.
+[12] T. Kailath, Linear Systems, Prentice-Hall, New Jersey, 1979, ISBN
+978-0-13-536961-6
+[13] R.E. Kalman. Mathematical description of linear dynamical systems.
+SIAM J. Control and Optimization, 1(2): 152159, 1963
+[14] E. Kunz. Introduction to commutative algebra and algebraic geometry.
+Birkhuser, Boston, 1985.
+[15] L. Ljung, System identification: theory for the user (second edition),
+Precice-Hall, Englewood Cliffs, NJ, 1999
+[16] J. Němcová, Rational Systems in Control and System Theory, Centrum
+Wiskunde & Informatica (CWI), Amsterdam, Ph.D. thesis under the
+direction of Jan H. van Schuppen, 2009
+[17] J. Němcová, M. Petreczky and J.H. van Schuppen, Realization theory
+of Nash systems, SIAM J. Control & Optimization, 2013, pages 33863414, volume 51
+[18] J. Němcová, M. Petreczky, J. H. van Schuppen, Observability reduction algorithm for rational systems, IEEE Conference on Decision and
+Control (CDC), 2016, pages 5738-5743
+[19] J. Němcová, and J.H. van Schuppen, Realization theory for rational
+systems: The existence of rational realizations, SIAM J. Control
+Optim., 2009, pages 2840-2856, volume 48
+[20] J. Němcová, and J.H. van Schuppen, Realization theory for rational
+systems: Minimal rational realizations, Acta Applicandae Mathematica, 2010, pages 605-626, volume 110
+[21] Y. Qiao, E.D. Sontag, Further results on controllability of recurrent
+neural networks, Systems & Control Letters 36, 1999, pages 121-129
+[22] Y. Wang and E.D. Sontag, Algebraic differential equations and rational control systems, SIAM J. Control Optim., 30(5):11261149, 1992.
+[23] O. Zariski and P. Samuel, Commutative algebra I, II., Springer, 1958.
+[24] L. Rosier, Homogeneous Lyapunov function for homogeneous continuous vector field, Systems & Control Letters, vol. 19, pp. 467 - 473,
+1992.
+[25] S. P. Bhat and D. S. Bernstein, Geometric homogeneity with applications to finite time stability. Mathematics of Control, Signals and
+Systems, vol. 17, pp. 101 – 127, 2005.
+[26] A. Lindquist and G. Picci, Linear Stochastic Systems, ser. Series
+in Contemporary Mathematics. Springer-Verlag Berlin Heidelberg,
+2015, vol. 1.
+[27] I. Sustkever, Training Recurrent Neural Networks, PhD thesis, University of Toronto, 2013.
+[28] A. Caterini and D. E. Chang, Deep Neural Networks in a Mathematical
+Framework, Springer, SpringerBriefs in Computer Science, 2018.
+
+

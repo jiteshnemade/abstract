@@ -1,0 +1,655 @@
+An RNN-based IMM Filter Surrogate
+
+arXiv:1902.01739v2 [cs.CV] 26 Apr 2019
+
+Stefan Becker[0000−0001−7367−2519] , Ronny Hug[0000−0001−6104−710X] ,
+Wolfgang Hübner[0000−0001−5634−6324] , and Michael Arens[0000−0002−7857−0332]
+Fraunhofer Institute for Optronics,
+System Technologies, and Image Exploitation (IOSB)
+Gutleuthausstr. 1, 76275 Ettlingen, Germany
+stefan.becker@iosb.fraunhofer.de
+
+Abstract. The problem of varying dynamics of tracked objects, such as
+pedestrians, is traditionally tackled with approaches like the Interacting
+Multiple Model (IMM) filter using a Bayesian formulation. By following
+the current trend towards using deep neural networks, in this paper an
+RNN-based IMM filter surrogate is presented. Similar to an IMM filter
+solution, the presented RNN-based model assigns a probability value
+to a performed dynamic and, based on them, puts out a multi-modal
+distribution over future pedestrian trajectories. The evaluation is done
+on synthetic data, reflecting prototypical pedestrian maneuvers.
+Keywords: Trajectory Forecasting, Path Prediction, IMM Filter, Multiple Model Filter
+
+1
+
+Introduction
+
+The applications of pedestrian trajectory prediction cover a broad range from autonomous driving, robot navigation, smart video surveillance to object tracking.
+Traditionally, the task of object motion prediction is done by using a Bayesian
+formulation in approaches such as the Kalman filter [17], or nonparametric methods, such as particle filters [4]. Driven by the success of recurrent neural networks
+(RNNs) in modeling temporal dependencies in a variety of sequence processing
+tasks, such as speech recognition [13,10] and caption generation [12,27], RNNs
+are increasingly utilized for object motion prediction [2,3,15,16,7]. When relying on traditional approaches, the challenge of varying dynamics over time is
+commonly addressed with the Interacting Multiple Model (IMM) filter [9]. The
+IMM filter is a well established approach to elegantly combine a set of candidate
+models into a single context by weighting each individual model. Each model
+corresponds to a specific motion pattern and contributes to the final state estimation depending on its current weight. According to the IMM filter solution,
+in this paper an RNN-based IMM filter surrogate is presented. On the one hand,
+the presented RNN-based model is able to also provide a confidence value for
+the performed dynamic and on the other hand can overcome some limitations of
+the classic IMM filter. The suggested RNN-encoder-decoder model generates the
+probability distribution over future pedestrian paths conditioned on a dynamic
+
+2
+
+S. Becker, R. Hug, W. Hübner, M. Arens
+
+class. The model is based on the work of Deo and Trivedi [11]. For the case
+study of freeway traffic, they used an two branch RNN-encoder-decoder network
+for vehicle maneuver and trajectory prediction. Since for vehicle applications an
+on-board lane estimation algorithm is mostly available, a stationary frame of reference, with the origin fixed at the vehicle being predicted, is used in their work.
+Although this makes the model independent of road curvature and independent
+of how vehicle tracks are obtained, it can not be applied without adjustments
+for pedestrian motion prediction. Thus, our RNN-based model infers like classical filters the current position and uses only a single RNN branch for encoding
+the maneuver class, the filtered position and the trajectory information. In the
+context of vehicle motion prediction, maneuver or rather dynamic classes can
+be better defined than for pedestrians. For example by changing or keeping the
+lane. Due to the dynamic behavior of pedestrians, the maneuver classes are here
+defined based on the deviation from a straight walking pedestrian. The presented
+network also extends the maneuver network of Deo and Trivedi [11] with insights
+from the work of Becker et al. [7] to better adapt to pedestrian motions.
+Moreover, this paper aims to highlight some relations between traditional multiple model approaches such as the IMM filter and the suggested RNN-based IMM
+filter surrogate. By combining the different views on maneuver predictions, this
+work contributes to an exploration of the connections between both problem
+formulations. The decoder uses the de-noised position estimate and a context
+vector, encoding the dynamic classes, to predict future positions. The analysis
+is done on synthetic data reflecting prototypical scenarios capturing pedestrians
+maneuvers.
+In the following, a brief formalization of the problem and a description of the
+RNN-based model are provided. The achieved results are presented in section 3.
+Finally, a conclusion is given in section 4.
+
+2
+
+RNN-based IMM Filter Surrogate
+
+The goal is to devise a model that can successfully predict future paths of pedestrians and represent alternating pedestrian dynamics, e.g. dynamics that can
+transition from a straight walking to a turning maneuver or stopping. Here,
+trajectory prediction is formally stated as the problem of predicting the future
+trajectories of a pedestrian, conditioned on its track history. Given an input
+sequence Z = {(xt , y t ) ∈ R2 |t = 1, . . . , tobs } of Tobs consecutive observed pedestrian positions z t = (xt , y t ) at time t along a trajectory, the task is to generate
+a multi-modal prediction for the next Tpred positions {xt+1 , xt+2 , . . . , xt+Tpred }
+and to filter the current position xt = (xt , y t ). One insight from the work Becker
+et al. [7] is that motion continuity is easier to express in offsets or velocities,
+because it takes considerably more modeling effort to represent all possible conditioning positions. In order to exploit scene-specific knowledge for trajectory
+prediction, additional use of the position information is required. When sufficient
+training samples from a particular scene are available, Hug et al.[15] showed that
+RNN-based trajectory prediction models are able to capture spatially dependent
+
+An RNN-based IMM Filter Surrogate
+
+3
+
+behavior changes only from motion data. However, here the offsets are additionally used for conditioning the network Z = {(xt , y t , δxt , δyt ) ∈ R4 |t = 2, . . . , tobs }.
+Apart from the smaller modeling effort to represent conditioned offsets, the
+shift to offsets helps to prevent undefined states due to a limited data range
+[7] and it is easier to make better generalizations across datasets. Since, we
+analyze the model capabilities on synthetic data reflecting prototypical pedestrian maneuvers for a fixed scenario, the amount of training samples is not
+restricted. Thus, in order to localize in the reference system position information is used to estimate the true position. The future trajectory is denoted with
+Y = {(xt , y t ) ∈ R2 |t = tobs + 1, . . . , tpred }. The model estimates the conditional
+distribution P (Y, xt |Z). In order to identify specific dynamics under M desired
+maneuver classes (e.g. turning maneuvers, stopping and straight walking), this
+term can be given by:
+P (Y, xt |Z) =
+
+M
+X
+
+PΘ (Y, xt |mi , Z)P (mi |Z)
+
+(1)
+
+i=1
+
+Here, Θ = {Θtobs +1 , . . . , Θtpred } are the parameters of a L component Gaussian mixture model Θt = (µtl , Σlt , wlt )l=1,...,L . By adding the maneuver context
+∧
+in form of the posterior mode probability, P (mi |Z) = αi the analogy to the
+classic IMM filter becomes apparent. For an IMM filter, the mode probability
+is used to calculate the mixing probabilities to combine the set of chosen candidate models into a merged estimate. The time behavior of the basic filter set is
+modeled as a homogeneous (time invariant) Markov chain with a fixed transition
+∧
+probability matrix (TPM) mij = P (mti |mt−1
+j ). Under the assumption that M
+models describe the variation of the dynamics, the posterior density of the IMM
+filter can be written as follows:
+t
+
+P (x |Z) =
+
+M
+X
+
+PΘIM M (xt |mi , Z)P (mi |Z)
+
+(2)
+
+i=1
+
+Here, PΘIM M (xt |mi , Z) is in the context of an IMM filter a Gaussian distri∧
+bution and P (mi |Z) = αi is the posterior mode probability for the IMM filter.
+As mentioned above, the transition between different dynamics is modeled as a
+first order Markov chain for an IMM filter. The law of total probability allows to
+compute new mode probabilities based on the transition probabilities. Given the
+current mode probabilities and transition probabilities, the mixing probabilities
+αi|j for the mixing step of the IMM filter can be calculated. For each model Mi
+t−1
+and Mj , they are calculated as αi|j
+= c̄1j mij αit−1 with a normalization factor
+PM
+c̄j = i=1 mij αit−1 . Then, in the prediction stage, each filter is applied independently using the calculated mixed initial condition. Subsequently, the model
+probabilities are adapted according to the likelihood of each filter.
+RNN-IMM: Whereas an explicit modeling of the switching behavior and
+the object dynamics of the IMM filter stands in contrast to an implicit dy-
+
+4
+
+S. Becker, R. Hug, W. Hübner, M. Arens
+
+namic encoding of an RNN-based approach. In order to provide an IMM filter
+surrogate, the proposed model also estimates mode probabilities and filters or
+rather de-noises the current position based on noisy observations Z. By writing
+the conditional distribution P (Y, x|Z) of the RNN-based approach in form of
+equation 1, the desired estimates can be inferred from the hidden states of the
+RNN h. This formulations does not require to set the parameters of the TPM
+matrix manually, which is commonly done based on the mean sojourn time (the
+mean time an object stays in a motion type [24,5]) or as stated in the work of
+Bar-Shalom [5], an ad-hoc approach to fill the diagonals with values close to
+one. For the proposed RNN-based IMM filter surrogate (RNN-IMM), the basic
+architecture is a recurrent encoder-decoder model. The encoder takes the frame
+by frame input sequence Z. The hidden state vector of the encoder is updated at
+each time step based on the previous hidden state and the current observation.
+The generated internal representation is used to predict mode probabilities αt
+at the current time step and xt . With embedding of the current observations,
+the encoder can be defined as follows:
+etencoder = EMB(z t ; Wee )
+t
+htencoder = RNN(ht−1
+encoder , eencoder ; Wencoder )
+
+x̂t , αtlogits = MLP(htencoder ; Wen )
+exp (αtlogits )
+α̂t = PM
+t
+j=1 exp (αlogits,j )
+
+Here, RNN(·) is the recurrent network, h the hidden state of the RNN,
+MLP(·) the multilayer perceptron, and EMB(·) an embedding layer. W represents the weights and biases of the MLP, EMB or respectively RNN. The final
+state of the encoder can be expected to encode information about the track histories. For generating a trajectory distribution over dynamic modes, the encoder
+hidden state is appended to a one-hot encoded vector corresponding to specific
+maneuvers and the filtered current position. Instead of only filtering the position, the encoder could also be used to parametrize a mixture density output
+layer (MDL). The decoder of the model can be defined as follows:
+t
+t
+t
+htdecoder = RNN(ht−1
+decoder [hencoder ], x̂ , α ; Wdecoder )
+
+Ŷ = {(µ̂tl + x̂tobs , Σ̂lt , ŵlt )|t = tobs + 1, . . . , tpred } = MLP(htdecoder ; Wde )
+The decoder is used to parametrize a mixture density output layer (MDL) or
+rather Θ directly for several positions in the future (one distribution for every
+time step). Nevertheless, the overall RNN-IMM uses the trajectory prediction
+and dynamic classification jointly, the loss function for training is split into three
+parts.
+
+An RNN-based IMM Filter Surrogate
+
+5
+
+Θm,1
+Θm,2
+MLP
+MLP
+
+Soft-max
+
+filtering x
+MLP
+
+LSTM
+
+LSTM
+
+LSTM
+
+LSTM
+
+LSTM
+
+LSTM
+
+LSTM
+
+LSTM
+
+LSTM
+
+t
+
+trajectory
+encoding
+
+LSTM
+LSTM
+LSTM
+LSTM
+LSTM
+LSTM
+
+z t−2
+
+z t−1
+
+maneuver
+encoding
+
+zt
+
+Fig. 1. Visualization of the RNN-based IMM filter surrogate (RNN-encoder-decoder
+network) for jointly predicting specific dynamic probabilities and corresponding future
+distributions of trajectory positions. The encoder predicts the dynamic probabilities
+and the filtered position for the current time step. The decoder uses the context vector
+and the position estimate to predict future pedestrian locations.
+
+Dynamic classification is trained to mimimize the sum of cross-entropy losses
+of the different M motion model classes:
+
+L(Z)maneuver = −
+
+M
+X
+
+t
+αj,GT
+log(α̂jt )
+
+(3)
+
+j=1
+
+Additionally, the encoder is trained by minimizing the filtering loss L(Z)f ilter
+in form of the mean squared error to the ground truth current pedestrian locations. In case the encoder should generate the parameter of a mixture of Gaussian
+or single Gaussian distribution, the negative log likelihood for the ground truth
+pedestrian locations can be minimized. Finally, the complete encoder-decoder is
+trained by minimizing the negative log likelihood for the ground truth future
+pedestrian locations conditioned under the performed maneuver class. The context vector is appended with the ground truth values of the dynamic model or
+maneuver classes for each training trajectory. This results in the following loss
+function:
+
+L(Z)pred = − log(PΘ (Ŷ|mGT , Z)P (mGT |Z))
+tpred
+
+L(Z)pred =
+
+X
+t=tobs +1
+
+L
+X
+− log(
+ŵlt N (xt |µ̂tl + xtobs , Σ̂lt ; mGT ))
+l=1
+
+(4)
+
+6
+
+S. Becker, R. Hug, W. Hübner, M. Arens
+
+The overall architecture is visualized in figure 1. The context vector combines
+the encoding of the track history with the encoding of the alternating dynamic
+classes. Together with the filtered position, it is used as input for the decoder.
+
+3
+
+Data Generation and Evaluation
+
+Fig. 2. Illustration of typical pedestrian motions. The above images depict the two
+chosen maneuver classes of straight walking or rather crossing and stopping. The images
+on the left show a person crossing the street. The images on the right show a person
+changing from walking to standing at the curbside of the street. In particular changing
+from straight walking to stopping [24].
+
+This section consists of a brief evaluation of the proposed RNN-IMM. The
+evaluation is concerned with verifying the overall viability of the approach in
+maneuver situations. For initial results, a synthetic test condition is used in order to gain insight into the model behavior in different typical pedestrian motion
+types. A prototypical maneuver performed by a pedestrian, which has important implications for the field of intelligent vehicles and video surveillance is a
+stopping or deceleration maneuver.
+
+An RNN-based IMM Filter Surrogate
+
+7
+
+Data Generation and Reference Methods: For the first mentioned context of intelligent vehicles, Schneider et al. [24] performed a comparative study
+on recursive Bayesian filters for pedestrian path prediction at short time horizons (below 2 seconds). They applied different filters on typical pedestrian motion types. Although, the comparison was done on the Daimler path prediction
+dataset, we evaluate on synthetic data but make use of the provided real data to
+capture a similar condition. Firstly, the Daimler path prediction dataset provides
+only a maximum amount of 23 sequences for single motion types. As mentioned
+before, in order to avoid problems such as a limited number of training samples
+and to gain some insights into a controlled setup, synthetic data is used. Secondly, the location information is biased in the dataset. Since recursive Bayesian
+filters make in their standard formulation no use of the spatial context of a scene,
+this does not harm their mutual comparison. However, RNN-based prediction
+networks are able to capture spatially dependent behavior changes [15], thus a
+fair comparison is difficult to achieve. The evaluation on the Daimler dataset is
+done in an ego-motion compensated reference system. The frame rate of the camera system inside the recording vehicle is 16 fps and it is taken over accordingly
+for our experiments. The pedestrians change their behavior abruptly. Therefore,
+the sensible time horizons are short. Here, 8 (0.5 seconds) consecutive positions
+are observed, before predicting the next 8 (0.5s seconds), 12 (0.75 seconds) and
+16 (1 second).
+For generating synthetic trajectories of a basic maneuvering pedestrian, random agents are sampled from a Gaussian distribution according to a preferred
+pedestrian walking speed [26] (N (1, 38m, 0.37m)) from the distribution of starting positions of the corresponding Daimler dataset sequences. During a single
+trajectory simulation the agents can perform a stopping maneuver or cross the
+street. Figure 2 illustrates such maneuvers with example images from the Daimler dataset [24]. For mapping the pedestrian detections to a vehicle-motion compensated ground plane, Schneider et al. used on-board sensors for velocity and
+yaw rate and a stereo camera system to compute the median disparity. Due to the
+non-linear observation model based on a perceptive camera model, an inevitable
+linearized extension for the Kalman and IMM filter observation models are required. Here, the observation uncertainty of the position sensor is assumed to
+be Gaussian distributed rt ∼ N (0, 0.01m) in the compensated reference system.
+Thus, the standard formulation of the Bayesian filters are well suited for this
+task. For the stopping maneuver or rather the event of deceleration till standing,
+a mean sojourn time of 1 second with a standard deviation of 0.1 seconds is used.
+As long as a person moves in a straight line at a reasonably constant speed, their
+dynamics can be captured with a Kalman filter using a constant velocity model.
+During the maneuver, the relation to one fixed process model describing the dynamics fails due to an additional deceleration. Similar to Schneider et al. [24] or
+Kooij et al. [21], the reference IMM filter is set up by combining two basic models, in particular, the constant velocity (CV) and the constant acceleration (CA)
+model. For avoiding side effects due to independent motions in different directions, see for example [6], only the crossing direction, from the vehicle perspec-
+
+8
+
+S. Becker, R. Hug, W. Hübner, M. Arens
+
+tive, the lateral motion is considered. Following the aforementioned explanations,
+the IMM-RNN is compared to an IMM filter with two motion models (CV, CA),
+a Kalman filter with a single CV model, a Kalman filter with a single CA model,
+and as baseline to a linear interpolation. Also correspondingly to Schneider et
+al., the process noise q is determined by Q(t) = Q0 (t)q, where q ∈ {σCV , σCA }
+are spectral densities (continuous time variances) of the process noise, describing
+the changes
+in√
+velocity or respectively
+√
+√ in acceleration over a sampling period ∆t
+√
+(CV: Q22 = ∆t · q; CA: Q33 = ∆t · q, see for example [23]). Based on this
+process noise model, the optimal process noise parameters for the different chosen filters (IMM filter (CV, CA), Kalman filter CV, CA) on the Daimler dataset
+are for the two IMM filter models σIM M,CV = 0.70, σIM M,CA = 0.80 and for
+the single Kalman filters σCV = 0.77 and σCA = 0.44 [24]. These parameters are
+consistent with the suggested practical setting in Bar-Shalom [5] and the chosen
+sojourn time for the simulation.
+As mentioned above, a definition of maneuver classes for pedestrians is harder to
+establish than for vehicles. Hence, the main interest is here to detect the deviation from a standard behavior, and whether the pedestrian is in a normal mode.
+A set of deviation in velocity, deceleration, along with the tangential ground
+truth trajectory is used to assign a maneuver label to a time step of a single
+trajectory. Thus, the RNN-IMM and IMM filter have a similar basic dynamic
+model set description. As the distribution over the trajectories for the RNN-IMM
+is captured with a Gaussian mixture model, the maneuver description for a single model can still be multi-modal. Since the IMM filter predicts a multi-modal
+distribution in form of a combination of the uni-modal model specific prediction,
+in the presented results the RNN-IMM is set to also only predict conditioned on
+a single maneuver class a uni-modal Gaussian distribution.
+Implementation Details: The model has been implemented using Tensorflow [1] and is trained for 2000 epochs using ADAM optimizer [19] with a
+decreasing learning rate, starting from 0.01 with a learning rate decay of 0.95
+and a delay factor of 1/10. During the learning rate adaption, the number of
+epochs is multiplied by the delay factor. For the experiments, the RNN variant
+Long Short-Term Memory (LSTM) [14] is used.
+Results & Analysis: In figure 3, predictions for two different preformed
+motion types are depicted for 8 future positions weighted by the predicted maneuver probability. In the shown images the positions are normalized to start at
+the origin. The resulting multi-modal prediction is visualized as a heatmap. On
+the left, it can be seen that for a crossing sequence with straight walking the
+RNN-IMM mainly uses the corresponding straight walking model. On the right,
+where the deceleration started, the straight walking probability is visibly lower
+and the predicted distribution maximum is very close to the last observation.
+For the quantitative evaluation, 1000 noisy trajectories have been synthetically
+generated, where 80 percent are used for training and 20 percent for the comparison to the recursive Bayesian filters. The results are summarized in table 1.
+
+9
+
+y in meters
+
+y in meters
+
+An RNN-based IMM Filter Surrogate
+
+x in meters
+
+y in meters
+
+y in meters
+
+x in meters
+
+x in meters
+
+x in meters
+
+Fig. 3. Visualization of the predicted multi-modal distributions of future position as
+heatmap. (Left) Density plots for crossing or rather straight walking examples. (Right)
+Density plots for stopping examples in which the maximum of the predicted distribution
+is visible close to the last observation.
+
+The performance is compared with the final displacement error (FDE) (see for
+example [22]) of the lateral motion (from the vehicle perspective) for three different time horizons, in particular 8 steps (0.5s), 12 steps (0.75s) and 16 steps (1s).
+These results show that the presented RNN-IMM is able to faster capture the
+change in dynamic for the synthetically generated data. In terms of the single
+motion models (CV vs. CA), one can observe the benefits for the CA in capturing the deceleration. The IMM filter combines both and shows an improvement.
+Hence, the aim of this paper is more on highlighting the relation between traditional multiple model approaches and the suggested RNN-based IMM filter
+surrogate, it should be mentioned that RNN-based approaches are designed to
+receive input data for every time step, whereas Bayesian filters are well suited for
+handling missing observations. Especially with such a short initialization time,
+this can be crucial. One argument towards a learning based RNN-IMM is that
+we only choose the maneuver definition based on deviation of standard straight
+walking. The engineering task of finding the best model set up for IMM filters
+and their extensions can lead to an improved behavior (see for example Keller
+et al. [18]) in specific maneuver situations, but is also very tedious to find a
+good setting. It should also be mentioned that recent work like the approaches
+of Kooij et al. [20] show options how to further improve the prediction performance by including scene context and using more cues than pedestrian point
+kinematics (e.g. head orientation, gaze, body tilt, articulated body information).
+
+10
+
+S. Becker, R. Hug, W. Hübner, M. Arens
+
+Table 1. Results for the comparison between the proposed RNN-IMM and an IMM
+filter with two motion models (CV, CA), a Kalman filter with a single CV model, a
+Kalman filter with a single CA model, and using linear interpolation on the simulated
+maneuver situations. The prediction is done for 8, 12, and 16 time steps conditioned
+on 8 observations for a frame rate of 16 fps.
+
+Approach
+RNN-IMM
+IMM filter (CV,CA)
+Kalman filter (CA)
+Kalman filter (CV)
+Linear interpolation
+
+8/8
+FDE [m] σFDE [m]
+0.0309 0.0404
+0.0674 0.0602
+0.0796 0.0638
+0.1578 0.1601
+0.1587 0.1610
+
+8/12
+FDE [m] σFDE [m]
+0.0427 0.0817
+0.1188 0.1255
+0.1575 0.1137
+0.2890 0.2965
+0.2903 0.2978
+
+8/16
+FDE [m] σFDE [m]
+0.0517 0.0941
+0.1862 0.1915
+0.2386 0.1696
+0.4701 0.4700
+0.4724 0.4718
+
+In summary, the presented RNN-IMM is able to also provide a confidence
+∧
+value P (mi |Z) = αi for the performed dynamic, but avoids modeling the dynamic transitions with a fixed transition probability matrix P (mti |mt−1
+j ). Similar
+to the provided mode probabilities of IMM filters, this can be used for further
+processing steps or rather applications (see for example [25,8]). Further, instead
+of choosing the basic filter set, the prediction model is learned. In case there exists some well known model for describing the standard dynamic of the desired
+target, only deviations from the known dynamic can be used to define additional
+maneuver classes. This study on synthetically generated data shows, that by exploiting the connections between different views on maneuver prediction some
+perspectives on overcoming respective limitations can be gained.
+
+4
+
+Conclusion
+
+In this paper, an RNN-encoder-decoder model, which can be interpreted as an
+IMM filter surrogate, has been presented. The RNN-IMM is able to jointly predict specific motion probabilities and corresponding distributions of future pedestrian trajectory. The model capabilities were shown on synthetic data that were
+reflecting typical pedestrian maneuvers. By conditioning on specific dynamic
+models or rather deviation from standard behavior, the model makes it possible
+to generate additional information in terms of an assigned maneuver probability
+similar to an IMM filter, but reduces the amount of explicit modeling of filter parameters (e.g. the dynamic transitions matrix). Thus, the presented RNN-IMM
+helps to reduce the amount of hard-coded engineering of traditional multiple
+model filter such as the IMM filter.
+
+References
+1. Abadi, M., Agarwal, A., Barham, P., Brevdo, E., Chen, Z., Citro, C., Corrado,
+G.S., Davis, A., Dean, J., Devin, M., Ghemawat, S., Goodfellow, I., Harp, A.,
+
+An RNN-based IMM Filter Surrogate
+
+2.
+
+3.
+
+4.
+
+5.
+6.
+
+7.
+
+8.
+
+9.
+
+10.
+
+11.
+
+12.
+
+13.
+
+14.
+15.
+
+16.
+
+11
+
+Irving, G., Isard, M., Jia, Y., Jozefowicz, R., Kaiser, L., Kudlur, M., Levenberg,
+J., Mané, D., Monga, R., Moore, S., Murray, D., Olah, C., Schuster, M., Shlens, J.,
+Steiner, B., Sutskever, I., Talwar, K., Tucker, P., Vanhoucke, V., Vasudevan, V.,
+Viégas, F., Vinyals, O., Warden, P., Wattenberg, M., Wicke, M., Yu, Y., Zheng,
+X.: TensorFlow: Large-scale machine learning on heterogeneous systems (2015),
+https://www.tensorflow.org/, software available from tensorflow.org
+Alahi, A., Goel, K., Ramanathan, V., Robicquet, A., Fei-Fei, L., Savarese, S.:
+Social LSTM: Human trajectory prediction in crowded spaces. In: Conference on
+Computer Vision and Pattern Recognition (CVPR). pp. 961–971. IEEE (2016)
+Alahi, A., Ramanathan, V., Goel, K., Robicquet, A., Sadeghian, A., Fei-Fei, L.,
+Savarese, S.: Learning to predict human behaviour in crowded scenes. In: Group
+and Crowd Behavior for Computer Vision. Elsevier (2017)
+Arulampalam, M., Maskell, S., Gordon, N., Clapp, T.: A tutorial on particle filters for online nonlinear/non-gaussian bayesian tracking. Transactions on Signal
+Processing 50(2), 174–188 (2002). https://doi.org/10.1109/78.978374
+Bar-Shalom, Y., Kirubarajan, T., Li, X.R.: Estimation with Applications to Tracking and Navigation. John Wiley & Sons, Inc., New York, NY, USA (2002)
+Becker, S., Hübner, W., Arens, M.: State estimation for tracking in image space
+with a de- and re-coupled imm filter. Multimedia Tools and Applications 77(15),
+20207–20226 (2018). https://doi.org/10.1007/s11042-017-5324-3
+Becker, S., Hug, R., Hübner, W., Arens, M.: Red: A simple but effective baseline
+predictor for the trajnet benchmark. In: European Conference on Computer Vision
+(ECCV) Workshops. Springer International Publishing (2018)
+Becker, S., Münch, D., Kieritz, H., Hübner, W., Arens, M.: Detecting abandoned
+objects using interacting multiple models. In: Proc. SPIE Volume 9652 Optics and
+Photonics for Counterterrorism, Crime Fighting, and Defence (2015)
+Blom, H., Bar-Shalom, Y.: The interacting multiple model algorithm for systems
+with markovian switching coefficients. Transactions on Automatic Control 33(8),
+780–783 (1988). https://doi.org/10.1109/9.1299
+Chung, J., Kastner, K., Dinh, L., Goel, K., Courville, A., Bengio, Y.: A recurrent latent variable model for sequential data. In: Advances in Neural Information
+Processing Systems (NIPS) (2015)
+Deo, N., Trivedi, M.M.: Multi-modal trajectory prediction of surrounding vehicles
+with maneuver based lstms. In: Intelligent Vehicles Symposium (IV). pp. 1179–
+1184. IEEE (2018). https://doi.org/10.1109/IVS.2018.8500493
+Donahue, J., Hendricks, L., Guadarrama, S., Rohrbach, M., Venugopalan, S.,
+Saenko, K., Darrell, T.: Long-term recurrent convolutional networks for visual
+recognition and description. In: Conference on Computer Vision and Pattern
+Recognition (CVPR). IEEE (2015)
+Graves, A., Mohamed, A., Hinton, G.: Speech recognition with deep recurrent
+neural networks. In: International Conference on Acoustics, Speech and Signal
+Processing. pp. 6645–6649 (2013). https://doi.org/10.1109/ICASSP.2013.6638947
+Hochreiter, S., Schmidhuber, J.: Long Short-Term Memory. Neural Computation
+9(8), 1735–1780 (1997). https://doi.org/10.1162/neco.1997.9.8.1735
+Hug, R., Becker, S., Hübner, W., Arens, M.: On the reliability of lstm-mdl models
+for pedestrian trajectory prediction. In: International Workshop on Representations, Analysis and Recognition of Shape and Motion from Imaging Data (RFMI).
+Savoie, France (2017)
+Hug, R., Becker, S., Hübner, W., Arens, M.: Particle-based pedestrian path prediction using lstm-mdl models. In: International Confer-
+
+12
+
+17.
+18.
+
+19.
+20.
+
+21.
+
+22.
+
+23.
+
+24.
+
+25.
+
+26.
+
+27.
+
+S. Becker, R. Hug, W. Hübner, M. Arens
+ence on Intelligent Transportation Systems (ITSC). pp. 2684–2691 (2018).
+https://doi.org/10.1109/ITSC.2018.8569478
+Kalman, R.E.: A new approach to linear filtering and prediction problems. ASME
+Journal of Basic Engineering 82 (1960)
+Keller, C.G., Hermes, C., Gavrila, D.M.: Will the pedestrian cross? probabilistic
+path prediction based on learned motion features. In: Mester, R., Felsberg, M.
+(eds.) Pattern Recognition. pp. 386–395. Springer Berlin Heidelberg (2011)
+Kingma, D.P., Ba, J.: Adam: A method for stochastic optimization. International
+Conference for Learning Representations (ICLR) (2015)
+Kooij, J.F.P., Flohr, F., Pool, E.A.I., Gavrila, D.M.: Context-based path prediction
+for targets with switching dynamics. International Journal of Computer Vision
+(2018). https://doi.org/10.1007/s11263-018-1104-4
+Kooij, J.F.P., Schneider, N., Flohr, F., Gavrila, D.M.: Context-based pedestrian
+path prediction. In: European Conference on Computer Vision (ECCV). pp. 618–
+633. Springer International Publishing (2014). https://doi.org/10.1007/978-3-31910599-4 40
+Pellegrini, S., Ess, A., Schindler, K., van Gool, L.: You’ll never walk
+alone: Modeling social behavior for multi-target tracking. In: International Conference on Computer Vision (ICCV). pp. 261–268. IEEE (2009).
+https://doi.org/10.1109/ICCV.2009.5459260
+Särkkä, S.: Bayesian Filtering and Smoothing. Institute of Mathematical Statistics Textbooks, Cambridge University Press (2013).
+https://doi.org/10.1017/CBO9781139344203
+Schneider, N., Gavrila, D.M.: Pedestrian path prediction with recursive bayesian
+filters: A comparative study. In: German Conference on Pattern Recognition
+(GCPR). pp. 174–183. Springer Berlin Heidelberg (2013), https://doi.org/10.
+1007/978-3-642-40602-7_18
+Stierlin, S., Dietmayer, K.: Scale change and ttc filter for longitudinal vehicle control based on monocular video. In: International Conference on Intelligent Transportation Systems (ITSC). pp. 528–533 (2012).
+https://doi.org/10.1109/ITSC.2012.6338681
+Teknom, K.: Microscopic Pedestrian Flow Characteristics: Development of an Image Processing Data Collection and Simulation Model. Ph.D. thesis, Tohoku University (2002)
+Xu, K., Ba, J., Kiros, R., K.Cho, Courville, A., Salakhudinov, R., Zemel, R., Bengio, Y.: Show, attend and tell: Neural image caption generation with visual attention. In: International Conference on Machine Learning (ICML). vol. 37, pp.
+2048–2057. PMLR, Lille, France (2015)
+
+

@@ -1,0 +1,823 @@
+BreathRNNet: Breathing Based Authentication on
+Resource-Constrained IoT Devices using RNNs
+
+Jagmohan Chauhan∗† , Suranga Seneviratne∗‡ , Yining Hu∗† , Archan Misra§ , Aruna Seneviratne∗† , Youngki Lee§ ,
+
+arXiv:1709.07626v1 [cs.CR] 22 Sep 2017
+
+∗ School
+
+of EET (UNSW) , † Data61, Australia,
+
+‡
+
+School of CSE (UNSW),
+
+Abstract—Recurrent neural networks (RNNs) have shown
+promising results in audio and speech processing applications
+due to their strong capabilities in modelling sequential data.
+In many applications, RNNs tend to outperform conventional
+models based on GMM/UBMs and i-vectors. Increasing popularity of IoT devices makes a strong case for implementing
+RNN based inferences for applications such as acoustics based
+authentication, voice commands, and edge analytics for smart
+homes. Nonetheless, the feasibility and performance of RNN
+based inferences on resources-constrained IoT devices remain
+largely unexplored. In this paper, we investigate the feasibility
+of using RNNs for an end-to-end authentication system based
+on breathing acoustics. We evaluate the performance of RNN
+models on three types of devices; smartphone, smartwatch, and
+Raspberry Pi and show that unlike CNN models, RNN models
+can be easily ported onto resource-constrained devices without
+a significant loss in accuracy.
+
+1. Introduction
+The variety of sensors embedded in smartphones, wearables, and other IoT devices are increasingly being used to
+support both (a) fine-grained monitoring of a user’s activities
+and ambient context, and (b) richer forms of cyber-physical
+interaction (e.g., via gestures or natural language interfaces).
+Illustrative scenarios include the monitoring of a user’s steps
+to estimate daily calorie expenditure, tracking of eating gestures to capture food intake and use of microphone-equipped
+devices at home for voice-based home automation control.
+As these personal and edge devices increasingly come in
+non-traditional form factors, as well as learn and store
+individual-specific information, it is important to develop
+novel and natural user authentication techniques. In recent
+work, we have introduced the BreathPrint [1] system, which
+utilizes acoustic features of a user’s breathing, captured
+by a commodity microphone, to support ubiquitous user
+authentication on mobile and IoT devices.
+In this paper, we investigate whether RNN based
+deep learning models can be effectively used in resourceconstrained devices for BreathPrint. The original work on
+BreathPrint [1] was cloud based and used a conventional
+GMM based machine learning model with manually curated
+features. This work is motivated by two main objectives: a)
+State-of-the-art speech recognition and speaker identifi-
+
+§
+
+School of Information Systems (SMU)
+
+cation methods are RNN based and significantly outperform classical methods such as SVMs and GMM/HMMs
+especially in noisy environments [2], thus it is important
+to evaluate the performance of BreathPrint using RNN
+models to boost the performance, b) For unobtrusive and
+ubiquitous authentication applications, BreathPrint needs
+to be implemented in resource constrained devices and
+must be able to authenticate users without cloud access,
+thus it is important to obtain an idea about the accuracy
+vs. resource trade off for BreathPrint. To this end, in this
+paper we conduct a performance evaluation of an end-toend RNN based BreathPrint authentication system on three
+representative hardware platforms: IoT (Raspberry Pi 3),
+wearable (smartwatch) and mobile (smartphone). To the best
+of our knowledge this is the first work, which shows the
+feasibility, and performance of RNN based deep models for
+acoustics in limited resource footprint devices.
+We make the following key contributions:
+•
+We present performance evaluation results of an endto-end authentication based on LSTM (a variant of
+RNN) using breathing acoustics on three representative IoT devices: a smartphone, a smartwatch, and
+a Raspberry Pi.
+•
+We show that RNN-based models for acoustic classification are smaller in size and lightweight than
+previously reported results with CNN-based models,
+and thus can be adopted to IoT devices. Specifically,
+an unoptimized RNN model is only 1.1 MB in size
+(for relevant breathing gestures) and can run on
+smartphones and smartwatches with approx. 100200 ms and 700 m latencies, respectively.
+•
+We also show how a layer quantization-based model
+compression technique can help to reduce the memory footprint of RNN models (by a factor of 5, to
+approx 150-250 KB) without suffering any consequential drop in accuracy.
+
+2. Related Work
+Motivated by the breakthroughs in training deep neural
+networks and the impressive performance gains achieved
+(deep networks have not only outperformed conventional
+machine learning models, but in several cases, even human
+experts), a variety of recent work has focused on the challenges (such as higher memory requirement or excessive
+
+computational latency) of executing deep learning models on
+resource-constrained devices. Table 1 summarizes some of
+these notable efforts and the techniques employed. Broadly
+speaking, these efforts utilize one or more of the following
+three approaches: (i) offloading neural network processing to
+GPUs, which are more efficient in vectorized computations,
+(ii) reducing the time and memory requirements to load
+the fully-connected layers, and (iii) faster execution of the
+convolutional layers.
+Early work by Lane et al. [3] investigated the performance characteristics, resource requirements and the execution bottlenecks for deep learning models (CNN and DNN)
+on mobile, wearable, and IOT devices, to support audio and
+vision based apps. Results indicated that although smaller
+deep learning models work without issues on these devices,
+more complex CNN models such as AlexNet do not work
+well under the resource constraints. To address this problem,
+Bhattacharya et al. [4] proposed SparseSep, which focuses
+primarily on finding a sparse representation of the fully
+connected layers and on using separate filters to separate
+the convolutional kernels. These techniques reduce the number of parameters and convolutional operations required to
+execute a deep learning model, and can thus significantly
+reduce the computational and space complexity on resourceconstrained devices.
+Several papers have focused on optimizing deep networks for audio and image sensing applications. DeepEar [2]
+is an audio sensing application for smartphones based on
+DNNs. DeepEar was implemented in the DSP of the smartphone, and imposed only 6% additional overhead in daily
+energy consumption. DeepEye [5] deployed CNNs on wearables for continuous vision applications. DeepEye avoids
+resource bottlenecks by using interleaving to orchestrate
+the execution of computation-heavy convolutional layers
+with memory-heavy fully-connected layers. DeepEye also
+employs caching to load the fully connected layers faster
+and utilizes a singular-value decomposition (SVD) based
+layer factorization approach to compress the fully connected
+layer. DeepMon [6] focused on reducing the processing
+latency of convolutional layers, via multiple optimization
+techniques, for continuous vision applications. First, DeepMon employs a caching mechanism to take advantage of the
+likely significant similarities between consecutive images.
+Secondly, DeepMon perform faster matrix multiplication by
+model decomposition and unfolding. Model decomposition
+decomposes a convolutional layer into multiple smaller convolutional layers such that that the total computation of the
+decomposed layers is smaller than that of the original layer.
+Finally, DeepMon offloads convolutional layers to mobile
+GPUs for faster processing. More recently, MobiRNN [7]
+applied GPU offloading to execute RNNs faster on smartphones, to support activity recognition tasks.
+As evident from the Table 1, most of the work to
+date has focused on CNNs and DNNs. For example, even
+audio analysis and speaker identification tasks have been
+performed using CNN and DNNs. In general, CNNs are
+good at exploiting features defined on spatial data (e.g.,
+images), whereas RNNs are more appropriate for identifying
+
+TABLE 1: Deep Learning on Resource-Constrained Devices
+Name
+SparseSep
+
+Type of DL
+CNN, DNN
+
+Architecture
+Multiple
+Layers
+
+DeepEar
+Deepeye
+
+DNN
+CNN
+
+Five Layers
+Multiple
+Layers
+
+Application
+Image
+Classification,
+Speaker
+Identification,
+Scene
+Analysis
+Audio Sensing
+Continuous
+Vision
+
+DeepMon
+
+CNN
+
+Sixteen
+Layers
+
+Continuous
+Vision
+
+MobiRNN
+
+RNN
+
+Two Layers
+
+Activity
+Recognition
+
+Techniques
+Sparsification
+and Separation
+
+NA
+Interleaving,
+Caching and
+Compression
+GPU
+Offloading,
+Caching and
+Decomposition
+GPU Offloading
+
+and using temporal features, defined over data streams, such
+as audio or text. Compared to CNN, RNN based models
+are also less complex as they deal with less complex data
+(images vs. text, audio) and do not use convolutional filters.
+Hence, compared to CNNs, RNN based models require
+comparatively lower computational power and memory [3],
+[7].
+As discussed earlier, BreathPrint proposed a technique
+to authenticate users based on their breathing acoustics
+on mobile and IoT devices. BreathPrint is based on the
+hypothesis that each individual’s breathing pattern is unique;
+the proposed approach is also highly usable, as it merely
+requires the user to perform a small number of breathing
+gestures. Our interest in RNNs is thus driven by our belief
+that this uniqueness is manifested via temporal variations
+in a user’s breathing pattern, and that RNNs are more
+capable in identifying and exploiting such temporal features.
+However, BreathPrint’s full potential can only be realized
+if the user identification can be performed locally (on the
+device), with minimal latency. Accordingly, in this work, we
+investigate the central question: “Can BreathPrint be practically realized, using an RNN-based model, on resourceconstrained devices”?
+
+3. Experimental Setup
+To evaluate the feasibility of RNN-driven breathingbased authentication, we utilize the breathing acoustics
+dataset collected in our previous work [1]. The dataset
+consists of acoustics samples of three breathing gestures;
+deep breathing, normal breathing, and sniffing (two quick
+inhalations) of 10 users collected over three sessions. For
+each gesture the dataset contains 30, 30 and 10 samples
+collected on first day (session 1), fourth day (session 2) and
+seventh/eighth day (session 3) respectively. In this paper,
+we focus only on two breathing gestures deep and sniff, as
+our earlier investigations revealed that those two perform
+better in authentication applications compared to normal
+breathing. For further details on the dataset, please refer to
+our original paper [1] that details the data collection process
+and the dataset.
+For each user, we selected the first 50 samples for model
+training and tuning purpose. As deep learning requires larger
+
+TABLE 2: Hardware Configuration of the Used Devices
+Device
+Nexus 5
+
+OS
+Android 6.0
+
+Pixel
+
+Android 7.0
+
+LG G Watch R
+
+Android Wear 2.0
+
+Raspberry Pi 3
+
+Android Things 5.0
+
+CPU
+2.26 GHz
+Quad-core
+2.15 GHz
+Quad-core
+1.2 GHz
+Quad-core
+1.2 GHz
+Quad-core
+
+GPU
+Adreno
+330
+Adreno
+530
+Adreno
+305
+VideoCore
+IV
+
+Memory
+2 GB
+4 GB
+512 MB
+1 GB
+
+sample sizes for training, we applied two commonly used
+data augmentation techniques to increase the number of
+data samples. In particular, we used a combination of the
+frequency wrapping technique [8], and the amplitude scaling
+method [9]. Each sample was scaled 10 times along the time
+axis and the amplitude by selecting two separate values from
+a uniform distribution; ∼U(0.8, 1.2). Overall, we obtain
+a 11-fold boost in the number of training examples (550
+training samples per participant), consisting of both original
+samples and their augmented versions. The remaining 10
+“original” samples each, from session 2 and session 3, were
+kept intact for testing.
+We performed experimental evaluation on using four
+devices, belonging to three distinct types, listed in Table 2.
+The three types of devices include two smartphones
+(mobile), a smartwatch (wearable) and a Raspberry Pi
+(IoT). All the devices run different variant of Android
+based OSes, and representative of popular commercial
+mobile, wearable and embedded platforms.
+
+4. Methodology
+Our overall goal is user authentication – i.e., deciding
+whether a sample belongs to one of N pre-registered possible users. This is effectively a problem of closed set user
+identification that can be mapped as a multi-class classification problem (where a single class represents one user).
+Our approach is to do some pre-processing of the original
+acoustics signal so that it can be fed into an RNN model.
+For a comparative baseline that uses a shallow classifier,
+we also train a SVM model. We discuss the details of these
+steps below.
+
+4.1. Feature Extraction
+
+if a larger window size is selected, some testing samples
+may be missed from users with relatively short breathing
+durations. To balance these considerations, we ended up
+with window sizes {20, 25, 30} for sniff and {200, 250}
+for deep breathing gestures, respectively. To further augment
+the training dataset we created overlapping windows for a
+given breathing sample. We chose three overlap sizes 90%,
+70%, and 50% of the window size. For each window size
+and overlap value pair, we trained the classifiers as discussed
+below.
+
+4.2. Training and Testing Datasets
+We used the first 50 samples from session 1 and session 2 during the training phase. More specifically we created the windows from these samples and randomly shuffle
+them and used 80% of the windows as the training set
+and the rest of the 20% as the validation set to tune hyper
+parameters. We refer to the windows created from the rest
+of the 10 audio samples in session 2 as the intra set and
+windows created from 10 audio samples from session 3 as
+inter set.
+
+4.3. RNN Model
+We used an RNN architecture that is similar to Hammerla et al. [10]; this architecture is illustrated in Figure 1.
+The hidden unit size of the LSTM units was 128 and we
+used two LSTM layers. We implement the model using
+Tensorflow [11]. We used 32 as batch size and trained the
+network over 500 iterations. As a baseline classifier we also
+trained a multi-class SVM classifier with linear kernel using
+libSVM.
+Softmax
+Prediction
+FC layers
+LSTM
+
+LSTM
+
+LSTM
+
+LSTM
+
+LSTM
+
+LSTM
+
+LSTM
+
+LSTM
+
+FC layers
+
+96 GFCC
+Features
+Window Size
+
+We divided each audio file into 10 ms non-overlapping
+frames with Hamming window based smoothing. For each
+frame we calculated 96 MFCC features (32 MFCC, 32 Delta
+MFCC, and 32 Double Delta MFCC) using JSTK (Java
+Speech ToolKit). Then we used windowing to combine these
+frames so that temporal information between the frames is
+retained. For sniff and deep breathing gestures, we tried
+window sizes of length={20, 25, 30, 35} and {200, 250, 300,
+350} respectively. There are two factors to consider when
+selecting a suitable window size. On the one hand, each
+window must be large enough to retain a significant part of
+a breathing gesture. On the other hand, the duration of a
+single breath varies significantly across users; consequently,
+
+Figure 1: RNN Architecture
+
+4.4. Model Selection
+We used early termination to select the best model. This
+was because we observed after some iterations the model
+accuracy reaches to the maximum and stays approximately
+in the same region for the validation set whilst the accuracy
+in intra set and inter set shows a slight declining trend
+as shown in Figure 2a. Figure 2b shows how the L2 loss
+improved over the training iterations.
+
+L2 loss: Sniff, Window size = 30, Overlap = 90%
+4.0
+
+0.90
+
+3.5
+
+0.85
+
+3.0
+
+0.80
+0.75
+0.70
+0.65
+0.60
+0.550
+
+Validation Set Accuracy
+Intra Set Accuracy
+Inter Set Accuracy
+
+2.5
+2.0
+
+80
+
+60
+
+60
+
+40
+
+40
+20
+
+20
+
+1.5
+Validation Set Accuracy
+Intra Set Accuracy
+Inter Set Accuracy
+100
+200
+
+80
+Accuracy (%)
+
+0.95
+
+Accuracy (%)
+
+4.5
+
+L2 loss
+
+Accuracy
+
+Accuracy: Sniff, Window size = 30, Overlap = 90%
+1.00
+
+1.0
+
+0
+
+0.5
+300
+
+Training Epoch
+
+400
+
+500
+
+(a) Accuracy progress
+
+0.00
+
+100
+
+200
+
+300
+
+Training Epoch
+
+400
+
+Nexus 5
+
+Pixel
+RNN
+
+500
+
+Smartwatch
+RNN-Quant
+
+0
+
+Pi
+
+Nexus 5
+
+SVM
+
+(a) Accuracy - Sniff
+
+(b) L2 loss improvement
+
+Pixel
+RNN
+
+Smartwatch
+RNN-Quant
+
+Pi
+
+(b) Accuracy - Deep
+
+Figure 2: Training Progress of the RNN over iterations
+
+4 × 103
+3 × 103
+
+5. Results
+We utilize four performance metrics for our experimental
+evaluation:
+i) Accuracy: The percentage of correct user identifications.
+ii) Feature Extraction Time: Time taken to extract MFCC
+features from an audio file.
+iii) Model Loading Time: Time to load the machine learning model into the memory.
+iv) Inference Time: Time to predict the user label once
+the feature extraction has been done and learning model is
+loaded to memory.
+
+5.1. Performance of LSTM
+We report average values of the execution times for
+different phases of the classification process. The feature
+
+Time (ms)
+
+2 × 103
+
+103
+
+103
+6 × 102
+
+102
+Nexus 5
+
+Pixel
+RNN
+
+Smartwatch
+RNN-Quant
+
+Pi
+
+Nexus 5
+
+SVM
+
+Pixel
+RNN
+
+Smartwatch
+RNN-Quant
+
+Pi
+
+(c) Model Loading Time - Sniff (d) Model Loading Time - Deep
+103
+
+103
+6 × 102
+Time (ms)
+
+Time (ms)
+
+To approximately select the elbow point of the accuracy
+graphs, we first applied 20-point moving averaging to the
+validation set accuracy graph and then selected the point
+(elbow point) from which the accuracy does not improve by
+5% for next four consecutive points. The moving average
+window and the improvement threshold was decided empirically. Once the elbow point is decided we selected 11 models
+(five previous models and the five next models including
+the model at the elbow point). To present the performance
+results in the next section we selected the models that gave
+the highest average accuracy over all three datasets. The
+window and overlap configurations that gave the highest
+accuracy were: (a) for sniffing, a window size=30, with 90%
+overlap; and (b) for deep breathing, a window size=250, also
+with 90%. For SVM, we picked the model providing the best
+cross-validation accuracy.
+Model Reduction: To empirically study the computational overhead vs. latency/accuracy tradeoffs, we compressed the selected RNN models using the in-built 256–
+level quantization function [12] provided in Tensorflow. This
+function extracts the minimum and maximum for each layer,
+and then compresses each float value to an eight-bit integer.
+Note that this option will save space in zipped formats that
+are usually used inside Android applications. We executed
+the original as well as quantized models.
+
+Time (ms)
+
+104
+
+102
+
+4 × 102
+3 × 102
+2 × 102
+
+Nexus 5
+
+Pixel
+RNN
+
+Smartwatch
+RNN-Quant
+
+Pi
+SVM
+
+(e) Inference Time - Sniff
+
+Nexus 5
+
+Pixel
+RNN
+
+Smartwatch
+RNN-Quant
+
+Pi
+
+(f) Inference Time - Deep
+
+Figure 3: Metrics for Different Breathing Gestures
+
+extraction time was in the range 40 - 60 ms for sniff, and
+in the range 126 - 484 ms for deep, across the four devices.
+As expected, the Pixel (the most powerful platform with the
+highest memory) and the smartwatch, impose the least and
+highest feature extraction times, respectively. Figure 3 plots
+the results for other three metrics. Note that the time scale
+on y-axis is in log scale. We can see that:
+•
+
+Model loading time decreases linearly with the RAM
+of the device. Loading LSTM model to Pixel takes
+around 100 ms (4 GB RAM) while the same model
+takes roughly twice the time (200 ms) on Nexus 5 (2
+GB RAM), four times (400 ms) on Pi (1 GB RAM)
+and seven times (700 ms) on smartwatch (512 MB
+RAM) for the sniff breathing gesture with LSTM.
+The same observation holds for the deep breathing
+gesture.
+
+•
+
+Inference time depends on the processing power of
+the devices. The inference time (using the LSTM
+model) for sniff breathing gesture is on average
+23 ms for Nexus 5, 40 ms for Pixel, and around
+100 ms for smartwatch and Pi for LSTM model.
+In contrast, the inference time for deep breathing
+gesture is approx. 180 ms for Nexus 5, 200 ms for
+
+Pixel, 900 ms for Pi and 1000 ms for smartwatch.
+•
+
+The accuracy of the system was around 90% for both
+deep and sniff breathing gesture for the intra set.
+We also observe that the accuracy of LSTM models
+were slightly than SVM. This indicates that the deep
+learning model can perform at least as well as the
+alternative SVM approach, even though the volume
+of training data was fairly small. Note also, that the
+accuracy of user identification drops to 75% and
+70% for sniff and deep breathing gestures, respectively when applied to the inter set data (which was
+excluded entirely from the training set. This result
+is consistent with our prior results [1], and suggests
+that a larger training corpus will be needed to a wider
+range of context-dependent variations in breathing
+patterns.
+
+only robust, but is also lightweight enough to be effectively
+executed on a variety of resource-constrained embedded devices. In particular, an appropriately quantized, LSTM-based
+deep learning model can authenticate users (using just ‘deep’
+and ‘sniff’ breathing gestures) with accuracies higher than
+90%, and utilizes models that are modestly sized (a couple
+of hundred KB). The resulting user authentication latency is
+not only small (<=200 ms) for representative smartphones,
+but is within acceptable bounds (<= 1 second) even for
+the highly resource-limited smartwatch platform. Note that
+these performance numbers are achieved using CPU-only
+computation, and should be significantly improved using
+GPU-offloading approaches proposed by other researchers.
+Our investigations suggest that RNNs offer a compelling
+lightweight alternative to CNNs for many sensor-driven
+pervasive applications, especially if the application utilizes
+temporal features of the underlying sensor data.
+
+5.2. Benefit of Quantized Operation
+
+References
+
+Our results (Figure 3 (a) and (b)) also show that the
+use of a quantized model does not result in any loss of
+classification accuracy (compared to the full LSTM model).
+However, quantization reduces the size of the model and offers significant execution benefits. The size of the quantized
+model is 175 KB (compared to 1.1 MB for the unoptimized
+model) for sniff breathing gesture, and 264 KB (compared
+to 1.1 MB for the unoptimized model) for the deep breathing
+gesture. The quantized model thus reduces the memory
+footprint significantly (by a factor of 4-6), enabling it to
+be loaded significantly faster as well.
+
+[1]
+
+J. Chauhan, Y. Hu, S. Seneviratne, A. Misra, A. Seneviratne, and
+Y. Lee, “BreathPrint: Breathing acoustics-based user authentication,”
+in Proceedings of the 15th Annual International Conference on Mobile Systems, Applications, and Services. ACM, 2017, pp. 278–291.
+
+[2]
+
+N. D. Lane, P. Georgiev, and L. Qendro, “DeepEar: Robust smartphone audio sensing in unconstrained acoustic environments using
+deep learning,” in UbiComp. ACM, 2015, pp. 283–294.
+
+[3]
+
+N. D. Lane, S. Bhattacharya, P. Georgiev, C. Forlivesi, and F. Kawsar,
+“An early resource characterization of deep learning on wearables,
+smartphones and internet-of-things devices,” in Proceedings of the
+2015 International Workshop on Internet of Things towards Applications. IEEE, 2015, pp. 7–12.
+
+[4]
+
+S. Bhattacharya and N. D. Lane, “Sparsification and separation of
+deep learning layers for constrained resource inference on wearables,”
+in Proceedings of the 14th ACM Conference on Embedded Network
+Sensor Systems. ACM, 2016, pp. 176–189.
+
+[5]
+
+A. Mathur, N. D. Lane, S. Bhattacharya, A. Boran, C. Forlivesi,
+and F. Kawsar, “Deepeye: Resource efficient local execution of multiple deep vision models using wearable commodity hardware,” in
+Proceedings of the 15th Annual International Conference on Mobile
+Systems, Applications, and Services. ACM, 2017, pp. 68–81.
+
+[6]
+
+L. N. Huynh, Y. Lee, and R. K. Balan, “DeepMon: Mobile gpubased deep learning framework for continuous vision applications,” in
+Proceedings of the 15th Annual International Conference on Mobile
+Systems, Applications, and Services. ACM, 2017, pp. 82–95.
+
+[7]
+
+Q. Cao, N. Balasubramanian, and A. Balasubramanian, “MobiRNN:
+Efficient recurrent neural network execution on mobile GPU,” in
+Proceedings of the 1st International Workshop on Deep Learning
+for Mobile Systems and Applications, ser. EMDL ’17. ACM, 2017,
+pp. 1–6.
+
+[8]
+
+M. T. Islam, B. Islam, and S. Nirjon, “SoundSifter: Mitigating overhearing of continuous listening devices,” in Proceedings of the 15th
+Annual International Conference on Mobile Systems, Applications,
+and Services. ACM, 2017, pp. 29–41.
+
+[9]
+
+D. T. Nguyen, E. Cohen, M. Pourhomayoun, and N. Alshurafa,
+“SwallowNet: Recurrent neural network detects and characterizes
+eating patterns,” in Pervasive Computing and Communications Workshops (PerCom Workshops), 2017 IEEE International Conference on.
+IEEE, 2017, pp. 401–406.
+
+5.3. LSTM vs. SVM
+Contrary to popular belief, the shallow SVM model
+does provide accuracy comparable to the LSTM model, but
+takes much longer (10 - 50 seconds) to load into memory.
+Moreover, the execution time taken to predict the user label
+is also 5 - 20 times higher than the corresponding time for
+the LSTM-based model, across all the devices. The best
+model we tested with SVM for sniff breathing gesture is
+280 MB in size. Comparatively, the LSTM model size is
+2 MB when unoptimized and only a few hundred KBs
+when quantized. The large size of SVM models is due to
+the large number of support vectors needed to support the
+multi class classification, which does not happen for binary
+class classification. In fact, the size of the SVM model for
+deep breathing is 2 GB or higher, and hence could not be
+loaded onto any of our devices. Our results suggest that
+the LSTM-based deep model is, in fact, more lightweight
+and robust (especially when we utilize the quantized LSTM
+model) than the SVM-based shallow classifier.
+
+6. Conclusion
+Our experiments reveal that an RNN-based approach
+for user authentication based on breathing acoustics is not
+
+[10] N. Y. Hammerla, S. Halloran, and T. Plötz, “Deep, convolutional, and
+recurrent models for human activity recognition using wearables,” in
+Proceedings of the Twenty-Fifth International Joint Conference on
+Artificial Intelligence. AAAI Press, 2016, pp. 1533–1540.
+
+[11] M. Abadi, P. Barham, J. Chen, Z. Chen, A. Davis, J. Dean, M. Devin,
+S. Ghemawat, G. Irving, M. Isard et al., “TensorFlow: A system for
+large-scale machine learning.” in OSDI, vol. 16. Usenix, 2016, pp.
+265–283.
+[12] “How to quantize neural networks with tensorflow,” https://www.
+tensorflow.org/performance/quantization, accessed: 2017-09-14.
+
+

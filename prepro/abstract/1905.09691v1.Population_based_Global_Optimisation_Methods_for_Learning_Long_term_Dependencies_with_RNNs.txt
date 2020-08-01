@@ -1,0 +1,14 @@
+
+despite recent innovations in network architectures and loss functions, training rnns to
+learn long-term dependencies remains difficult
+due to challenges with gradient-based optimisation methods. inspired by the success of
+deep neuroevolution in reinforcement learning (such et al., 2017), we explore the use of
+gradient-free population-based global optimisation (pbo) techniques – training rnns to capture long-term dependencies in time-series data.
+testing evolution strategies (es) and particle
+swarm optimisation (pso) on an application in
+volatility forecasting, we demonstrate that pbo
+methods lead to performance improvements in
+general, with es exhibiting the most consistent
+results across a variety of architectures.
+
+1. 

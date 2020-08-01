@@ -1,0 +1,18 @@
+
+in this work, we propose a novel recurrent neural network (rnn) architecture. the proposed
+rnn, gated-feedback rnn (gf-rnn), extends
+the existing approach of stacking multiple recurrent layers by allowing and controlling signals
+flowing from upper recurrent layers to lower layers using a global gating unit for each pair of
+layers. the recurrent signals exchanged between
+layers are gated adaptively based on the previous
+hidden states and the current input. we evaluated the proposed gf-rnn with different types
+of recurrent units, such as tanh, long short-term
+memory and gated recurrent units, on the tasks
+of character-level language modeling and python
+program evaluation. our empirical evaluation of
+different rnn units, revealed that in both tasks,
+the gf-rnn outperforms the conventional approaches to build deep stacked rnns. we suggest that the improvement arises because the gfrnn can adaptively assign different layers to different timescales and layer-to-layer interactions
+(including the top-down ones which are not usually present in a stacked rnn) by learning to gate
+these interactions.
+
+1. 

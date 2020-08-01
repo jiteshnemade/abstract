@@ -1,0 +1,602 @@
+Accelerating Transformer Decoding via a Hybrid of Self-attention and
+Recurrent Neural Network
+Chengyi Wang1 Shuangzhi Wu2 Shujie Liu3
+1
+Nankai University, Tianjin, China
+2
+Harbin Institute of Technology, Harbin, China
+3
+Microsoft Research Asia, Beijing, China
+cywang@mail.nankai.edu.cn {v-shuawu, shujliu}@microsoft.com
+
+arXiv:1909.02279v1 [cs.CL] 5 Sep 2019
+
+Abstract
+Due to the highly parallelizable architecture,
+Transformer is faster to train than RNN-based
+models and popularly used in machine translation tasks. However, at inference time, each
+output word requires all the hidden states of
+the previously generated words, which limits the parallelization capability, and makes it
+much slower than RNN-based ones. In this paper, we systematically analyze the time cost
+of different components of both the Transformer and RNN-based model. Based on it,
+we propose a hybrid network of self-attention
+and RNN structures, in which, the highly parallelizable self-attention is utilized as the encoder, and the simpler RNN structure is used
+as the decoder. Our hybrid network can decode 4-times faster than the Transformer. In
+addition, with the help of knowledge distillation, our hybrid network achieves comparable
+translation quality to the original Transformer.
+
+1
+
+Introduction
+
+Recently, the Transformer (Vaswani et al., 2017)
+has achieved new state-of-the-art performance for
+several language pairs. Instead of using recurrent architectures to extract and memorize the
+history information in conventional RNN-based
+NMT model (Bahdanau et al., 2014), the Transformer depends solely on attention mechanisms
+and feed-forward layers, in which, the context information in the sentence is modeled with a selfattention method, and the generation of next hidden state no longer sequentially depends on the
+previous one. The decoupling of the sequential
+hidden states brings in huge parallelization advantages in model training.
+However, at inference time, due to its dependence on the whole history of previously generated words at each predicting step and a large
+amount calculation of multi-head attentions, the
+
+Sub-module
+-Encoding
+-Decoding
+-Attention
+-SelfAtt/GRU
+-FFN
+-Softmax
+-Others
+Total
+
+RNMT
+72.3
+138.0
+43.3
+42.9
+40.1
+11.7
+210.3
+
+Trans.(base)
+63.2
+434.1
+99.3
+152.0
+86.1
+46.7
+50.0
+497.3
+
+Trans.(1layer)
+10.6
+170.5
+24.9
+41.5
+19.9
+45.6
+38.6
+181.1
+
+Table 1: Time breakdown of RNMT decoding
+and Transformer decoding, both with beam size 8.
+Trans.(base) refers to the base Transformer with 6-layer
+encoder and decoder and Trans.(1layer) refers to the
+Transformer with 1-layer encoder and decoder. The
+time is measured on a single Tesla K40 GPU. The
+“Others” item in decoding contains beam expansion,
+data transmission etc..
+
+Transformer is much slower than RNN-based
+models. This restricts its application in on-line
+service, where decoding speed is a crucial factor.
+We conduct analysis to show time cost of different components of both the Transformer and the
+RNN-based NMT model (RNMT) in Table 1 on
+1000 pseudo sentences. All models decode the
+same length target sentences for a fair comparison.
+The RNMT is a standard single layer GRU model
+with 512 embedding size, 1024-hidden dimension
+(Bahdanau et al., 2014). The Transformer(basic)
+model follows the basic setting in (Vaswani et al.,
+2017). 30K source- and target- vocabularies are
+used for all models. As shown in Table 1, though
+the Trans.(base) has much deeper encoder, it is still
+faster than a single layer RNN due to the high parallelizable multi-head attention. However, the decoding cost of the Transformer decoder is a significant issue which is over 3 times of that of RNN
+decoder and occupies 88% of the total decoding
+time. This is dominated by the high frequency of
+computing target-to-source attention, target selfattention and feed-forward network. We also analyze a single layer self-attention decoder to com-
+
+2
+2.1
+
+Our Hybrid Model
+Model Architecture
+
+As shown in Figure 1, our hybrid model contains
+a self-attention based encoder and an RNN based
+decoder. In this section, we describe the details of
+our hybrid model.
+
+Figure 1: The hybrid architecture.
+
+pare with the single layer RNN and find that even
+with a big sacrifice of translation quality, selfattention still slower than RNN in decoding.
+As for NMT inference speedup, numerous approaches have been proposed for RNN-based
+NMT models (Devlin, 2017; Zhang et al., 2017;
+Kim and Rush, 2016; Shi and Knight, 2017). For
+Transformer, Gu et al. (2017) proposed a nonautoregressive Transformer where output can be
+simultaneously computed. They achieved a big
+improvement on decoding speed at the cost of
+the drop in translation quality. Recently, Zhang
+et al. (2018) proposed an efficient average attention to replace the target self-attention of decoder.
+However, this mechanism cannot be applied to the
+target-to-source multi-head attention and cannot
+reduce the calculation of FFN which are the bottleneck for further speedup as shown in Table 1.
+In this paper, we propose a hybrid architecture where the self-attention encoder and RNN decoder are integrated. Both the two modules are
+fast enough as shown in Table 1. By replacing
+the original Transformer decoder with an RNNbased module, we speed up the decoding process
+by a factor of four. Furthermore, by leveraging the
+knowledge distillation(Hinton et al., 2015; Kim
+and Rush, 2016), where the original Transformer
+is regarded as the teacher and our hybrid model
+as the student, our hybrid model can improve
+the translation performance significantly, and get
+comparable results with the Transformer.
+
+Encoder For our hybrid model, the encoder
+stays unchanged from the original Transformer
+network, which is entirely composed of two sublayers: self-attention modules and feed-forward
+networks. The self-attention is a multi-head attention network which generates the current state
+by integrating the whole source context. The following feed-forward layer is composed of two
+linear transformations with a ReLU activation in
+between. The layer normalization and residual
+connection are used after each sub-layer. To
+model position information, additive position embeddings are used.
+This kind of encoder avoids the recurrence in
+RNNs. The self-attention connects all positions
+with a constant number of operations and each position has direct access to all positions, which ensures the model to learn more distant temporal dependencies. Unlike the RNN encoder processing
+the sentence word by word using sequential operations as long as the sentence, self-attention network only depends on the output of the previous
+layer, no need to wait for hidden states to propagate across time, which improves model parallelization and speeds up both the training and inference process. Based on the above analysis, selfattention network is leveraged as the encoder of
+our hybrid mode.
+Decoder The original Transformer decoder contains three sub-modules in each layer: an inner
+self-attention between the current state and target history states, an inter multi-head attention between target state and source context, and a feed
+forward network. This structure is highly parallelizable in training, however, during inference, it
+is impossible to take full advantage of parallelism
+because target words are unknown. It has to generate target words one after another as RNN does.
+In addition, the inner self-attention must access to
+all history states, which increase the complexity,
+and the inter multi-head attention is computed in
+each layer with the same computational complexity with the inner self-attention as shown in Table 1. As for the RNN decoder, it predicts each
+
+target word just depending on the previously hidden state, the previous word and the source context
+computed by the attention mechanism. From Table 1, we can see that the Transformer decoder is
+the most computationally expensive part which is
+almost 3 times slower than RNMT, so we leverage a single layer RNN decoder with GRU (Cho
+et al., 2014) as recurrent unit for our hybrid model.
+It notes that the network structure of Chen et al.
+(2018) is a little similar to ours. But they focus on
+finding an optimal structure to improve the translation quality and combine the encoder and decoder
+from different model families. Their way of combination keeps a larger amount of model parameters, while we aim at accelerating the decoding
+speed with light network.
+Attention mechanism To find the most suitable
+attention functions, we use three different attention functions: additive attention (Bahdanau et al.,
+2014), dot-product attention and multi-head attention. The multi-head attention is as same as the
+one in our encoder without FFN layer.
+2.2
+
+Model Training
+
+We use a two-stage training for our hybrid model:
+the pre-training and the knowledge distillation
+fine-tuning. In the first stage, our model is generally trained to maximize the likelihood estimation
+using the bilingual training data. In the second
+stage, we apply sequence-level knowledge distillation KD (Hinton et al., 2015; Kim and Rush,
+2016) where the Transformer is regarded as the
+teacher model and our hybrid model is the student model. Formally, given the bilingual corpus
+D = {(x(n) , y (n) )}N
+n=1 where x is the source sentences and y is the corresponding target ones, the
+training objective of the second stage is:
+L(θs ) =
+
+N
+X
+
+log P (y (n) |x(n) ; θs )
+
+n=1
+N
+X
+
+−λ
+
+KL(P (y|x(n) ; θt )||P (y|x(n) ; θs ))
+
+n=1
+
+(1)
+where λ is a hyper-parameter for regularization
+terms which is set to 1 in all experiments, θs and
+θt are model parameters of the student and teacher
+models, and KL is the Kullback-Leibler divergence terms. θt is pre-trained and fixed. In Equation 1, the first term guides the model to learn from
+the training data and the second term guides it to
+
+learn from the teacher network.
+
+3
+
+Experiment
+
+3.1
+
+Setup
+
+Our proposed model is evaluated on NIST
+OpenMT Chinese-English and WMT 2017
+Chinese-English tasks. All experimental results
+are reported with IBM case-insensitive BLEU-4
+(Papineni et al., 2002) metric.
+Dataset: For NIST OpenMT’s Chinese-English
+task, we use a subset of LDC corpora, which contains 2.6M sentence pairs. NIST 2006 is used
+as development set and NIST 2005, 2008, 2012
+as test sets. We keep the top 30K most frequent
+words for both sides, and others are replaced with
+<unk> and post-processed following Luong et al.
+(2015). For WMT 2017 Chinese-English task, we
+use all available parallel data, which consists of
+24M sentence pairs1 . The newsdev2017 is used as
+development set and the newstest2017 as the test
+set. All sentences are segmented using byte-pair
+encoding(BPE) (Sennrich et al., 2016). 46K and
+33K tokens are adopted as source and target vocabularies respectively.
+Baselines and Implement details: We compare the decoding speed of our model with a standard 1-layer RNN-based NMT model (RNMT)
+(Bahdanau et al., 2014) and a base Transformer
+model (Vaswani et al., 2017). Both baselines
+are implemented with pre-computing and weight
+combination techniques. Specifically, for RNMT,
+we use precomputed attention (Devlin, 2017) and
+for Transformer, we pre-compute (K, V ) of inter multi-head attention and cache all previous
+computed (K, V ) in inner self-attention for each
+layer. Linear operations in RNN or multi-head attention are combined into one. For Transformer,
+the model size is 512 and FFN filter size is 2048.
+Two different Transformer systems are used: one
+is 8 heads + 4 encoder/decoder layers, the other
+is 8 heads + 6 encoder/decoder layers. RNMT is
+a single layer GRU model with 512 embedding
+size, 1024-hidden dimension and additive attention. Our hybrid model uses the same encoder parameters with Transformer and same decoder parameters with RNMT. All the experiments are conducted on a single TITAN Xp GPU. In inference,
+beam search is used with a size 12 and a length
+penalty 1.0. The decoding batch size is set to 1 for
+all the experiments.
+1
+
+http://www.statmt.org/wmt17/translation-task.html
+
+System
+RNMT
++KD
+Trans.(teacher)
+Hybrid+additive attn
++KD
+Hybrid+dot attn
++KD
+Hybrid+multi attn
++KD
+Trans.(teacher)
+Hybrid+additive attn
++KD
+Hybrid+dot attn
++KD
+Hybrid+multi attn
++KD
+
+N
+1-1
+1-1
+4-4
+4-1
+4-1
+4-1
+4-1
+4-1
+4-1
+6-6
+6-1
+6-1
+6-1
+6-1
+6-1
+6-1
+
+Time
+279s
+278s
+652s
+233s
+232s
+234s
+234s
+235s
+236s
+1020s
+250s
+252s
+249s
+250s
+253s
+251s
+
+Speed (w/s)
+441.2
+441.8
+187.9
+524.2
+526.3
+522.8
+523.1
+523
+521.1
+120.9
+495.8
+492.3
+491.8
+492
+486.4
+490.4
+
+NIST2005
+39.64
+41.25
+44.13
+42.10
+43.75
+42.25
+44.02
+42.82
+44.05
+44.64
+42.65
+44.35
+43.08
+44.71
+44.08
+44.88
+
+NIST2008
+30.93
+32.90
+35.55
+33.87
+35.24
+32.81
+34.91
+33.73
+35.46
+36.01
+33.93
+36.10
+32.83
+35.35
+34.31
+36.04
+
+NIST2012
+29.20
+31.24
+33.19
+31.80
+33.30
+30.66
+33.12
+31.95
+33.29
+34.19
+31.75
+33.91
+31.23
+33.34
+31.98
+33.80
+
+Avg.
+33.26
+35.13
+37.62
+35.92
+37.43
+35.24
+37.35
+36.17
+37.60
+38.28
+36.11
+38.12
+35.71
+37.80
+36.79
+38.24
+
+Table 2: Decoding time and case-insensitive BLEU scores (%) for Chinese-English NIST datasets. “Trans.” is
+short for Transformer model. “N” refers to the depth of encoder and decoder. “Time” refers to the total decoding
+time on all the testsets and “Speed(w/s)” denotes the decoding speed measured by word per second. The “Avg.” is
+short for the average BLEU score.
+
+3.2
+
+System
+RNMT
++KD
+Trans.(teacher)
+Hybrid+dot attn
++KD
+Hybrid+multi attn
++KD
+Trans.(teacher)
+Hybrid+dot attn
++KD
+Hybrid+multi attn
++KD
+
+Results and Discussions
+
+Table 2 shows the decoding speed and BLEU
+scores of different models on NIST datasets. For
+each hybrid model, we use Transformer model
+with corresponding layers as the teacher. From
+the Table 2, all our hybrid models are faster
+than Transformer and the 1-layer RNMT model.
+Specifically, our 4- and 6-layer hybrid models
+achieve significant speedup with factors of 2.8x
+and 4.1x compared with the 4-layer and 6-layer
+Transformer teachers. We can find that the time
+cost of the three different attention models is very
+close. This is mainly due to the pre-computation
+and weight combination. As for translation performance, Both Transformers and the hybrid models outperform the RNMT and RNMT+KD. With
+the help of sequence-level knowledge distillation,
+all the hybrid models achieve significant improvements and even get comparable results with the
+Transformer.
+We further verify the effectiveness of our approach on WMT 2017 Chinese-English translation
+tasks. Results are shown in Table 3. Similar with
+the above results, our hybrid models can get 2.3x
+and 3.9x speedup compared with 4-layer and 6layer Transformer, and with help of the knowledge
+distillation, our models achieve comparable BLEU
+scores with the Transformer.
+Our offline experiments show that the hybrid
+model improves when the RNN decoder becomes
+deeper (2, 4, 6 layers), but with slower decoding
+speed. However, after applying KD, they get sim-
+
+N
+1-1
+1-1
+4-4
+4-1
+4-1
+4-1
+4-1
+6-6
+6-1
+6-1
+6-1
+6-1
+
+Time
+114s
+113s
+234s
+100s
+99s
+105s
+104s
+420s
+109s
+107s
+113s
+114s
+
+Speed(w/s)
+500.6
+505
+238.1
+554.8
+560.5
+540.5
+545.5
+130.2
+510.2
+519.9
+500.0
+495.7
+
+test
+20.03
+21.03
+22.57
+21.43
+22.96
+22.05
+22.35
+23.08
+21.63
+22.50
+21.97
+22.93
+
+Table 3: Decoding time and case-sensitive BLEU
+scores (%) for WMT 2017 Chinese-English task.
+
+ilar BLEUs as the hybrid model with single layer
+decoder.
+
+4
+
+Conclusion
+
+In this work, we propose a hybrid network to accelerate Transformer decoding. Specifically, we
+use a self-attention network as the encoder and
+a single layer RNN as the decoder. Our hybrid
+models fully take advantage of the parallelization
+capability of self-attention and the fast decoding
+ability of RNN-based decoder. In addition, to improve the translation quality, we firstly pre-train
+our model using the MLE-based method, and then
+the sequence-level knowledge distillation is used
+to fine tune it. Experiments conducted on Nist and
+WMT17 Chinese-English tasks show that our hybrid network gains significant decoding speedup,
+and achieves comparable translation results with
+
+the strong Transformer baseline.
+
+References
+Dzmitry Bahdanau, Kyunghyun Cho, and Yoshua
+Bengio. 2014.
+Neural machine translation by
+jointly learning to align and translate. CoRR,
+abs/1409.0473.
+Mia Xu Chen, Orhan Firat, Ankur Bapna, Melvin
+Johnson, Wolfgang Macherey, George Foster, Llion
+Jones, Niki Parmar, Mike Schuster, Zhifeng Chen,
+et al. 2018. The best of both worlds: Combining recent advances in neural machine translation. arXiv
+preprint arXiv:1804.09849.
+Kyunghyun Cho, Bart van Merrienboer, Çaglar
+Gülçehre, Dzmitry Bahdanau, Fethi Bougares, Holger Schwenk, and Yoshua Bengio. 2014. Learning
+phrase representations using RNN encoder-decoder
+for statistical machine translation. In EMNLP, pages
+1724–1734. ACL.
+Jacob Devlin. 2017. Sharp models on dull hardware:
+Fast and accurate neural machine translation decoding on the cpu. In Proceedings of the 2017 Conference on Empirical Methods in Natural Language
+Processing, Copenhagen, Denmark. Association for
+Computational Linguistics.
+Jiatao Gu, James Bradbury, Caiming Xiong, Victor OK Li, and Richard Socher. 2017.
+Nonautoregressive neural machine translation. arXiv
+preprint arXiv:1711.02281.
+Geoffrey E. Hinton, Oriol Vinyals, and Jeffrey Dean.
+2015. Distilling the knowledge in a neural network.
+CoRR, abs/1503.02531.
+Yoon Kim and Alexander M. Rush. 2016. Sequencelevel knowledge distillation. In EMNLP, pages
+1317–1327. The Association for Computational Linguistics.
+Thang Luong, Ilya Sutskever, Quoc V. Le, Oriol
+Vinyals, and Wojciech Zaremba. 2015. Addressing
+the rare word problem in neural machine translation.
+In ACL (1), pages 11–19. The Association for Computer Linguistics.
+Kishore Papineni, Salim Roukos, Todd Ward, and WeiJing Zhu. 2002. Bleu: a method for automatic evaluation of machine translation. In ACL, pages 311–
+318. ACL.
+Rico Sennrich, Barry Haddow, and Alexandra Birch.
+2016. Neural machine translation of rare words with
+subword units. In ACL (1). The Association for
+Computer Linguistics.
+Xing Shi and Kevin Knight. 2017. Speeding up neural
+machine translation decoding by shrinking run-time
+vocabulary. In ACL (2), pages 574–579. Association
+for Computational Linguistics.
+
+Ashish Vaswani, Noam Shazeer, Niki Parmar, Jakob
+Uszkoreit, Llion Jones, Aidan N. Gomez, Lukasz
+Kaiser, and Illia Polosukhin. 2017. Attention is all
+you need. In NIPS, pages 6000–6010.
+Biao Zhang, Deyi Xiong, and Jinsong Su. 2018. Accelerating neural transformer via an average attention
+network. arXiv preprint arXiv:1805.00631.
+Xiaowei Zhang, Wei Chen, Feng Wang, Shuang Xu,
+and Bo Xu. 2017. Towards compact and fast neural machine translation using a combined method.
+In Proceedings of the 2017 Conference on Empirical Methods in Natural Language Processing, pages
+1475–1481.
+
+

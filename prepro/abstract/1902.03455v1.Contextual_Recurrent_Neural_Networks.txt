@@ -1,0 +1,13 @@
+
+there is an implicit assumption that by unfolding recurrent neural networks (rnn) in finite
+time, the misspecification of choosing a zero value for the initial hidden state is mitigated by later
+time steps. this assumption has been shown to work in practice and alternative initialization
+may be suggested but often overlooked. in this paper, we propose a method of parameterizing
+the initial hidden state of an rnn. the resulting architecture, referred to as a contextual rnn,
+can be trained end-to-end. the performance on an associative retrieval task is found to improve
+by conditioning the rnn initial hidden state on contextual information from the input sequence.
+furthermore, we propose a novel method of conditionally generating sequences using the hidden
+state parameterization of contextual rnn.
+
+1
+

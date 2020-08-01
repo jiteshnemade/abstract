@@ -1,0 +1,9 @@
+
+similar to convolution neural networks, recurrent neural networks (rnns) typically suffer
+from over-parameterization. quantizing bit-widths of weights and activations results in
+runtime efficiency on hardware, yet it often comes at the cost of reduced accuracy. this
+paper proposes a quantization approach that increases model size with bit-width
+reduction. this approach will allow networks to perform at their baseline accuracy while
+still maintaining the benefits of reduced precision and overall model size reduction.
+
+1. 

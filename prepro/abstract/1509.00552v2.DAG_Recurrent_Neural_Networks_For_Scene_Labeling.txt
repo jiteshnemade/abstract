@@ -1,0 +1,39 @@
+
+
+1, the ‘sand’ and ‘road’ pixels are hard to be distinguished
+even for humans with limited context. in contrast, their differentiation becomes conspicuous when they are considered
+in the global scene. thus, how to equip local features with
+a broader view of contextual awareness is a pivotal issue in
+image labeling.
+in this paper, recurrent neural networks (rnns) [9][16]
+are introduced to address this issue by modeling the contextual dependencies of local features. specifically, we adopt
+undirected cyclic graphs (ucg) to model the interactions
+among image units. due to the loopy property of ucgs,
+rnns are not directly applicable to ucg-structured images. thus, we decompose the ucg to several directed
+acyclic graphs (dags, and four dags are used in our experiments). in other words, an ucg-structured image is approximated by the combination of several dag-structured
+images. then, we develop the dag-rnns, a generalization
+of rnns [8][9], to process dag-structured images. each
+hidden layer is generated independently through applying
+dag-rnns to the corresponding dag-structured image,
+and they are integrated to produce the context-aware feature maps. in this case, the local representations are able to
+embed the abstract gist of the image, so their discriminative
+power are enhanced remarkably.
+we integrate the dag-rnns with the convolution and
+deconvolution layers, thus giving rise to an end-to-end trainable full labeling network. functionally, the convolution
+layer transforms rgb raw pixels to compact and discriminative representations. based on them, the proposed dag-
+
+in image labeling, local representations for image
+units are usually generated from their surrounding image
+patches, thus long-range contextual information is not effectively encoded. in this paper, we introduce recurrent
+neural networks (rnns) to address this issue. specifically,
+directed acyclic graph rnns (dag-rnns) are proposed to
+process dag-structured images, which enables the network
+to model long-range semantic dependencies among image
+units. our dag-rnns are capable of tremendously enhancing the discriminative power of local representations, which
+significantly benefits the local classification. meanwhile,
+we propose a novel class weighting function that attends to
+rare classes, which phenomenally boosts the recognition accuracy for non-frequent classes. integrating with convolution and deconvolution layers, our dag-rnns achieve new
+state-of-the-art results on the challenging siftflow, camvid
+and barcelona benchmarks.
+
+1. 

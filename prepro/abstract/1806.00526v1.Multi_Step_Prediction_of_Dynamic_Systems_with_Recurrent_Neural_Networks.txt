@@ -1,0 +1,25 @@
+recurrent neural networks (rnns) can encode rich
+dynamics which makes them suitable for modeling dynamic
+systems. to train an rnn for multi-step prediction of dynamic
+systems, it is crucial to efficiently address the state initialization
+problem, which seeks proper values for the rnn initial states
+at the beginning of each prediction interval. in this work, the
+state initialization problem is addressed using neural networks
+(nns) to effectively train a variety of rnns for modeling two
+aerial vehicles, a helicopter and a quadrotor, from experimental
+data. it is shown that the rnn initialized by the nn-based
+initialization method outperforms the state of the art. further, a
+comprehensive study of rnns trained for multi-step prediction
+of the two aerial vehicles is presented. the multi-step prediction
+of the quadrotor is enhanced using a hybrid model which
+combines a simplified physics-based motion model of the vehicle
+with rnns. while the maximum translational and rotational
+velocities in the quadrotor dataset are about 4 m/s and 3.8
+rad/s, respectively, the hybrid model produces predictions, over
+1.9 second, which remain within 9 cm/s and 0.12 rad/s of
+the measured translational and rotational velocities, with 99%
+confidence on the test dataset.
+index terms—recurrent neural networks, nonlinear dynamic
+system modeling, state initialization, multi-step prediction
+
+i. 

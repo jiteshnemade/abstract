@@ -1,0 +1,1003 @@
+Verifiable RNN-Based Policies for POMDPs Under Temporal Logic Constraints
+
+arXiv:2002.05615v1 [cs.AI] 13 Feb 2020
+
+Steven Carr1∗ , Nils Jansen2∗ ,Ufuk Topcu1
+1
+The University of Texas at Austin
+2
+Radboud University, Nijmegen, The Netherlands
+stevencarr@utexas.edu, n.jansen@science.ru.nl
+
+Abstract
+Recurrent neural networks (RNNs) have emerged
+as an effective representation of control policies in
+sequential decision-making problems. However, a
+major drawback in the application of RNN-based
+policies is the difficulty in providing formal guarantees on the satisfaction of behavioral specifications,
+e.g. safety and/or reachability. By integrating techniques from formal methods and machine learning,
+we propose an approach to automatically extract a
+finite-state controller (FSC) from an RNN, which,
+when composed with a finite-state system model,
+is amenable to existing formal verification tools.
+Specifically, we introduce an iterative modification
+to the so-called quantized bottleneck insertion technique to create an FSC as a randomized policy with
+memory. For the cases in which the resulting FSC
+fails to satisfy the specification, verification generates diagnostic information. We utilize this information to either adjust the amount of memory in
+the extracted FSC or perform focused retraining of
+the RNN. While generally applicable, we detail the
+resulting iterative procedure in the context of policy synthesis for partially observable Markov decision processes (POMDPs), which is known to be
+notoriously hard. The numerical experiments show
+that the proposed approach outperforms traditional
+POMDP synthesis methods by 3 orders of magnitude within 2% of optimal benchmark values.
+
+1 Introduction
+Research in the reinforcement and supervised learning communities has demonstrated the utility of recurrent neural
+networks (RNNs) in synthesizing control policies in domains that exhibit temporal behavior [Tsoi and Back, 1997;
+Bakker, 2001; Heess et al., 2015]. The internal memory
+states of RNNs, such as in long short-term memory
+(LSTM) architectures [Hochreiter and Schmidhuber, 1997],
+effectively account for temporal behavior by capturing the
+history from sequential information [Pascanu et al., 2014].
+∗
+
+Contact Authors
+
+Furthermore, in applications that suffer from incomplete information, RNNs leverage history to act as either a state or
+value estimator [Sørensen, 1997; Wierstra et al., 2007] or as
+a control policy [Hausknecht and Stone, 2015].
+In safety-critical systems such as autonomous vehicles,
+policies that are guaranteed to prevent unsafe behavior
+are necessary. We seek to provide formal guarantees for
+policies represented by RNNs with respect to temporal
+logic [Pnueli, 1977] or reward specifications. Such a verification task is, in general, hard due to the complex, often
+non-linear, structures of RNNs [Mulder et al., 2015]. Existing work directly employs satisfiability-modulo-theories
+(SMT) [Wang et al., 2018] or mixed-integer linear program (MILP) solvers [Akintunde et al., 2019], however, such
+methods not only scale exponentially in the number of variables but also rely on constructions using only rectified linear
+units (ReLUs).
+We take an iterative and model-based approach, summarized in Fig. 1.
+In particular, we extract a policy in the form of a so-called finite-state controller
+(FSC) [Poupart and Boutilier, 2003] from a given RNN.
+First, we employ a modification of a discretization technique called quantized bottleneck insertion, introduced
+in [Koul et al., 2019]. Basically, the discretization facilitates
+a mapping of the continuous memory structure of the RNN
+to a pre-defined number of discrete memory states and transitions of an FSC.
+However, this standalone FSC is not sufficient to prove
+meaningful properties. The proposed approach relies on the
+exact behavior a policy induces on a specific application,
+e.g. construction of verifiable policies for partially observable Markov decision processes (POMDPs).We apply the extracted FSC directly to a formal model, e.g. a POMDP that
+represents such an application. The resulting restricted model
+is amenable for efficient verification techniques that check
+whether a specification is satisfied [Baier and Katoen, 2008].
+If the specification does not hold, verification methods typically provide diagnostic information on critical
+parts of the model in the form of so-called counterexamples. We propose to utilize such counterexamples to
+identify improvements in the extracted FSC or in the underlying RNN. First, increasing the amount of memory
+states in the FSC may help to approximate the behavior
+of the RNN more precisely [Koul et al., 2019]. Second,
+
+the RNN may actually require further training data to induce higher-quality policies for the particular application.
+Existing approaches rely, for example, on loss visualization [Goodfellow and Vinyals, 2015], but we strive to exploit
+the information we can gain from the concrete behavior of
+the RNNs with respect to a formal model. Therefore, in
+order to decide whether more data are needed in the training of the RNN or whether first the number of memory
+states in the FSC should be increased, we identify those critical decisions of the current FSC that are “arbitrary”. Basically, we measure the entropy [Cover and Thomas, 2012;
+Biondi et al., 2013] of each stochastic choice over actions the
+current FSC-based policy makes at critical states. That is, if
+the entropy is high, the decision is deemed arbitrary despite
+its criticality and further training is required.
+We showcase the applicability of the proposed method on
+POMDPs. With their ability to represent sequential decisionmaking problems under uncertainty and incomplete information, these models are of particular interest in planning and
+control [Cassandra, 1998]. Despite their utility as a modeling formalism and recent algorithmic advances, policy synthesis for POMDPs is hard both theoretically and practically [Meuleau et al., 1999]. For reasons outlined earlier,
+RNNs have recently emerged as efficient policy representations for POMDPs [Hausknecht and Stone, 2015], but the
+task of verifying the induced behavior is far more difficult
+than that for FSCs. We detail the proposed approach on
+POMDPs and combine the scalability and flexibility of an
+RNN representation with the rigor of formal verification to
+synthesize POMDP policies that adhere to temporal logic
+specifications.
+We demonstrate the effectiveness of the proposed synthesis approach on a set of POMDP benchmarks. These
+benchmarks allows for a comparison to well-known POMDP
+solvers, both with and without temporal logic specifications.
+The numerical examples show that the proposed method (1)
+is more scalable, by up to 3 orders of magnitude, than wellknown POMDP solvers and (2) achieves higher-quality re-
+
+Critical information
+for network retraining
+Entropy
+test
+
+Increase
+precision
+Diagnostics on
+induced behavior
+
+RNN-based
+policy
+
+Extraction
+as an FSC
+
+Formal
+verification
+System model
+(e.g., a POMDP)
+
+Figure 1: High-level iterative policy extraction process.
+
+sults in terms of the measure of interest than other synthesis
+methods that extract FSCs.
+Related work. Closest to the proposed method
+is [Carr et al., 2019], which introduced a verificationguided method to train RNNs as POMDP policies. In
+particular, [Carr et al., 2019] extracts polices from the RNNs
+but unlike the proposed method, the extracted policies do not
+directly exhibit the memory structure of the RNNs and were
+instead handcrafted based on knowledge about the particular
+application.
+There are three lines of related research. The first one concerns the formal verification of neural network-based control policies. Two prominent approaches [Huang et al., 2017;
+Katz et al., 2017] for the class of feed-forward deep neural
+networks rely on encoding neural networks as SMT problems
+through adversarial examples or ReLUs architectures respectively. [Akintunde et al., 2019] concerns the direct verification of RNNs with ReLU activation functions using SMT or
+MILP. However, the scalability of these solver-based methods
+suffer from the size of the input models. We circumvent this
+shortcoming by our model-based approach where verification
+is restricted to concrete applications followed by potential improvement of the RNNs.
+The second relevant direction concerns the direct synthesis of FSCs for POMDPs without neural networks.
+For example, [Meuleau et al., 1999] uses a branch-andbound method to compute optimal FSCs for POMDPs.
+[Chatterjee et al., 2016] uses a SAT-based approach to compute FSCs for qualitative properties. [Junges et al., 2018]
+constructs an FSC using parameter synthesis for Markov
+chains.
+Third, existing work that concerns the extraction of FSCs
+from neural networks [Zeng et al., 1993; Weiss et al., 2018;
+Finnegan and Song, 2017; Michalenko et al., 2019], does not
+integrate with formal verification to provide guarantees for
+extracted policies or to generate diagnostic information.
+
+2 Preliminaries
+A probability distribution
+over a set X is a function µ : X →
+P
+[0, 1] ⊆ R with x∈X µ(x) = µ(X) = 1. The set of all
+distributions on X is Distr(X). The support of a distribution
+µ is supp(µ) = {x ∈ X |P
+µ(x) > 0}. The entropy of a
+distribution µ is H(µ) := − x∈X µ(x) log|X| µ(x).
+
+POMDPs. A Markov decision process (MDP) M is a tuple
+M = (S, Act, P) with a finite (or countably infinite) set S of
+states, a finite set Act of actions, and a transition probability
+function P : S × Act → Distr (S). The reward function for
+states and actions is given by r : S × Act → R. A finite path
+π of an MDP M is a sequence of states and actions; last(π)
+is the last state of π. The set of all finite paths is PathsM
+fin .
+Definition 1 (POMDP). A POMDP is a tuple M =
+(M , Z, O), with M the underlying MDP of M, Z a finite
+set of observations, and O : S → Z the observation function.
+For POMDPs, observation-action sequences are based on a
+finite path π ∈ PathsM
+fin of M and have the form: O(π) =
+a1
+a0
+O(s0 ) −→ O(s1 ) −→ · · · O(sn ). The set of all finite
+observation-action sequences for a POMDP M is ObsSeqM
+fin .
+
+Definition 2 (POMDP Policy). An observation-based policy
+for a POMDP M is a function γ : ObsSeqM
+fin → Distr(Act )
+
+such that supp γ(O(π)) ⊆ Act last(π) for all π ∈
+M
+PathsM
+fin . Γz is the set of observation-based policies for M.
+A policy for a POMDP resolves the nondeterministic
+choices in the POMDP, based on the history of previous observations, by assigning distributions over actions. A memoryless observation-based policy γ ∈ ΓM
+z is given by γ : Z →
+Distr (Act), i. e., decisions are based on the current observation only. A POMDP M together with a policy γ yields an
+induced discrete-time Markov chain (MC) Mγ . An MC does
+not contain any nondeterminism or partial observability.
+Our definition restricts POMDP policies to finite memory,
+which are typically represented as FSCs.
+Definition 3 (Finite-state controller (FSC)). A k-FSC for a
+POMDP is a tuple A = (N, nI , α, δ) where N is a finite set
+of k memory nodes, nI ∈ N is the initial memory node, α is
+the action mapping α : N × Z → Distr(Act ) and δ is the
+memory update δ : N × Z × Act → N .
+An FSC has the observations Z as input and the actions
+Act as output. Upon an observation, depending on the current
+memory node the FSC is in, the action mapping α returns a
+distribution over Act followed by a change of memory nodes
+according to δ. FSCs are an extension of so-called Moore
+machines [Moore, 1956], where the action mapping is deterministic, that is, α : N × Z → Act, and the memory update
+δ : N × Z → N does not depend on the choice of action.
+Definition 4 (Specifications). We consider linear-time temporal logic (LTL) properties [Pnueli, 1977]. For a set of
+atomic propositions AP , which are either satisfied or violated by a state, and a ∈ AP , the set of LTL formulas is:
+Ψ ::= a | (Ψ ∧ Ψ) | ¬Ψ |
+
+Ψ |  Ψ | (Ψ U Ψ) .
+
+Intuitively, a path π satisfies the proposition a if its first
+state does; (ψ1 ∧ψ2 ) is satisfied, if π satisfies both ψ1 and ψ2 ;
+¬ψ is true on π if ψ is not satisfied. The formula ψ holds
+on π if the subpath starting at the second state of π satisfies
+ψ; π satisfies  ψ if all suffixes of π satisfy ψ. Finally, π
+satisfies (ψ1 U ψ2 ) if there is a suffix of π that satisfies ψ2 and
+all longer suffixes satisfy ψ1 . ♦ ψ abbreviates (true U ψ).
+For POMDPs, one wants to synthesize a policy such that
+the probability of satisfying an LTL-property respects a given
+bound, denoted ϕ = P∼λ (ψ) for ∼ ∈ {<, ≤, ≥, >} and λ ∈
+[0, 1]. In addition, undiscounted expected reward properties
+ϕ = E∼λ (♦ a) require that the expected accumulated cost
+until reaching a state satisfying a respects λ ∈ R≥0 .
+A specification ϕ is satisfied for POMDP M and γ if it is
+satisfied in the MC Mγ (Mγ |= ϕ).
+Policy network. We now define a general notion of an RNN
+that represents a POMDP policy.
+Definition 5 (Policy network). A policy network for a
+POMDP is a function γ̂ : ObsSeqM
+fin → Distr (Act).
+The underlying RNN which receives sequential input in the
+form of (finite) observation sequences from ObsSeqM
+fin , the
+output is a distribution over actions, see Fig. 4a. To be more
+precise, we identify the main components of such a network.
+
+Definition 6 (Components of a policy network). A policy
+network γ̂ is sufficiently described by a hidden-state update
+function δ̂ : R × Z × Act → R and an action mapping
+γh : R → Distr (Act).
+Consider the following observation sequence:
+a
+
+a
+
+1
+0
+· · · O(si )
+O(s1 ) −→
+O(π) = O(s0 ) −→
+
+(1)
+
+The policy network receives an observation and returns an
+action choice. Throughout the execution of the sequence, the
+RNN holds a continuous hidden state h ∈ R, occasionally described as an internal memory state, which captures previous
+information. On each transition, this hidden state is updated
+to include the information of the current state and the last action taken under the hidden state transition function δ̂. From
+the prior observation sequence in (1), the corresponding hidden state sequence would be defined as:
+a0 , O(s1 )
+
+a1 , O(s2 )
+
+δ̂(π) = h0 −−−−−−→ h1 −−−−−−→ · · · hi
+Additionally, the output of the policy network is expressed
+by the action-distribution function γh , which maps the value
+of hidden state to a distribution over the actions. At internal memory states hi , we have δ̂(hi , O(si ), ai ) = hi+1 and
+γh (hi+1 ) = µ(Act) for state si on path π. Note that a policy
+network characterizes a well-defined POMDP policy.
+
+3 Problem Statement
+We attempt to solve two separate but related problems: (1)
+For a POMDP M, a policy network γ̂ and a specification
+ϕ, the problem is to extract an FSC Aγ̂ ∈ ΓM
+z such that
+MAγ̂ |= ϕ. (2) If the extraction process fails to produce a
+suitable candidate, then we improve the policy network γ̂ ∗
+for which we can solve (1).
+
+3.1
+
+Outline
+
+Fig. 2 illustrates the workflow of the proposed approach for a
+given POMDP M, policy network γ̂ and specification ϕ. We
+summarize the individual steps below and provide the technical details in the subsequent sections.
+FSC extraction. We first quantize the memory nodes of the
+policy network γ̂, that is, we discretize the memory update of
+the continuous memory state h. From this discrete representation of the memory update, we construct an FSC Aγ̂ ∈ ΓM
+z .
+The procedure has as input the number Bh of neurons which
+defines a bound on the number of memory nodes in the FSC.
+Verification. We use the FSC Aγ̂ to resolve partial information and nondeterministic choices in the POMDP M,
+resulting in an induced MC MAγ̂ . We evaluate whether
+the given specification ϕ is satisfied for this induced MC
+using a formal verification technique called model checking [Baier and Katoen, 2008]. If the specification ϕ holds,
+then the synthesis is complete with output policy Aγ̂ . However, if ϕ does not hold, then we decide if we shall increase
+the bound Bh on the number of memory nodes or if the network needs retraining. In particular, we examine whether or
+not the entropy over the FSC’s action distribution is above a
+prescribed threshold.
+
+Counterexamples
+Set CritM
+Aγ̂ of
+critical states
+
+YES
+
+Increment
+Discretization
+Bh = Bh + 1
+
+up
+
+Recurrent
+Neural Network
+Policy network γ̂
+
+1/3
+1/3
+
+FSC Extraction
+Memory nodes |N | ≤ 3Bh
+
+s1
+s0
+
+down
+
+up
+down
+s2
+
+1/3
+
+s3
+
+a
+
+s4
+
+a
+
+up
+
+down
+
+(a) 5-State POMDP
+
+NO
+
+Entropy Check
+H(CritM
+Aγ̂ ) > µ?
+
+Finite Policy
+Policy Aγ̂
+
+up
+
+1
+up
+
+p
+
+UNSAT
+
+Model Checking
+MAγ̂ |= ϕ
+
+Induced Model
+DTMC MAγ̂
+
+(0, blue)
+1−p
+
+SAT
+
+Concrete Model
+POMDP M
+Specification ϕ
+
+Figure 2: Procedural flow for the iterative FSC extraction and RNNbased policy improvement.
+
+Policy improvement. In the high entropy case, we increase
+the discretization level, that is, we increase Bh , and construct
+the FSC Aγ̂ with additional memory states at its disposal.
+Whereas in the other case, additional memory nodes may
+cause the extracted FSC to be drawn from extrapolated information and we instead seek to improve the policy network.
+For that, we use diagnostic information in the form of counterexamples to generate new data [Carr et al., 2019].
+
+(0, blue)
+
+(1, blue)
+
+down
+1
+
+down
+(b) 1-FSC
+
+(c) 2-FSC
+
+Figure 3: (a) POMDP for Example 1 with (b) 1-FSC and (c) 2-FSC.
+Both FSCs are defined for observing “blue” and subsequent action
+choices that may result in a change of memory node for the 2-FSC.
+
+we can create an FSC A2 that ensures the satisfaction of ϕ:
+
+up
+with probability 1,
+α(0, blue) =
+down with probability 0,
+
+up
+with probability 0,
+α(1, blue) =
+down with probability 1,
+δ(0, blue, up) = 1,
+δ(1, blue, down) = 0.
+
+4 Policy Extraction
+Example 1. We consider the POMDP in Fig. 3 as a motivating example for the necessity of memory-based FSCs. The
+POMDP has three observations (“blue”, s3 and s4 ) where
+observation “blue” is received upon visiting s0 , s1 , and s2 .
+That is, the agent is unable to distinguish between these
+states. The specification is ϕ = Pr≥0.9 (♦ s3 ), so the agent
+is to reach state s3 with at least probability 0.9. In a 1-FSC
+(i.e. one memory node 0), we can describe an FSC A1 by:
+
+α(0, blue) =
+
+
+up
+down
+
+δ(0, z, a) = 0
+
+with probability p,
+with probability 1 − p,
+
+∀z ∈ Z, a ∈ Act.
+
+A 2-FSC with two memory nodes (0 and 1), see Fig. 3c, allows
+for greater expressivity, i.e. the policy can base its decision
+on larger observation sequences. With this memory structure,
+
+In this section we describe how we adapt the method called
+quantized bottleneck insertion [Koul et al., 2019] to extract
+an FSC from a given RNN. Let us first explain the relationship between the main components of a policy network
+γ̂ (Definition 6) and an FSC A (Definition 3). In particular,
+the hidden-state update function δ̂ : R×Z ×Act → R takes as
+input a real-valued hidden state of the policy network, while
+the memory update function of an FSC takes a memory node
+from the finite set N . The key for linking the two is therefore
+a mechanism that encodes the continuous hidden state h into
+a set N of discrete memory nodes.
+Policy network modification. To obtain the above linkage,
+we leverage an autoencoder [Goodfellow et al., 2016] in the
+form of a quantized bottleneck network (quantized bottleneck
+network (QBN)) [Koul et al., 2019]. This QBN, consisting
+of an encoder and a decoder, is inserted into the policy network directly before the softmax layer, see Fig. 4b. In the encoder, the continuous hidden state value h ∈ R is mapped to
+an intermediate real-valued vector RBh of pre-allocated size
+Bh . The decoder then maps this intermediate vector into a
+
+Recurrent
+Layer
+
+Entropy of the Extracted FSC
+
+Softmax
+Layer
+
+a1
+z
+
+a2
+
+σ
+
+RNN
+
+a3
+(a) RNN Policy.
+
+Encoder
+
+Decoder
+
+σ̂
+RNN
+
+h
+
+σ̂
+ĥ
+σ̂
+
+(b) RNN block and associated QBN of Bh = 3 with quantized activation σ̂ : R → {−1, 0, 1}.
+Figure 4: Policy network structure without and with a QBN.
+
+discrete vector space defined by {−1, 0, 1}Bh . This process,
+illustrated in Fig. 4b, provides a mapping of the continuous
+hidden state h into 3Bh possible discrete values. We denote
+the discrete state for h by ĥ and the set of all such discrete
+states by Ĥ. Note, that |Ĥ| ≤ 3Bh since not all values of
+the hidden state may be reached in an observation sequence.
+[Koul et al., 2019] has another QBN for a continuous observation space, however, we focus on discrete observations and
+can neglect the additional autoencoder.
+FSC construction. After the QBN insertion we simulate a
+series of executions, querying the modified RNN for action
+choices, on the concrete application, e.g. using a POMDP
+modelx. We form a dataset of consecutive pairs (ĥt , ĥt+1 )
+of discrete states, the action at and the observation zt+1 that
+led to the transition {ĥt , at , zt+1 , ĥt+1 } at each time t during
+the execution of the policy network. The number of accessed
+memory nodes N ⊆ Ĥ corresponds to the number of different discrete states ĥ ∈ Ĥ in this dataset. The deterministic
+memory update rule δ(nt , at , zt+1 ) = nt+1 is obtained by
+constructing a N × (|Z| × |Act|) transaction table, for a detailed description see [Koul et al., 2019]. We can additionally
+construct the action mapping α : N × Z → Distr (Act) with
+α(nt , zt ) = µ ∈ Distr (Act) by querying the softmax-output
+layer (see Fig. 4a) for each memory state and observation.
+
+Average Entropy H(γA )
+
+Input
+
+1
+Bh = 1
+Bh = 2
+Bh = 3
+
+0.8
+0.6
+0.4
+0.2
+0
+
+103
+
+104
+Number of Samples
+
+105
+
+Figure 5: Entropy of the extracted FSCs from an RNN as it is trained
+with more samples. For each sequence we fix the discretization, ignore the inner loop and add more samples guided by the counterexamples. Note: the behavior at the right edge of the figure is due to
+the fact that this represents the entropy of the entire FSC, which will
+differ from the entropy over the components of the counterexamples.
+
+extracted FSC Aγ̂ regarding ϕ. Model checking provides the
+probability (or the expected reward) to satisfy a specification
+for all states s ∈ S via solving linear equation systems.
+Example 1 (cont.). Consider the case in the 1-FSC A1
+(Fig. 3b) where p = 1, the probability of reaching the state
+s3 in the induced MC is Pr(♦ s3 ) = 13 . Clearly, the behavior induced by this 1-FSC violates the specification and
+formal verification provides two counterexamples of critical
+memory-state pairs for this policy Aγ̂ : (0, s0 ) and (0, s1 ).
+After model checking, if the specification does not hold,
+the policy may require refinement. As discussed before, on
+the one hand we can increase the upper bound Bh on the number of memory nodes to extract a new FSC. At each iteration
+of the inner loop in Fig. 2, we modify the QBN for the new,
+increased, level of discretization and obtain a new FSC using
+the process outlined in Sect 4. On the other hand, we may
+decide via a formal entropy check whether new data need to
+be generated to actually improve the policy.
+
+5 Policy Evaluation and Improvement
+
+Improving the policy network. Our goal is to determine
+whether a policy network requires more training data or not.
+Existing approaches in supervised learning methods leverage benchmark comparisons between a train-test set using a
+loss function [Baum and Wilczek, 1987]. Loss visualization,
+proposed by [Goodfellow and Vinyals, 2015; Yu et al., 2019]
+provides a set of analytical tools to show model convergence. However, such approaches are generally more suited
+to classes of continuous functions than the discrete representations we seek. More importantly, we want to leverage
+the information we gain from employing a model-based approach.
+
+Evaluation using formal verification. We assume that for
+POMDP M = (M , Z, O) and specification ϕ, we have an
+extracted FSC Aγ̂ ∈ ΓM
+z as in Definition 3. We use the policy
+Aγ̂ to obtain the induced MC MAγ̂ . For this MC, formal verification through model checking checks whether MAγ̂ |= ϕ
+and thereby provides hard guarantees about the quality of the
+
+Counterexamples. We first determine a set of states that
+are critical for the specification under the current strategy.
+Consider the sequences of memory nodes and observations
+at−1
+a0
+· · · −−−→ (nt , zt ) from the POMDP M under
+(n0 , z0 ) −→
+the FSC Aγ̂ . For each of these sequences, we collect the
+states s ∈ S underlying the observations, e.g., O(s) = zi for
+
+Problem
+Maze(1)
+Maze(2)
+Maze(5)
+Maze(10)
+Grid(3)
+Grid(4)
+Grid(5)
+Grid(10)
+Grid(25)
+Navigation (4)
+Navigation (5)
+Navigation (10)
+Navigation (20)
+
+|S| |Z| Type
+11
+7 Min
+14
+7 Min
+23
+7 Min
+38
+7 Min
+9
+2 Min
+16
+2 Min
+25
+2 Min
+100
+2 Min
+625
+2 Min
+256 256 Max
+625 256 Max
+104 256 Max
+1.6 × 105 256 Max
+
+Extraction Approach
+Memory Value Time (s)
+2
+4.33
+80.31
+3
+5.34
+114.23
+3 13.29
+160.12
+5 23.02
+210.01
+3
+2.90
+87.31
+7
+4.20
+124.31
+9
+5.91
+250.14
+9 12.92 1031.21
+16 35.32 6514.30
+8
+0.92
+160.32
+8
+0.95
+311.65
+8
+0.90 2561.02
+9
+0.98 8173.03
+
+Handcrafted
+Memory Value Time (s)
+2
+4.31
+30.70
+3
+5.31
+46.65
+6 14.40
+68.09
+11 100.21
+158.33
+2
+2.90
+38.94
+3
+4.32
+79.99
+4 6.623
+91.42
+9 13.63
+268.40
+24 531.05
+622.31
+8
+0.92
+80.26
+8
+0.92
+253.11
+4
+0.85 1471.17
+4
+0.96 7068.24
+
+PRISM-POMDP
+Value Time (s)
+4.30
+0.09
+5.23
+2.176
+13.00* 4110.50
+MO
+MO
+2.88
+2.332
+4.13 1032.53
+MO
+MO
+MO
+MO
+MO
+MO
+0.93* 1034.64
+MO
+MO
+MO
+MO
+MO
+MO
+
+SolvePOMDP
+Value Time (s)
+4.30
+0.30
+5.23
+0.67
+12.04
+134.46
+MO
+MO
+2.88
+0.06
+4.13
+0.73
+5.42
+1.97
+MO
+MO
+MO
+MO
+NA
+NA
+NA
+NA
+NA
+NA
+NA
+NA
+
+Table 1: Synthesizing strategies for examples with expected reward and LTL specifications.
+
+0 ≤ i ≤ t. As we know the probability or expected reward for
+these states to satisfy the specification from previous model
+checking, we can now directly assess their criticality regarding the specification. We collect all pairs of memory nodes
+and states from N × S that contain critical states and build
+M
+the set CritA
+⊆ N × S that serves us as a counterexample.
+γ̂
+These pairs carry the joint information of critical states and
+memory nodes from the policy applied to the MC and may be
+formalized using a so-called product construction.
+Entropy measure. The average entropy across the distriM
+butions over actions at the choices induced by CritA
+is
+γ̂
+our measure of choice to determine the level of training for
+the policy network. Put differently, for each pair (n, s) ∈
+M
+CritA
+, we collect the distribution µ ∈ Distr(Act ) over acγ̂
+tions that Aγ̂ returns for the observation O(s) when it is in
+memory node n. Then, we define the evaluation function H
+using the entropy H(µ) of the distribution µ:
+H : CritM
+Aγ̂ → [0, 1] with H(n, s) = H(µ)
+
+(2)
+
+For high values of H, the distribution is uniform across all actions and the associated policy network is likely extrapolating
+from unseen inputs.
+In Fig. 5, we observe that when there are fewer samples
+and higher discretization, the extracted FSC tends to perform
+M
+arbitrarily. We define the function H for the full set CritA
+:
+γ̂
+M
+H(CritA
+)=
+γ̂
+
+1
+|CritM
+Aγ̂ |
+
+X
+
+H(n, s)
+
+(3)
+
+(n,s)∈CritM
+A
+
+γ̂
+
+We compare the average entropy over all components of the
+counterexample against a threshold η ∈ [0, 1], that is, if
+M
+H(CritA
+) > η, we will provide more data.
+γ̂
+Example 1 (cont.). Under the working example, the policy A1 was the 1-FSC with p = 1 (Fig. 3b), which
+produces two counterexample memory and state pairs:
+CritM
+A1 = {(0, s0 ), (0, s1 )}. The procedure would then examine the policy’s average entropy at these critical components (n, s) ∈ CritM
+A1 , which in this trivial example is given
+by H(CritM
+A1 ) = −p log2 (p) − (1 − p) log2 (1 − p) = 0 from
+(3). The average entropy is below a prescribed threshold,
+η = 0.5, and thus we increase the number of memory nodes,
+which results in the satisfying FSC A2 in Fig. 3c.
+
+Collecting new training data. To perform retraining we
+take a policy for the underlying MDP M that satisfies ϕ, and
+we use that policy to generate observation-action sequences,
+which are initialized at the states s in the critical set CritM
+Aγ̂ .
+These executions, with observations as inputs and actions as
+labels, form a batch for retraining the RNN policy network γ̂.
+
+6 Experiments
+We evaluate the proposed verification and synthesis approach by comparing to a series of benchmark examples that are subject to either LTL or expected cost specifications. For both sets we compare to two synthesis
+tools: PRISM-POMDP [Norman et al., 2017] and SolvePOMDP [Walraven and Spaan, 2017] from the respective formal methods and planning communities. We further compare to another RNN-based synthesis procedure with a handcrafted memory structure for FSCs [Carr et al., 2019]. For
+proper comparison with the synthesis tools we adopt the experiment setup of [Carr et al., 2019], whereby we always iterate for 10 instances of retraining the RNN from counterexample data. Similarly, the proposed approach is not guaranteed
+to reach the optimum, but shall rather improve as far as possible within 10 iterations.
+Implementation and Setup. We provide a Python
+toolchain that employs the probabilistic model checker
+PRISM. We train and encode the RNN policy networks γ̂
+using the deep learning library Keras. All experiments are
+run on a 2.3 GHz machine with a 12 GB memory limit and a
+maximum computation time of 105 seconds.
+Settings. We analyze the method on three different settings: Maze(c), Grid(c) and Navigation(c), for detailed descriptions of these examples see [Norman et al., 2017] and
+[Carr et al., 2019], respectively. In each of these settings the
+policies have an action space of the cardinal directions navigating through a grid-based environment. For the former two
+examples, we attempt to synthesize a policy that minimizes an
+expected cost subject to reaching a goal state a: EM
+min (♦ a).
+In the latter example, we seek a policy that maximizes the
+probability of satisfying an LTL specification, in particular
+avoiding obstacles X, both static and randomly moving, until
+reaching a target area a: PM
+max (¬X U a).
+Discussion. The results are shown in Table 1. The proposed extraction approach scales to significantly larger exam-
+
+ples than both state-of-the-art POMDP solvers which compute near-optimal policies. While the handcrafted approach
+scales equally well, the extraction method produces higherquality policies - within 2% of the optimum. That effect
+is due to our automatic extraction of suitable FSCs. Note
+that an optimal policy for Maze(1) can be expressed using 2
+memory states. The FSC structure employed by the handcrafted method uses this structure and consequently, for the
+small Maze environments, the handcrafted method synthesizes higher values. Yet, with larger environments the fixed
+memory structure produces poor policies as more memory
+states are beneficial to account for the past behavior.
+
+7 Conclusion
+We introduced a novel synthesis procedure for extracting and
+verifying RNN-based policies. In comparison to other approaches to verify RNNs, we take a model-based approach
+and provide guarantees for concrete applications modeled by
+POMDPs. Based on the verification results, we propose a
+way to either improve the extracted policy or the RNN itself.
+Our results demonstrate the effectiveness of the approach and
+that we are competitive to state-of-the-art synthesis tools.
+
+References
+[Akintunde et al., 2019] Michael E. Akintunde, Andreea
+Kevorchian, Alessio Lomuscio, and Edoardo Pirovano.
+Verification of RNN-based neural agent-environment systems. In AAAI, pages 6006–6013. AAAI Press, 2019.
+[Baier and Katoen, 2008] Christel Baier and Joost-Pieter
+Katoen. Principles of Model Checking. MIT Press, 2008.
+[Bakker, 2001] Bram Bakker. Reinforcement learning with
+long short-term memory. In NIPS, pages 1475–1482. MIT
+Press, 2001.
+[Baum and Wilczek, 1987] Eric B. Baum and Frank
+Wilczek. Supervised learning of probability distributions
+by neural networks. In NIPS, pages 52–61. American
+Institue of Physics, 1987.
+[Biondi et al., 2013] Fabrizio Biondi, Axel Legay, Bo Friis
+Nielsen, and Andrzej Wasowski. Maximizing entropy over
+Markov processes. In LATA, volume 7810 of LNCS, pages
+128–140. Springer, 2013.
+[Carr et al., 2019] Steven Carr, Nils Jansen, Ralf Wimmer,
+Alexandru Constantin Serban, Bernd Becker, and Ufuk
+Topcu. Counterexample-guided strategy improvement for
+POMDPs using recurrent neural networks. In IJCAI, pages
+5532–5539, 2019.
+[Cassandra, 1998] Anthony R Cassandra. A survey of
+POMDP applications. In AAAI, volume 1724, 1998.
+[Chatterjee et al., 2016] Krishnendu Chatterjee, Martin
+Chmelik, and Jessica Davies. A symbolic SAT-based algorithm for almost-sure reachability with small strategies
+in POMDPs. In AAAI, pages 3225–3232. AAAI Press,
+2016.
+[Cover and Thomas, 2012] Thomas M Cover and Joy A
+Thomas. Elements of information theory. John Wiley &
+Sons, 2012.
+
+[Finnegan and Song, 2017] Alex Finnegan and Jun S Song.
+Maximum entropy methods for extracting the learned features of deep neural networks. PLoS computational biology, 13(10), 2017.
+[Goodfellow and Vinyals, 2015] Ian J. Goodfellow and Oriol
+Vinyals. Qualitatively characterizing neural network optimization problems. In ICLR, 2015.
+[Goodfellow et al., 2016] Ian Goodfellow, Yoshua Bengio,
+Aaron Courville, and Yoshua Bengio. Deep learning, volume 1. MIT Press, 2016.
+[Hausknecht and Stone, 2015] Matthew J. Hausknecht and
+Peter Stone. Deep recurrent Q-learning for partially observable MDPs. In AAAI, pages 29–37. AAAI Press, 2015.
+[Heess et al., 2015] Nicolas Heess, Jonathan J. Hunt, Timothy P. Lillicrap, and David Silver. Memory-based control
+with recurrent neural networks. CoRR, 1512.04455, 2015.
+[Hochreiter and Schmidhuber, 1997] Sepp Hochreiter and
+Jürgen Schmidhuber. Long short-term memory. Neural
+Computation, 9(8):1735–1780, 1997.
+[Huang et al., 2017] Xiaowei Huang, Marta Kwiatkowska,
+Sen Wang, and Min Wu. Safety verification of deep neural networks. In CAV (1), volume 10426 of LNCS, pages
+3–29. Springer, 2017.
+[Junges et al., 2018] Sebastian Junges, Nils Jansen, Ralf
+Wimmer, Tim Quatmann, Leonore Winterer, Joost-Pieter
+Katoen, and Bernd Becker. Finite-state controllers of
+POMDPs via parameter synthesis. In UAI, 2018.
+[Katz et al., 2017] Guy Katz, Clark Barrett, David L. Dill,
+Kyle Julian, and Mykel J. Kochenderfer. Reluplex: An
+efficient SMT solver for verifying deep neural networks.
+In CAV, pages 97–117. Springer, 2017.
+[Koul et al., 2019] Anurag Koul, Alan Fern, and Sam Greydanus. Learning finite state representations of recurrent
+policy networks. In ICLR, 2019.
+[Meuleau et al., 1999] Nicolas Meuleau, Kee-Eung Kim,
+Leslie Pack Kaelbling, and Anthony R. Cassandra. Solving POMDPs by searching the space of finite policies. In
+UAI, pages 417–426. Morgan Kaufmann, 1999.
+[Michalenko et al., 2019] Joshua J. Michalenko, Ameesh
+Shah, Abhinav Verma, Richard G. Baraniuk, Swarat
+Chaudhuri, and Ankit B. Patel. Representing formal languages: A comparison between finite automata and recurrent neural networks. In ICLR, 2019.
+[Moore, 1956] Edward F Moore. Gedanken-experiments
+on sequential machines. Automata studies, 34:129–153,
+1956.
+[Mulder et al., 2015] Wim De Mulder, Steven Bethard, and
+Marie-Francine Moens. A survey on the application of
+recurrent neural networks to statistical language modeling.
+Computer Speech & Language, 30(1):61–98, 2015.
+[Norman et al., 2017] Gethin Norman, David Parker, and
+Xueyi Zou. Verification and control of partially observable
+probabilistic systems. Real-Time Systems, 53(3):354–402,
+2017.
+
+[Pascanu et al., 2014] Razvan Pascanu, Çaglar Gülçehre,
+Kyunghyun Cho, and Yoshua Bengio. How to construct
+deep recurrent neural networks. In ICLR, 2014.
+[Pnueli, 1977] Amir Pnueli. The temporal logic of programs.
+In FOCS, pages 46–57. IEEE Computer Society, 1977.
+[Poupart and Boutilier, 2003] Pascal Poupart and Craig
+Boutilier. Bounded finite state controllers. In NIPS, pages
+823–830. MIT Press, 2003.
+[Sørensen, 1997] Ole Sørensen.
+Simplified LQG control with neural networks. IFAC Proceedings Volumes,
+30(6):1023–1029, 1997.
+[Tsoi and Back, 1997] Ah Chung Tsoi and Andrew D. Back.
+Discrete time recurrent neural network architectures: A
+unifying review. Neurocomputing, 15:183–223, 1997.
+[Walraven and Spaan, 2017] Erwin Walraven and Matthijs
+T. J. Spaan. Accelerated vector pruning for optimal pomdp
+solvers. In AAAI, pages 3672–3678, 2017.
+[Wang et al., 2018] Qinglong Wang, Kaixuan Zhang, Xue
+Liu, and C. Lee Giles. Verification of recurrent neural
+networks through rule extraction. CoRR, abs/1811.06029,
+2018.
+[Weiss et al., 2018] Gail Weiss, Yoav Goldberg, and Eran
+Yahav. Extracting automata from recurrent neural networks using queries and counterexamples. In ICML, volume 80 of Proceedings of Machine Learning Research,
+pages 5244–5253. PMLR, 2018.
+[Wierstra et al., 2007] Daan Wierstra, Alexander Förster,
+Jan Peters, and Jürgen Schmidhuber. Solving deep memory POMDPs with recurrent policy gradients. In ICANN,
+pages 697–706. Springer, 2007.
+[Yu et al., 2019] Fuxun Yu, Zhuwei Qin, Chenchen Liu,
+Liang Zhao, Yanzhi Wang, and Xiang Chen. Interpreting
+and evaluating neural network robustness. pages 4199–
+4205, 2019.
+[Zeng et al., 1993] Zheng Zeng, Rodney M. Goodman, and
+Padhraic Smyth. Learning finite machines with selfclustering recurrent networks. Neural Comput., 5(6):976–
+990, November 1993.
+
+

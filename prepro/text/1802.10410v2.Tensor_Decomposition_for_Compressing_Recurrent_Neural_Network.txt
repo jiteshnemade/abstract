@@ -1,0 +1,1055 @@
+Tensor Decomposition for Compressing Recurrent
+Neural Network
+Andros Tjandra∗† , Sakriani Sakti∗† , Satoshi Nakamura∗†
+
+arXiv:1802.10410v2 [cs.LG] 8 May 2018
+
+∗ Graduate
+
+School of Information Science, Nara Institute of Science and Techonology, Japan
+† RIKEN, Center for Advanced Intelligence Project AIP, Japan
+Email: {andros.tjandra.ai6, ssakti, s-nakamura}@is.naist.jp
+
+Abstract—In the machine learning fields, Recurrent Neural
+Network (RNN) has become a popular architecture for sequential
+data modeling. However, behind the impressive performance,
+RNNs require a large number of parameters for both training
+and inference. In this paper, we are trying to reduce the number
+of parameters and maintain the expressive power from RNN
+simultaneously. We utilize several tensor decompositions method
+including CANDECOMP/PARAFAC (CP), Tucker decomposition
+and Tensor Train (TT) to re-parameterize the Gated Recurrent
+Unit (GRU) RNN. We evaluate all tensor-based RNNs performance on sequence modeling tasks with a various number of
+parameters. Based on our experiment results, TT-GRU achieved
+the best results in a various number of parameters compared to
+other decomposition methods.
+
+I. Introduction
+In recent years, RNNs have achieved many state-of-the-arts
+on sequential data modeling task and significantly improved
+the performance on many tasks, such as speech recognition [1],
+[2] and machine translation [3], [4]. There are several reasons
+behind the RNNs impressive performance: the availability of
+data in large quantities and the advance of modern computer
+performances such as GPGPU. The recent hardware advance
+allows us to train and infer RNN models with million of
+parameters in a reasonable amount of time.
+Some devices such as mobile phones or embedded systems
+only have limited computing and memory resources. Therefore, deploying a model with a large number of parameters
+in those kind of devices is a challenging task. Therefore, we
+need to represent our model with more efficient methods and
+keep our model representational power at the same time.
+Some researchers have conducted important works to balance the trade-off between the model efficiency and their
+representational power. There are many different approaches to
+tackle this issue. From the low-level optimization perspective,
+Courbariaux et al. [5] replace neural network weight parameters with binary numbers. Hinton et al. [6] compress a larger
+model into a smaller model by training the latter on soft-target
+instead of hard-target. RNNs are composed by multiple linear
+transformations and followed by non-linear transformation.
+Most of RNN parameters are used to represent the weight
+matrix in those linear transformations and the total number
+of parameters depends on the input and hidden unit size.
+Therefore, some researchers also tried to represent the dense
+weight matrices with several alternative structures. Denil et al.
+
+[7] employed low-rank matrix to replace the original weight
+matrix.
+Instead of using low-rank matrix decomposition, Novikov
+et al. [8] used TT format to represent the weight matrices
+in the fully connected layer inside a CNN model. Tjandra
+et al. [9] applied TT-decomposition to compress the weight
+matrices inside RNN models. Besides TT-decomposition, there
+are several popular tensor decomposition methods such as CP
+decomposition and Tucker-decomposition.
+However, those methods have not been explored for compressing RNN weight matrices, thus we are interested to see
+the extensive comparison between all tensor-decomposition
+method performances under the same number of parameters. In this paper, we utilized several tensor decomposition
+methods including CP-decomposition, Tucker decomposition
+and TT-decomposition for compressing RNN parameters. We
+represent GRU RNN weight matrices with these tensor decomposition methods. We conduct extensive experiments on
+sequence modeling with a polyphonic music dataset. We
+compare the performances of uncompressed GRU model and
+three different tensor-based compressed RNN models: CPGRU, Tucker-GRU and TT-GRU [9] on various number of
+parameters. From our experiment results, we conclude that TTGRU achieved the best result in various number of parameters
+compared to other tensor-decomposition method.
+II. Recurrent Neural Network
+RNNs are a type of neural networks designed for modeling
+sequential and temporal data. For each timestep, the RNN
+calculate its hidden states by combining previous hidden states
+and a current input feature. Therefore, RNNs are able to
+capture all previous information from the beginning until
+current timestep.
+A. Elman Recurrent Neural Network
+Elman RNNs are one of the earliest type of RNN models
+[10]. In some cases, Elman RNN also called as simple RNN.
+Generally, we represent an input sequence as x = (x1 , ..., xT ),
+hidden vector sequence as h = (h1 , ..., hT ) and output vector
+sequence as y = (y1 , ..., yT ). As illustrated in Fig. 1, a simple
+RNN at t-th time-step is can be formulated as:
+ht
+
+=
+
+f (W xh xt + Whh ht−1 + bh )
+
+(1)
+
+yt
+
+=
+
+g(Why ht + by ).
+
+(2)
+
+where W xh represents the weight parameters between the
+input and hidden layer, Whh represents the weight parameters
+between the previous and current hidden layers, Why represents
+the weight parameters between the hidden and output layer,
+and bh and by represent bias vectors for the hidden and
+output layers. Functions f (·) and g(·) are nonlinear activation
+functions, such as sigmoid or tanh.
+
+[2]:
+it
+
+=
+
+σ(W xi xt + Whi ht−1 + Wci ct−1 + bi )
+
+(3)
+
+ft
+
+=
+
+σ(W x f xt + Wh f ht−1 + Wc f ct−1 + b f )
+
+(4)
+
+ct
+
+=
+
+ft
+
+ot
+
+=
+
+σ(W xo xt + Who ht−1 + Wco ct + bo )
+
+ht
+
+=
+
+ot
+
+ct−1 + it
+
+tanh(W xc xt + Whc ht−1 + bc )
+
+tanh(ct )
+
+(5)
+(6)
+(7)
+
+where σ(·) is sigmoid activation function and it , ft , ot and ct are
+respectively the input gates, the forget gates, the output gates
+and the memory cells. The input gates retain the candidate
+memory cell values that are useful for the current memory
+cell and the forget gates retain the previous memory cell values
+that are useful for the current memory cell. The output gates
+retain the memory cell values that are useful for the output
+and the next time-step hidden layer computation.
+Figure 1. Recurrent Neural Network
+
+B. Gated Recurrent Neural Network
+Learning over long sequences is a hard problem for standard RNN because the gradient can easily vanish or explode
+[11], [12]. One of the sources for that problem is because
+RNN equations are using bounded activation function such
+as tanh and sigmoid. Therefore, training a simple RNN is
+more complicated than training a feedforward neural network.
+Some researches addressed the difficulties of training simple
+RNNs. From the optimization perspective, Martens et al.
+[13] utilized a second-order Hessian-free (HF) optimization
+rather than the first-order method such as stochastic gradient
+descent. However, to calculate the second-order gradient or
+their approximation requires some extra computational steps.
+Le et al. [14] changed the activation function that causes the
+vanishing gradient problem with a rectifier linear (ReLU) function. They are able to train a simple RNN for learning longterm dependency with an unbounded activation function and
+identity weight initialization. Modifying the internal structure
+from RNN by introducing gating mechanism also helps RNNs
+solve the vanishing gradient problems. The additional gating
+layers control the information flow from the previous states
+and the current input [15]. Several versions of gated RNNs
+have been designed to overcome the weakness of simple RNNs
+by introducing gating units, such as Long-Short Term Memory
+(LSTM) RNN and GRU RNN.
+1) Long-Short Term Memory RNN: An LSTM [15] is a
+gated RNN with memory cells and three gating layers. The gating layers purpose is to control the current memory states by
+retaining the important information and removing the unused
+information. The memory cells store the internal information
+across time steps. As illustrated in Fig. 2, the LSTM hidden
+layer values at time t are defined by the following equations
+
+Figure 2. Long Short Term Memory Unit.
+
+2) Gated Recurrent Unit RNN: A GRU [16] is one variant
+of gated RNN. It was proposed an alternative to LSTM. There
+are several key differences between GRU and LSTM. First, a
+GRU does not seperate the hidden states with the memory cells
+[17]. Second, instead of three gating layers, it only has two:
+reset gates and update gates. As illustrated in Fig. 3, the GRU
+hidden layer at time t is defined by the following equations
+[16]:
+rt
+
+=
+
+σ(W xr xt + Whr ht−1 + br )
+
+(8)
+
+zt
+
+=
+
+σ(W xz xt + Whz ht−1 + bz )
+
+(9)
+
+h̃t
+
+=
+
+f (W xh xt + Whh (rt
+
+ht
+
+=
+
+(1 − zt )
+
+ht−1 + zt
+
+ht−1 ) + bh )
+h̃t
+
+(10)
+(11)
+
+where σ(·) is a sigmoid activation function, f (·) is a tanh
+activation function, rt , zt are the reset and update gates, h̃t is the
+candidate hidden layer values, and ht is the hidden layer values
+at time t-th. The reset gates control the previous hidden layer
+values that are useful for the current candidate hidden layer.
+The update gates decide whether to keep the previous hidden
+layer values or replace the current hidden layer values with
+the candidate hidden layer values. GRU can match LSTM’s
+performance and its convergence speed sometimes surpasses
+LSTM, despite having one fewer gating layer [17].
+
+Figure 4. CP-decomposition for 3rd-order tensor W
+
+where ∀r ∈ [1..R], g1,r ∈ Rm1 , g2,r ∈ Rm2 , g3,r ∈ Rm3 , R ∈ Z+ is
+the number of factors combinations (CP-rank) and ⊗ denotes
+Kronecker product operation. Elementwise, we can calculate
+the result by:
+
+Figure 3. Gated Recurrent Unit
+
+W(x, y, z) ≈
+III. Tensor RNN
+
+R
+X
+
+g1,r (x) g2,r (y) g3,r (z)
+
+(13)
+
+r=1
+
+In this section, we explain our approaches to compress the
+parameters in the RNN. First, we define the tensorization
+process to transform the weight matrices inside the RNN
+model into higher order tensors. Then, we describe two tensor
+decompositions method called as CANDECOMP/PARAFAC
+(CP) decomposition and Tucker decomposition. Last, we explain about tensorization and RNN parameters compression
+with the tensor decomposition methods.
+
+In Figure 4, we provide an illustration for Eq. 12 in more
+details.
+2) Tucker decomposition: Tucker decomposition [21], [22]
+factorizes a tensor into a core tensor multiplied by a matrix
+along each mode. Assume we have a 3rd-order tensor W ∈
+Rm1 ×m2 ×m3 , we can approximate it with Tucker decomposition:
+
+A. Vector, Matrix and Tensor
+
+where G0 ∈ Rr1 ×r2 ×r3 is the core tensor, G1 ∈ Rm1 ×r1 ,
+G2 ∈ Rm2 ×r2 , G3 ∈ Rm3 ×r3 are the factor matrices and ×n is
+the n-th mode product operator. The mode product between
+a tensor G0 ∈ Rn1 ×n2 ×n3 and a matrix G1 ∈ Rm1 ×n1 is a tensor
+Rm1 ×n2 ×n3 . By applying the mode products across all modes,
+we can recover the original W tensor. Elementwise, we can
+calculate the element from tensor W by:
+
+Before we start to explain any further, we will define
+different notations for vectors, matrices and tensors. Vector
+is an one-dimensional array, matrix is a two-dimensional
+array and tensor is a higher-order multidimensional array. In
+this paper, bold lower case letters (e.g., b) represent vectors,
+bold upper case letters (e.g., W) represent matrices and bold
+calligraphic upper case letters (e.g., W) represent tensors. For
+representing the element inside vectors, matrices and tensors,
+we explicitly write the index in every dimension without bold
+font. For example, b(i) is the i-th element in vector b, W(p, q)
+is the element on p-th row and q-th column from matrix W
+and W(i1 , .., id ) is the i1 , .., id -th index from tensor W.
+B. Tensor decomposition method
+Tensor decomposition is a method for generalizing lowrank approximation from a multi-dimensional array. There are
+several popular tensor decomposition methods, such as Canonical polyadic (CP) decomposition, Tucker decomposition and
+Tensor Train decomposition. The factorization format differs
+across different decomposition methods. In this section, we
+explain briefly about CP-decomposition and Tucker decomposition.
+1) CP-decomposition: Canonical polyadic decomposition
+(CANDECOMP/PARAFAC) [19]–[21] or usually referred to
+CP-decomposition factorizes a tensor into the sum of outer
+products of vectors. Assume we have a 3rd-order tensor W ∈
+Rm1 ×m2 ×m3 , we can approximate it with CP-decomposition:
+W≈
+
+R
+X
+r=1
+
+g1,r ⊗ g2,r ⊗ g3,r
+
+(12)
+
+W ≈ G0 ×1 G1 ×2 G2 ×2 G3
+
+W(x, y, z) ≈
+
+r3
+r2 X
+r1 X
+X
+
+(14)
+
+G0 (s1 , s2 , s3 )
+
+s1 =1 s2 =1 s3 =1
+
+G1 (x, s1 ) G2 (y, s2 ) G3 (z, s3 )
+
+(15)
+
+where x ∈ [1, .., m1 ], y ∈ [1, .., m2 ], z ∈ [1, .., m3 ]. Figure 5 gives
+an illustration for Eq. 14
+
+Figure 5. Tucker decomposition for 3rd-order tensor W
+
+C. Tensor Train decomposition
+Tensor Train decomposition [18] factorizes a tensor into
+a collection of lower order tensors called as TT-cores. All
+TT-cores are connected through matrix multiplications across
+all tensor order to calculate the element from original tensor.
+
+Assume we have a 3rd-order tensor W ∈ Rm1 ×m2 ×m3 , we can
+approximate the element at index x, y, z by:
+W(x, y, z) ≈
+
+r1 X
+r2
+X
+
+G1 (x, s1 )G2 (s1 , y, s2 )G3 (s2 , z)
+
+(16)
+
+s1 =1 s2 =1
+
+where x ∈ [1, .., m1 ], y ∈ [1, .., m2 ], z ∈ [1, .., m3 ] and G1 ∈
+Rm1 ×r1 , G2 ∈ Rr1 ×m2 ×r2 , G3 ∈ Rr2 ×m3 as the TT-cores. Figure 6
+gives an illustration for Eq. 16.
+
+we can reformulate the Eq. 17 to calculate y(p) elementwise
+with:
+X
+Y(fi (p)) =
+W (fi (p), j1 , .., jd ) X( j1 , .., jd )
+j1 ,.., jd
+
++ B(fi (p))
+
+by enumerating all columns q position with j1 , .., jd and fi (p) =
+[i1 (p), .., id (p)].
+For CP-decomposition, we represent our tensor W with
+multiple factors gmk,r , gnk,r where ∀k ∈ [1..d] ∀r ∈
+[1..R], (gmk,r ∈ Rmk , gnk,r ∈ Rnk ). From here, we replace
+Eq. 18 with:
+ R d
+
+X X
+Y
+
+
+
+Y(fi (p)) =
+gmk,r (ik (p))gnk,r ( jk ) X( j1 , .., jd )
+j1 ,.., jd
+
+r=1 k=1
+
++ B(fi (p)).
+Figure 6. Tensor Train decomposition for 3rd-order tensor W
+
+D. RNN parameters tensorization
+Most of RNN equations are composed by multiplication
+between the input vector and their corresponding weight
+matrix:
+y = Wx + b
+
+(17)
+
+where W ∈ R M×N is the weight matrix, b ∈ R M is the
+bias vector and x ∈ RN is the input vector. Thus, most of
+RNN parameters are used to represent the weight matrices.
+To reduce the number of parameters significantly, we need
+to represent the weight matrices with the factorization of
+higher-order tensor. First, we apply tensorization on the weight
+matrices. Tensorization is the process to transform a lowerorder dimensional array into a higher-order dimensional array.
+In our case, we tensorize RNN weight matrices into tensors.
+Given a weight matrix W ∈ R M×N , we can represent them
+Q
+as a tensor W ∈ Rm1 ×m2 ×..×md ×n1 ×n2 ×..×nd where M = dk=1 mk
+Qd
+and N = k=1 nk . For mapping each element in matrix W to
+tensor W, we define one-to-one mapping between row-column
+and tensor index with bijective functions fi : Z+ → Zd+ and
+f j : Z+ → Zd+ . Function fi transforms each row p ∈ {1, .., M}
+into fi (p) = [i1 (p), .., id (p)] and f j transforms each column
+q ∈ {1, .., N} into f j (q) = [ j1 (q), .., jd (q)]. Following this, we
+can access the value from matrix W(p, q) in the tensor W
+with the index vectors generated by fi (p) and f j (q) with these
+bijective functions.
+After we determine the shape of the weight tensor,
+we choose one of the tensor decomposition methods
+(e.g., CP-decomposition (Sec.III-B1), Tucker decomposition
+(Sec.III-B2) or Tensor Train [18]) to represent and reduce the
+number of parameters from the tensor W. In order to represent
+matrix-vector products inside RNN equations, we need to
+reshape the input vector x ∈ RN into a tensor X ∈ Rn1 ×..×nd and
+the bias vector b ∈ R M into a tensor B ∈ Rm1 ×..×md . Therefore,
+
+(18)
+
+(19)
+
+By using CP-decomposition for representing the weight matrix
+W, we reduce the number of parameters from M × N into
+P
+R ∗ ( dk=1 mk + nk ).
+For Tucker decomposition, we represent out tensor W
+with a tensor core G0 ∈ Rr1 ×...×rd ×rd+1 ×...×r2d where ∀k ∈
+[1..d], rk < mk and ∀k ∈ [1..d], rd+k < nk and multiple factor
+matrices GMk , GNk , where ∀k ∈ [1..d], (GMk ∈ Rmk ×rk , GNk ∈
+Rnk ×rd+k ). Generally, the tensor core ranks r1 , r2 , .., rd are corresponding to the row in tensor index and rd+1 , rd+2 , .., r2d are
+corresponding to the column in tensor index. From here, we
+replace Eq. 18 with:
+
+,rd+1 ,..,r2d
+X r1 ,..,rdX
+
+G0 (s1 , ..sd , sd+1 , .., s2d )
+Y(fi (p)) =
+
+j1 ,.., jd s1 ,..sd ,sd+1 ,..,s2d
+
+d
+Y
+
+GMk (ik (p), sk )GNk ( jk , sd+k ) X( j1 , .., jd )
+k=1
+
++ B(fi (p)).
+(20)
+By using Tucker decomposition for representing the weight
+matrix W, we reduce the number of parameters from M × N
+P
+Q
+into dk=1 (mk ∗ rk + nk ∗ rd+k ) + ( 2d
+k=1 rk ).
+For the TT-decomposition, we refer to [9] on how to represent the tensor W and how to calculate the linear projection
+to replace Eq. 18.
+In this work, we focus on compressing GRU-RNN by
+representing all weight matrices (input-to-hidden and hiddento-hidden) with tensors and factorize the tensors with low-rank
+tensor decomposition methods. For compressing other RNN
+architectures such as Elman RNN (Sec. II-A) or LSTM-RNN
+(Sec. II-B1), we can follow the same steps by replacing all
+the weight matrices with factorized tensors representation.
+E. Tensor Core and Factors Initialization Trick
+Because of the large number of recursive matrix multiplications, followed by some nonlinearity (e.g, sigmoid, tanh), the
+gradient from the hidden layer will diminish after several timestep [23]. Consequently, training recurrent neural networks
+
+is much harder compared to standard feedforward neural
+networks.
+Even worse, we decompose the weight matrix into multiple
+smaller tensors or matrices, thus the number of multiplications needed for each calculation increases multiple times.
+Therefore, we need a better initialization trick on the tensor
+cores and factors to help our model convergences in the early
+training stage.
+In this work, we follow Glorot et al. [24] by initializing
+the weight matrix with a certain variance. We assume that
+our original weight matrix W has a mean 0 and the variance
+σ2W . We utilize the basic properties from a sum and a product
+variance between two independent random variables.
+Definition III.1. Let X and Y be independent random variables
+with the mean 0, then the variance from the sum of X and Y
+is Var(X + Y) = Var(X) + Var(Y)
+Definition III.2. Let X and Y be independent random variables
+with the mean 0, then the variance from the product of X and
+Y is Var(X ∗ Y) = Var(X) ∗ Var(Y)
+After we decided the target variance σ2w for our original
+weight matrix, now we need to derive the proper initialization
+rules for the tensor core and factors. We calculate the variance
+for tensor core and factors by observing the number of sum
+and product operations and utilize the variance properties from
+Def. III.1 and III.2. For weight tensor W based on the CPdecomposition, we can calculate σg as the standard deviation
+for all factors gmk,r , gnk,r with:
+r
+σg =
+
+4d
+
+σ2w
+R
+
+(21)
+
+and initialize gmk,r , gnk,r ∼ N(0, σ2g ).
+For weight tensor W based on the Tucker decomposition,
+we can calculate σg as the standard deviation for the core
+tensor G0 and the factor matrices GMk , GNk with:
+s
+σ2w
+(4d+2)
+σg =
+(22)
+Q2d
+k=1 rk
+and initialize G0 , GMk , GNk ∼ N(0, σ2g ).
+For weight tensor W based on the Tensor Train decomposition, we refer to [9] for initializing the TT-cores Gi .
+IV. Experiments
+In this section, we describe our dataset and all model
+configurations. We performed experiments with three different
+tensor-decompositions (CP decomposition, Tucker decomposition and TT decomposition) to compress our GRU and also
+the baseline GRU. In the end, we report our experiment results
+and finish this section with some discussions and conclusions.
+Our codes are available at https://github.com/androstj/
+tensor_rnn.
+
+A. Dataset
+We evaluated our models with sequential modeling tasks.
+We used a polyphonic music dataset [25] which contains
+4 different datasets1 : Nottingham, MuseData, PianoMidi and
+JSB Chorales. For each active note in all time-step, we set
+the value as 1, otherwise 0. Each dataset consists of at least 7
+hours of polyphonic music and the total is ± 67 hours.
+B. Models
+We evaluate several models in this paper: GRU-RNN
+(no compression), CP-GRU (weight compression via CP decomposition), Tucker-GRU (weight compression via Tucker
+decomposition), TT-GRU [9] (compressed weight with TTdecomposition). For each timestep, the input and output targets
+are vectors of 88 binary value. The input vector is projected by
+a linear layer with 256 hidden units, followed by LeakyReLU
+[26] activation function. For the RNN model configurations,
+we enumerate all the details in the following list:
+1) GRU
+• Input size (N): 256
+• Hidden size (M): 512
+2) Tensor-based GRU
+• Input size (N): 256
+• Tensor input shape (n1..4 ): 4 × 4 × 4 × 4
+• Hidden size (M): 512
+• Tensor hidden shape (m1..4 ): 8 × 4 × 4 × 4
+a) CP-GRU
+• CP-Rank (R): [10, 30, 50, 80, 110]
+b) Tucker-GRU
+• Core (G0 ) shape:
+– (2 × 2 × 2 × 2) × (2 × 2 × 2 × 2)
+– (2 × 3 × 2 × 3) × (2 × 3 × 2 × 3)
+– (2 × 3 × 2 × 4) × (2 × 3 × 2 × 4)
+– (2 × 4 × 2 × 4) × (2 × 4 × 2 × 4)
+– (2 × 3 × 3 × 4) × (2 × 3 × 3 × 4)
+c) TT-GRU
+• TT-ranks:
+– (1 × 3 × 3 × 3 × 1)
+– (1 × 5 × 5 × 5 × 1)
+– (1 × 7 × 7 × 7 × 1)
+– (1 × 9 × 9 × 9 × 1)
+– (1 × 9 × 9 × 9 × 1)
+In this task, the training criterion is to minimize the negative
+log-likelihood (NLL). In evaluation, we measured two different
+scores: NLL and accuracy (ACC). For calculating the accuracy,
+we follow Bay et al. [27] formulation:
+PT
+t=1 T P(t)
+(23)
+ACC = PT
+t=1 (T P(t) + FP(t) + FN(t))
+where T P(t), FP(t), FN(t) is the true positive, false positive
+and false negative at time-t.
+1 Dataset
+
+are
+
+∼boulanni/icml2012
+
+downloaded
+
+from:
+
+http://www-etud.iro.umontreal.ca/
+
+For training models, we use Adam [28] algorithm for
+our optimizer. To stabilize our training process, we clip our
+gradient when the norm ||∇w|| > 5. For fair comparisons, we
+performed a grid search over learning rates (1e−2, 5e−3, 1e−3)
+and dropout probabilities (0.2, 0.3, 0.4, 0.5). The best model
+based on loss in validation set will be used for the test set
+evaluation.
+C. Result and Discussion
+
+Figure 9. NLL comparison between TT-GRU, Tucker-GRU, and CP-GRU on
+PianoMidi test set
+
+Figure 7. NLL comparison between TT-GRU, Tucker-GRU, and CP-GRU on
+Nottingham test set
+
+Figure 10. NLL comparison between TT-GRU, Tucker-GRU, and CP-GRU
+on MuseData test set
+
+V. Related Work
+
+Figure 8. NLL comparison between TT-GRU, Tucker-GRU, and CP-GRU on
+JSB Chorales test set
+
+We report results of our experiments in Table. I. For the
+baseline model, we choose standard GRU-RNN without any
+compression on the weight matrices. For the comparison
+between compressed models (CP-GRU, Tucker-GRU and TTGRU), we run each model with 5 different configurations and
+varied the number of parameters ranged from 2232 up to
+12184. In Figure 7-10, we plot the negative log-likelihood
+(NLL) score corresponding to the number of parameters for
+each model. From our results, we observe that TT-GRU
+performed better than Tucker-GRU in every experiments with
+similar number of parameters. In some datasets (e.g., PianoMidi, MuseData, Nottingham), CP-GRU has better results
+compared to Tucker-GRU and achieves similar performance
+(albeit slightly worse) as TT-GRU when the number of parameters are greater than 6000.
+
+Compressing neural network has been studied intensively
+in the recent years. Some works have been proposed to
+reduce the number of bits needed to represent neural network
+weight values. Instead of using full precision 32-bit floating
+points, Courbariaux et al. [29] and Gupta et al. [30] half
+precision floating points is sufficient to represent the neural
+network weights. Later, Courbariaux et al. [5] represented the
+floating point numbers in the weight matrices into the binary
+values and replace most arithmetic operations with bit-wise
+operations.
+“Distilling” the knowledge from a larger model into a
+smaller model is popularized by Hinton et al. [6]. There
+are several steps for knowledge distillation: 1) Train a large
+neural network model with hard labels as the output target,
+2) Using a trained large neural network, generate the soft
+label from each input by taking the last softmax output with
+higher temperature, 3) Train a smaller neural network with
+the soft target as the output target. Tang et al. [31] adapt
+knowledge distillation by using large DNN soft-targets to
+assist the RNN model training. Kim et al. [32] proposed
+sequence-level knowledge distillation for compressing neural
+machine translation models.
+
+Table I
+Comparison between all models and their configurations based on the number of parameters, negative log-likelihood and accuracy of polyphonic test set
+Model
+
+Config
+
+GRU
+IN:256
+OUT:512
+CP-GRU
+IN: 4,4,4,4
+OUT: 8,4,4,4
+
+TUCKER-GRU
+IN: 4,4,4,4
+OUT: 8,4,4,4
+
+TT-GRU
+IN: 4,4,4,4
+OUT: 8,4,4,4
+
+Rank
+10
+30
+50
+80
+110
+Cores
+2,2,2,2
+2,3,2,3
+2,3,2,4
+2,4,2,4
+2,3,3,4
+TT-rank
+1,3,3,3,1
+1,5,5,5,1
+1,7,7,7,1
+1,9,9,9,1
+1,11,11,11,1
+
+Nottingham
+NLL
+ACC
+
+Dataset
+JSB
+PianoMidi
+NLL
+ACC
+NLL
+ACC
+
+MuseData
+NLL
+ACC
+
+1181184
+
+3.369
+
+71.1
+
+8.32
+
+30.24
+
+7.53
+
+27.19
+
+7.12
+
+36.30
+
+2456
+4296
+6136
+8896
+11656
+
+3.79
+3.48
+3.46
+3.43
+3.34
+
+67.51
+69.85
+69.56
+69.73
+70.42
+
+8.60
+8.49
+8.40
+8.41
+8.41
+
+27.29
+28.33
+28.47
+27.88
+29.45
+
+8.15
+7.68
+7.66
+7.61
+7.60
+
+19.03
+25.03
+26.18
+28.28
+27.36
+
+7.87
+7.27
+7.23
+7.19
+7.18
+
+27.32
+36.19
+36.34
+36.57
+36.89
+
+2232
+4360
+6408
+10008
+12184
+
+3.71
+3.64
+3.55
+3.52
+3.41
+
+68.30
+68.63
+69.10
+69.18
+70.23
+
+8.57
+8.48
+8.44
+8.41
+8.43
+
+27.28
+28.10
+28.06
+27.70
+29.03
+
+7.98
+7.75
+7.73
+7.75
+7.69
+
+20.79
+24.92
+25.66
+24.46
+25.26
+
+7.81
+7.38
+7.69
+7.38
+7.43
+
+29.94
+34.20
+32.50
+35.58
+33.63
+
+2688
+4096
+6016
+8448
+11392
+
+3.49
+3.45
+3.40
+3.35
+3.38
+
+69.49
+69.81
+70.72
+70.82
+70.51
+
+8.37
+8.38
+8.37
+8.36
+8.37
+
+28.41
+28.86
+28.83
+29.32
+29.55
+
+7.60
+7.58
+7.57
+7.58
+7.58
+
+26.95
+27.46
+27.58
+27.62
+28.07
+
+7.49
+7.50
+7.23
+7.20
+7.16
+
+34.99
+33.37
+36.53
+37.81
+36.54
+
+Param
+
+Low-rank approximation for representing the weight parameters in neural network has been studied by [33], [7], [34]. The
+benefits from low-rank approximation are reducing the number
+of parameters as well as the running time during the training
+and inference stage. Novikov et al. [8] replaced the weight
+matrix in the convolutional neural network (CNN) final layer
+with Tensor-Train [18](TT) format. Tjandra et al. [9] and Yang
+et al. [35] utilized the TT-format to represent the RNN weight
+matrices. Based on the empirical results, TT-format are able
+to reduce the number of parameters significantly and retain
+the model performance at the same time. Recent work from
+[36] used block decompositions to represent the RNN weight
+matrices.
+Besides the tensor train, there are several tensor decomposition methods that are also popular such as CP and Tucker
+decomposition. However, both the CP and the Tucker decomposition have not yet been explored for compressing the
+RNN model. In this paper, we utilized the CP and the Tucker
+decomposition to compress RNN weight matrices. We also
+compared the performances between the CP, Tucker and TT
+format by varying the number of parameters at the same task.
+VI. Conclusion
+In this work, we presented some alternatives for compressing RNN parameters with tensor decomposition methods.
+Specifically, we utilized CP-decomposition and Tucker decomposition to represent the weight matrices. For the experiment,
+we run our experiment on polyphonic music dataset with
+uncompressed GRU model and three tensor-based RNN models (CP-GRU, Tucker-GRU and TT-GRU). We compare the
+performance of between all tensor-based RNNs under various
+number of parameters. Based on our experiment results, we
+conclude that TT-GRU has better performances compared to
+other methods under the same number of parameters.
+
+Acknowledgment
+Part of this work was supported by JSPS KAKENHI Grant
+Numbers JP17H06101 and JP17K00237. The authors would
+like to thank Shiori Yamaguchi for helpful discussions and
+comments.
+References
+[1] A. Graves, A.-r. Mohamed, and G. Hinton, “Speech recognition with
+deep recurrent neural networks,” in Acoustics, Speech and Signal Processing (ICASSP), 2013 IEEE International Conference on. IEEE,
+2013, pp. 6645–6649.
+[2] A. Graves, N. Jaitly, and A.-r. Mohamed, “Hybrid speech recognition
+with deep bidirectional LSTM,” in Automatic Speech Recognition and
+Understanding (ASRU), 2013 IEEE Workshop on. IEEE, 2013, pp.
+273–278.
+[3] D. Bahdanau, K. Cho, and Y. Bengio, “Neural machine translation by
+jointly learning to align and translate,” arXiv preprint arXiv:1409.0473,
+2014.
+[4] I. Sutskever, O. Vinyals, and Q. V. Le, “Sequence to sequence learning
+with neural networks,” in Advances in neural information processing
+systems, 2014, pp. 3104–3112.
+[5] M. Courbariaux, I. Hubara, D. Soudry, R. El-Yaniv, and Y. Bengio, “Binarized neural networks: Training deep neural networks with
+weights and activations constrained to+ 1 or-1,” arXiv preprint
+arXiv:1602.02830, 2016.
+[6] G. Hinton, O. Vinyals, and J. Dean, “Distilling the knowledge in a neural
+network,” arXiv preprint arXiv:1503.02531, 2015.
+[7] M. Denil, B. Shakibi, L. Dinh, N. de Freitas et al., “Predicting parameters in deep learning,” in Advances in Neural Information Processing
+Systems, 2013, pp. 2148–2156.
+[8] A. Novikov, D. Podoprikhin, A. Osokin, and D. P. Vetrov, “Tensorizing neural networks,” in Advances in Neural Information Processing
+Systems, 2015, pp. 442–450.
+[9] A. Tjandra, S. Sakti, and S. Nakamura, “Compressing recurrent neural
+network with tensor train,” in Neural Networks (IJCNN), 2017 International Joint Conference on. IEEE, 2017, pp. 4451–4458.
+[10] J. L. Elman, “Finding structure in time,” Cognitive science, vol. 14,
+no. 2, pp. 179–211, 1990.
+[11] Y. Bengio, P. Simard, and P. Frasconi, “Learning long-term dependencies
+with gradient descent is difficult,” Neural Networks, IEEE Transactions
+on, vol. 5, no. 2, pp. 157–166, 1994.
+
+[12] S. Hochreiter, Y. Bengio, P. Frasconi, and J. Schmidhuber, “Gradient
+flow in recurrent nets: the difficulty of learning long-term dependencies,”
+2001.
+[13] J. Martens and I. Sutskever, “Learning recurrent neural networks with
+Hessian-free optimization,” in Proceedings of the 28th International
+Conference on Machine Learning (ICML-11), 2011, pp. 1033–1040.
+[14] Q. V. Le, N. Jaitly, and G. E. Hinton, “A simple way to initialize recurrent networks of rectified linear units,” arXiv preprint arXiv:1504.00941,
+2015.
+[15] S. Hochreiter and J. Schmidhuber, “Long short-term memory,” Neural
+computation, vol. 9, no. 8, pp. 1735–1780, 1997.
+[16] K. Cho, B. Van Merriënboer, C. Gulcehre, D. Bahdanau, F. Bougares,
+H. Schwenk, and Y. Bengio, “Learning phrase representations using
+RNN encoder-decoder for statistical machine translation,” arXiv preprint
+arXiv:1406.1078, 2014.
+[17] J. Chung, C. Gulcehre, K. Cho, and Y. Bengio, “Empirical evaluation of
+gated recurrent neural networks on sequence modeling,” arXiv preprint
+arXiv:1412.3555, 2014.
+[18] I. V. Oseledets, “Tensor-train decomposition,” SIAM Journal on
+Scientific Computing, vol. 33, no. 5, pp. 2295–2317, 2011. [Online].
+Available: http://dx.doi.org/10.1137/090752286
+[19] R. A. Harshman, “Foundations of the parafac procedure: Models and
+conditions for an” explanatory” multimodal factor analysis,” 1970.
+[20] H. A. Kiers, “Towards a standardized notation and terminology in
+multiway analysis,” Journal of chemometrics, vol. 14, no. 3, pp. 105–
+122, 2000.
+[21] T. G. Kolda and B. W. Bader, “Tensor decompositions and applications,”
+SIAM review, vol. 51, no. 3, pp. 455–500, 2009.
+[22] L. R. Tucker, “Some mathematical notes on three-mode factor analysis,”
+Psychometrika, vol. 31, no. 3, pp. 279–311, 1966.
+[23] R. Pascanu, T. Mikolov, and Y. Bengio, “On the difficulty of training
+recurrent neural networks,” in International Conference on Machine
+Learning, 2013, pp. 1310–1318.
+[24] X. Glorot and Y. Bengio, “Understanding the difficulty of training deep
+feedforward neural networks,” in In Proceedings of the International
+Conference on Artificial Intelligence and Statistics (AISTATS’10). Society for Artificial Intelligence and Statistics, 2010.
+[25] N. Boulanger-lewandowski, Y. Bengio, and P. Vincent, “Modeling
+temporal dependencies in high-dimensional sequences: Application to
+polyphonic music generation and transcription,” in Proceedings of
+the 29th International Conference on Machine Learning (ICML-12),
+J. Langford and J. Pineau, Eds. New York, NY, USA: ACM, 2012,
+pp. 1159–1166. [Online]. Available: http://icml.cc/2012/papers/590.pdf
+[26] A. L. Maas, A. Y. Hannun, and A. Y. Ng, “Rectifier nonlinearities
+improve neural network acoustic models,” in Proceedings of the 30th
+International Conference on Machine Learning (ICML-13).
+[27] M. Bay, A. F. Ehmann, and J. S. Downie, “Evaluation of multiplef0 estimation and tracking systems.” in 2009 International Society for
+Music Information Retrieval Conference (ISMIR), 2009, pp. 315–320.
+[28] D. Kingma and J. Ba, “Adam: A method for stochastic optimization,”
+arXiv preprint arXiv:1412.6980, 2014.
+[29] M. Courbariaux, J.-P. David, and Y. Bengio, “Training deep neural networks with low precision multiplications,” arXiv preprint
+arXiv:1412.7024, 2014.
+[30] S. Gupta, A. Agrawal, K. Gopalakrishnan, and P. Narayanan, “Deep
+learning with limited numerical precision,” in Proceedings of the 32nd
+International Conference on Machine Learning, ICML 2015, Lille,
+France, 6-11 July 2015, 2015, pp. 1737–1746.
+[31] Z. Tang, D. Wang, and Z. Zhang, “Recurrent neural network training
+with dark knowledge transfer,” in 2016 IEEE International Conference
+on Acoustics, Speech and Signal Processing (ICASSP). IEEE, 2016,
+pp. 5900–5904.
+[32] Y. Kim and A. M. Rush, “Sequence-level knowledge distillation,” in
+Proceedings of the 2016 Conference on Empirical Methods in Natural
+Language Processing, 2016, pp. 1317–1327.
+[33] T. N. Sainath, B. Kingsbury, V. Sindhwani, E. Arisoy, and B. Ramabhadran, “Low-rank matrix factorization for deep neural network training
+with high-dimensional output targets,” in 2013 IEEE International
+Conference on Acoustics, Speech and Signal Processing. IEEE, 2013,
+pp. 6655–6659.
+[34] E. L. Denton, W. Zaremba, J. Bruna, Y. LeCun, and R. Fergus,
+“Exploiting linear structure within convolutional networks for efficient
+evaluation,” in Advances in neural information processing systems, 2014,
+pp. 1269–1277.
+
+[35] Y. Yang, D. Krompass, and V. Tresp, “Tensor-train recurrent neural networks for video classification,” in International Conference on Machine
+Learning, 2017, pp. 3891–3900.
+[36] J. Ye, L. Wang, G. Li, D. Chen, S. Zhe, X. Chu, and Z. Xu, “Learning
+compact recurrent neural networks with block-term tensor decomposition,” arXiv preprint arXiv:1712.05134, 2017.
+
+

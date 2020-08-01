@@ -1,0 +1,17 @@
+gesture recognition is a very essential technology
+for many wearable devices. while previous algorithms are mostly
+based on statistical methods including the hidden markov model,
+we develop two dynamic hand gesture recognition techniques using low complexity recurrent neural network (rnn) algorithms.
+one is based on video signal and employs a combined structure
+of a convolutional neural network (cnn) and an rnn. the other
+uses accelerometer data and only requires an rnn. fixed-point
+optimization that quantizes most of the weights into two bits is
+conducted to optimize the amount of memory size for weight
+storage and reduce the power consumption in hardware and
+software based implementations.
+keywords—recurrent neural network, wearable devices,
+quantization, hand gesture recognition, fixed-point optimization,
+deep neural network
+
+i.
+

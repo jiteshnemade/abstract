@@ -1,0 +1,31 @@
+
+
+which incorporates an additional gate function in
+the output layer of the selected rnn language
+model to refine the output. one notable characteristic of iog is that it can be easily incorporated
+in any rnn language models since it is designed to
+be a simple structure. our experiments on the penn
+treebank and wikitext-2 datasets demonstrate that
+iog consistently boosts the performance of several
+different types of current topline rnn language
+models. in addition, iog achieves comparable
+scores to the state-of-the-art on the penn treebank
+dataset and outperforms the wikitext-2 dataset.
+
+this paper proposes a reinforcing method
+that refines the output layers of existing recurrent neural network (rnn) language
+models. we refer to our proposed method
+as input-to-output gate (iog)1 . iog has
+an extremely simple structure, and thus,
+can be easily combined with any rnn language models. our experiments on the
+penn treebank and wikitext-2 datasets
+demonstrate that iog consistently boosts
+the performance of several different types
+of current topline rnn language models.
+
+1
+
+2
+
+rnn language model
+

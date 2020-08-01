@@ -1,0 +1,1541 @@
+1
+
+Recurrent Neural Networks For Accurate RSSI
+Indoor Localization
+
+arXiv:1903.11703v2 [eess.SP] 22 Oct 2019
+
+Minh Tu Hoang, Brosnan Yuen, Xiaodai Dong, Tao Lu, Robert Westendorp, and Kishore Reddy
+
+Abstract— This paper proposes recurrent neural networks
+(RNNs) for WiFi fingerprinting indoor localization. Instead of
+locating a mobile user’s position one at a time as in the cases
+of conventional algorithms, our RNN solution aims at trajectory
+positioning and takes into account the correlation among the
+received signal strength indicator (RSSI) measurements in a trajectory. To enhance the accuracy among the temporal fluctuations
+of RSSI, a weighted average filter is proposed for both input
+RSSI data and sequential output locations. The results using
+different types of RNN including vanilla RNN, long short-term
+memory (LSTM), gated recurrent unit (GRU), bidirectional RNN
+(BiRNN), bidirectional LSTM (BiLSTM) and bidirectional GRU
+(BiGRU) are presented. On-site experiments demonstrate that
+the proposed structure achieves an average localization error
+of 0.75 m with 80% of the errors under one meter, which
+outperforms KNN algorithms and probabilistic algorithms by
+approximately 30% under the same test environment.
+Index Terms- Received signal strength indicator, WiFi indoor
+localization, recurrent neuron network, long short-term memory,
+fingerprint-based localization.
+
+I.
+
+INTRODUCTION
+
+The motivation of this paper is to locate a walking human
+using the WiFi signals of the carried smartphone. In general,
+there are two main groups in WiFi indoor localization: model
+based and fingerprinting based methods. To estimate the location of the target, the former one utilizes the propagation
+model of wireless signals in forms of the received signal
+strength (RSS), the time of flight (TOF) and/or angle of arrival
+(AOA) [1], [2]. In contrast, the latter considers the physically
+measurable properties of WiFi as fingerprints or signatures for
+each discrete spatial point to discriminate between locations.
+Due to the wide fluctuation of WiFi signals [3] in an indoor
+environment, the exact propagation model is difficult to obtain,
+which makes the fingerprinting approach more favorable.
+In fingerprint methods, the received signal strength indicator
+(RSSI) is widely used as a feature in localization because
+RSSI can be obtained easily from most WiFi receivers such as
+mobile phones, tablets, laptops, etc. [4], [5]. However, RSSI
+has two drawbacks: instability due to fading and multipath
+effects and device heterogeneity due to the fact that different
+This work was supported in part by the Natural Sciences and Engineering
+Research Council of Canada under Grant 520198, Fortinet Research under
+Contract 05484 and Nvidia under GPU Grant program (Corresponding authors: X. Dong and T. Lu.).
+M. T. Hoang, B.Yuen, X. Dong and T. Lu are with the Department of
+Electrical and Computer Engineering, University of Victoria, Victoria, BC,
+Canada (email: {xdong, taolu}@ece.uvic.ca).
+R. Westendorp and K. Reddy are with Fortinet Canada Inc., Burnaby, BC,
+Canada.
+
+devices have different RSSIs even at the same position [5].
+In order to mitigate these problems, channel state information
+(CSI) is adopted to provide richer information from multiple
+antennas and multiple subcarriers [5], [6]. Although CSI is a
+more detailed fingerprint to improve the localization accuracy,
+it is only available with the specific wireless network interface
+cards (NIC), e.g., Intel WiFi Link 5300 MIMO NIC, Atheros
+AR9390 or Atheros AR9580 chipset [6]. Therefore, RSSI is
+still a popular choice in practical scenarios.
+Among WiFi RSSI fingerprinting indoor localization approaches, the probabilistic method is based on statistical inference between the target signal measurement and stored
+fingerprints using Bayes rule [7]. The RSSI probability density
+function (PDF) is assumed to have empirical parametric distributions (e.g., Gaussian, double-peak Gaussian, lognormal [8]),
+which may not be necessarily accurate in practical situations.
+In order to achieve better performance, non-parametric methods [9], [10] did not make no assumption on the RSSI PDF
+but require a large amount of data at each reference point (RP)
+to form the smooth and accurate PDF. Beside the probabilistic
+approach, the deterministic methods use a similarity metric
+to differentiate the measured signal and the fingerprint data
+in the dataset to locate the user’s position [11]. The simplest
+deterministic approach is the K nearest neighbors (KNN) [12]–
+[14] model which determines the user location by calculating
+and ranking the fingerprint distance measured at the unknown
+point and the reference locations in the database. Moreover,
+support vector machine (SVM) [15] provides a direct mapping
+from RSSI values collected at the mobile devices to the
+estimated locations through nonlinear regression by supervised
+classification technique [16]. Despite their low complexity, the
+accuracy of these methods are unstable due to the wide fluctuation of WiFi RSSI [13]–[15]. In contrast to these algorithms,
+artificial neural network (ANN) [5], [17] estimates location
+nonlinearly from the input by a chosen activation function
+and adjustable weightings. In indoor environments, because
+the transformation between the RSSI values and the user’s
+locations is nonlinear, it is difficult to formulate a closed form
+solution [16]. ANN is a suitable and reliable solution for its
+ability to approximate high dimension and highly nonlinear
+models [5]. Recently, several ANN localization solutions,
+such as multilayer perceptron (MLP) [18], robust extreme
+learning machine (RELM) [19], multi-layer neural network
+(MLNN) [20], convolutional neural network (CNN) [21], etc.,
+have been proposed.
+Although having been extensively investigated in the literature, all of the above algorithms still face challenges such as
+spatial ambiguity, RSSI instability and RSSI short collecting
+time per location [22]. To address these challenges, this paper
+
+2
+
+focuses on recurrent neural network (RNN) to determine the
+user’s location by exploiting the sequential correlation of RSSI
+measurements. Since the moving speed of the user in an
+indoor environment is bounded, the temporal information can
+be used to distinguish the locations that has similar fingerprints. Note that resolving the ambiguous locations has been
+a common challenge in indoor localization. Some works in
+literature also exploit the measurements in previous time steps
+to locate the current location, including the use of Kalman
+filter [23]–[26] and soft range limited K-nearest neighbors
+(SRL-KNN) [22]. Among them, Kalman filter estimates the
+most likely current location based on prior measurements,
+assuming a Gaussian noise of the RSSI and linear motion
+of the detecting object. However, in real scenarios, these
+assumptions are not necessarily valid [27]. In comparison,
+SRL-KNN does not make the above assumptions but requires
+that the speed of the targeting object is bounded, e.g., from
+0.4 m/s to 2 m/s. If the speed of the target is beyond the
+limit, the localization accuracy of SRL-KNN will be severely
+impaired. In contrast, our RNN model is trained from a large
+number of randomly generated trajectories representing the
+natural random walking behaviours of humans. Therefore, it
+does not have the assumptions or constraints mentioned above.
+The main contributions of this paper are summarized as
+follows.
+1 According to our knowledge, there is no existing comprehensive RNN solution for WiFi RSSI fingerprinting
+with detailed analysis and comparisons. Therefore, we
+propose a complete study of RNN architectures including network structures and parameter analysis of several
+types of RNNs, such as vanilla RNN, long short term
+memory (LSTM) [28], gated recurrent unit (GRU) [29],
+bidirectional RNN (BiRNN), bidirectional LSTM (BiLSTM) [30] and bidirectional GRU (BiGRU) [31].
+2 The proposed models are tested in two different datasets
+including an in-house measurement dataset and the
+published dataset UJIIndoorLoc [32]. The accuracy is
+compared not only with the other neural network methods, i.e., MLP [18] and MLNN [20], but also some
+popular conventional methods, i.e., RADAR [12], SRLKNN [22], Kernel method [9] and Kalman filter [23].
+3 Three challenges of WiFi indoor localization, i.e., spatial
+ambiguity, RSSI instability and RSSI short collecting
+time per location are discussed and addressed. Furthermore, the other important factors, including the network
+training time requirement, users speed variation, different testing time slots and historical prediction errors, are
+discussed and analyzed.
+II.
+
+R ELATED W ORKS
+
+The first research on neural network for indoor localization
+was reported by Battiti et al. [15], [18]. In their work, a multilayer perceptron network with 3 layers consisting one input
+layer, one hidden layer with 16 neurons and one output layer
+was implemented to nonlinearly map the output (coordinate)
+from the input (RSSI). Using 207 RPs for training and 50
+random points for validation, the accuracy of this model is
+
+(a)
+
+(b)
+
+Fig. 1. (a) Floor map of the test site. The solid red line is the mobile user’s
+walking trajectory with red arrows pointing toward walking direction. (b) Heat
+map of the RSSI strength from 6 APs used in our localization scheme.
+
+2.82±0.11 m, which is comparable with that of simple KNN
+algorithm. In order to achieve better performance, multi-layer
+feed-forward neural network with 3 hidden layers was investigated [20]. MLNN is designed with 3 sections: RSSI transformation section, RSSI denoising section and localization section
+with the boosting method to tune the network parameters for
+misclassification correction. Other refinements of MLP are proposed in discriminant-adaptive neural network (DANN) [17],
+which inserts discriminative components (DCs) layer to extract
+useful information from the inputs. The experiment shows that
+DANN improves the probability of the localization error below
+2.5 m by 17% over the conventional KNN RADAR [12]. As all
+of the above methods are time-consuming in the training phase,
+robust extreme learning machine [19] is proposed to increase
+the training speed of the feedforward neuron networks. RELM
+consists of a generalized single-hidden layer with random
+hidden nodes initialization and kernelized formulations with
+second order cone programming. The experiment illustrates
+that the training speed of RELM is more than 100 times faster
+than the conventional machine learning methods [34] and the
+localization accuracy is increased by 40%.
+Although the feedforward neural networks are simple and
+easy to implement, they cannot extract the useful information
+
+3
+
+TABLE I.
+
+C OMPARISONS OF I NDOOR L OCALIZATION E XPERIMENTS U SING M ACHINE L EARNING T ECHNIQUES
+
+Method
+MLP [18]
+DANN [17]
+RELM [19]
+MLNN [20]
+ConFi [5]
+Geomagnetic RNN [33]
+
+Feature
+RSSI
+RSSI
+RSSI
+RSSI
+CSI
+Magnetic Information
+
+Access point (AP)
+6
+15
+8
+9
+1
+-
+
+efficiently from the noisy WiFi signal, leading to a limited
+accuracy. Therefore, more complicated neural networks, e.g.,
+CNN and RNN, were adopted for indoor WiFi localization.
+ConFi [5] proposed a three layers CNN to extract the information from WiFi channel state information. CSI from different
+subcarriers at different time is arranged into a matrix, which
+is similar to an image. ConFi is trained using the CSI feature
+images collected at a number of RPs. The localization result
+is the weighted centroid of RPs with high output values. The
+experiment illustrates that ConFi outperforms conventional
+KNN RADAR [12] by 66.9% in terms of mean localization
+error. However, as mentioned above, CSI is only accessible for
+some specific wireless network interface cards. Consequently,
+such algorithms cannot be generically implemented. Recently,
+RNN is used for indoor localization. Ref. [35] proposed a
+simple RNN with 1 time step and 2 hidden layers. In their
+work, RNN classifies 42 RPs based on the RSSI readings
+from 177 APs. The classification accuracy is 82.47%. A more
+efficient RNN is published in [33]. In that work, the RNN
+model uses 200 neurons, mean squared error (MSE) loss
+function, and 20 time step traces as the input for the network.
+Geomagnetic data is used as fingerprints instead of the wireless
+data. A million traces of various pedestrian walking patterns
+are generated with 95% of them being used for training and
+5% for validation. The achieved localization errors range from
+0.441 to 3.874 m with the average error being 1.062 m. In
+addition to the geomagnetic data, light intensity is also utilized
+in the deep LSTM network [36] to estimate the indoor location
+of the target mobile device. Their 2-layer LSTM exploits
+temporal information from bimodal fingerprints, i.e., magnetic
+field and light intensity data, through recursively mapping the
+input sequence to the label of output locations. The accuracy
+is reported as 82% of the test locations with location errors
+around 2 m and the maximum error being around 3.7 m.
+Table I summarizes the experimental set-up and the results
+from the above mentioned neural network methods. Here the
+number of access points (APs), RPs and testing points vary
+between those experiments and the grid size is defined as the
+distance between two consecutive RPs.
+In general, these methods provide acceptable accuracy from
+1 m to 3 m but none of them have sufficiently investigated
+the three problems of using RSSI as fingerprints. Therefore,
+we propose several RNN solutions, such as vanilla RNN,
+LSTM, GRU, BiRNN, BiLSTM and BiGRU, to solve the three
+RSSI fingerprinting challenges. Our localization results are
+compared not only with the other neural network methods, i.e.,
+MLP [18] and MLNN [20], but also some conventional methods, i.e., RADAR [12], SRL-KNN [22], Kernel method [9]
+and Kalman filter [23].
+
+Reference point (RP)
+207
+45
+30
+20
+64
+629
+
+Testing Point
+50
+46
+10
+20
+10
+5% of RPs
+
+III.
+
+Grid Size
+1.7 m
+2m
+3.5 m
+1.5 m
+1.5 - 2 m
+0.57 m
+
+Accuracy
+2.8 ± 0.1 m
+2.2 ± 2.0 m
+3.7 ± 3.4 m
+1.1 ± 1.2 m
+1.3 ± 0.9 m
+1.1 m
+
+RNN M ETHODS
+
+A. Recurrent Neural Network Overview
+A recurrent neural network is a class of artificial neural
+network, where the output results depend not only on the
+current input value but also on the historical data [33]. RNN
+is often used in situations, where data has a sequential correlation. In the case of indoor localization, the current location
+of the user is correlated to its previous locations as the user
+can only move along a continuous trajectory. Therefore, RNN
+exploits the sequential RSSI measurements and the trajectory
+information to enhance the accuracy of the localization. Several RNN models have been proposed. The vanilla RNN [37],
+the simplest RNN model, has limited applications due to
+vanishing gradient during the training phase [38]. To mitigate
+this effect, long short term memory [28] creates an internal
+memory state which adds the forget gate to control the time
+dependence and effects of the previous inputs. GRU [29] is
+similar to LSTM but only consists of the update and reset
+gate instead of the forget, update and output gate in LSTM.
+BiRNN [37], BiLSTM [30] and BiGRU [31] are the extensions
+of the traditional RNN, LSTM and GRU respectively, which
+not only utilize all available input information from the past but
+also from the future of a specific time frame. In the following
+section we will describe the details about the proposed WiFi
+RSSI indoor localization system using RNN models.
+B. Proposed Localization System
+The development of our localization RNN models is divided
+into two phases: a training phase (offline phase) and a testing
+phase (online phase). In the training phase, RSSI readings at
+each predefined RP are collected into a database. Assuming
+that the area of interest has P APs and M RPs, we consider
+each RP i at its physical location li (xi , yi ) having a corresponding fingerprint vector fi = {F1i , F2i , ..., FNi }, where N
+is the number of available features (RSSIs) from all APs at
+all carrier frequencies and Fji (1 ≤ j ≤ N ) is the j-th feature
+at RP i. During the training phase, a number of scans are
+collected at a single RP while in the testing phase fewer scans
+of RSSIs readings is collected as the user is mobile in practical
+scenario. Fig. 1(a) illustrates the localization map with 6 APs,
+365 RPs and 175 testing locations, while Fig. 1(b) shows the
+heat map of these 6 APs. The architecture of the proposed
+RNN system is presented in Fig. 2(a). Details of the process
+are described as follows.
+1) Data Filter: During the training phase, RSSIs at RPs
+are collected by a mobile device mounted on an autonomous
+driving robot and stored in a database. As expected, the RSSI
+measurements often experience substantial fluctuations due to
+
+4
+
+Location index Physical Euclidean
+distance
+
+Location index
+
+Probabilistic value
+
+0
+
+0.5
+
+6
+
+0.3177
+
+0.3079
+
+0.0035
+
+0.5
+
+0
+
+2
+
+0.3079
+
+0.3177
+
+0.1927
+
+6
+
+2
+
+0
+
+0.0035
+
+0.1927
+
+0.3177
+
+…
+
+…
+
+Probabilistic Map
+
+Euclidean distance dataset
+
+CDF value
+
+Location index
+0.3177
+
+0.6256
+
+0.6291
+
+0.3079
+
+0.6256
+
+0.8183
+
+0.0035
+
+0.1962
+
+0.5139
+
+…
+
+CDF Map
+
+(b)
+
+…
+…
+…
+…
+
+Time Step 1
+Time Step 2
+Time Step 3
+
+…
+
+Time Step T-1
+
+(a)
+Fig. 2.
+
+(c)
+
+(a) Localization process of the proposed RNN system. (b) Trajectory generation process. (c) Sliding window averaging in online testing phase.
+
+dynamically changing environments such as human blocking
+and movements, interference from other equipment and devices, receiver antenna orientation, etc., [27]. For example, the
+mobile device was placed at P (7, 4) as shown in Fig. 1(a).
+The experiment was conducted during working hours when
+many students used WiFi and walked around the lab. The
+standard deviation of maximum RSSI over 100 consecutive
+RSSI readings was 5.5 dB, and 5% of the measurements (5
+readings) could not be detected. In those cases, the mobile
+device missed the beacon frame packets sent by the router.
+In order to filter out those outliers, we adopt the iterative
+recursive weighted average filter [39] with 3 taps and 5
+different weighted factors, i.e., β1 = 0.8, β2 = 0.2, β3 = 0.8,
+β4 = 0.15, β5 = 0.05. This weighted filter has the form of
+a low pass filter as shown in Fig. 4. In both the training and
+testing phase, the filter is used in the same way with fixed
+taps and weighted factors. The effectiveness of the filter will
+be studied in Section V.
+2) Trajectory Generation: The RSSIs at the output of the
+data filter will be used to generate random training trajecto-
+
+ries under the constraints that the distance between consecutive locations is bounded by the maximum distance a user
+can travel within the sample interval in practical scenarios.
+Fig. 2(b) illustrates the trajectory generation process. Firstly,
+the physical Euclidean distance between each location and
+the rest of the database is calculated to form a Euclidean
+distance dataset. Secondly, based on that, the probabilistic map
+will be generated to represent the probability of a location
+(P (li )) that will become the next location of the user in the
+trajectory. Since the moving speed of an indoor user is limited,
+the locations which are near to the previous locations should
+have higher probability to become the next location in the
+trajectory than the further locations. The user location will
+be updated in every consecutive sampling time interval ∆t.
+Therefore, the maximum distance which the user can move
+in ∆t is σ = vmax × ∆t, where the maximum speed vmax is
+chosen to be larger than the human indoor normal speed (from
+0.4 m/s to 2 m/s [40], [41]). The normalized probability P (li )
+
+5
+
+Model 3: MIMO
+Multiple RSSI Input, Multiple Locations Output
+
+Model 1: MISO
+Multiple RSSI Input, Single Location Output
+(a)
+
+…
+
+(c)
+RNN
+
+RNN
+
+RNN
+
+…
+
+…
+Time Step 1
+
+Time Step 2
+
+RNN
+
+RNN
+
+Time Step T
+
+Time Step 3
+
+Time Step 1
+
+Model 2: A-MISO
+Multiple RSSI with Actual Locations Input, Single
+Location Output
+(b)
+
+Time Step 2
+
+Time Step T
+
+Time Step 3
+
+Model 4: A-MIMO
+Multiple RSSI with Actual Locations Input,
+Multiple Locations Output
+
+…
+
+(d)
+RNN
+
+RNN
+
+RNN
+
+RNN
+
+RNN
+
+…
+
+…
+Time Step 1
+
+Time Step 2
+
+Time Step T-1
+
+Time Step 3
+
+Time Step 1
+
+Time Step 2
+
+…
+
+(e)
+
+Model 5: P-MIMO
+Multiple RSSI with Predicted Locations Input,
+Multiple Locations Output
+
+RNN
+
+RNN
+
+RNN
+
+RNN
+
+…
+Time Step 1
+
+Fig. 3.
+
+Time Step T-1
+
+Time Step 3
+
+Time Step 2
+
+Time Step 3
+
+Time Step T-1
+
+Proposed RNN models.
+
+the furthest location in the interested area. Eq. (1) has the form
+of a Gaussian distribution with the mean being the previous
+location and the standard deviation being σ. All of the locations
+having the same physical distance with li will get the same
+probability to be chosen as the next point on the trajectory.
+From the probabilistic map, a cumulative distribution function
+(CDF) map is built by summing the P (li ) for each location li .
+Finally, in order to get the next location lj of a any location li
+in the trajectory, a random number R (0 < R < 1) is picked.
+lj is the location which has the value in the CDF map being
+closest with R.
+Fig. 4.
+
+Weighted average filter transfer function.
+
+is calculated as follows.
+(xi − xpre )2 + (yi − ypre )2
+)
+2σ 2
+)
+2σ 2 (1 − e
+(1)
+where (xpre , ypre ) is the most recent location of li , dmax is
+the maximum distance between the considered location li and
+P (li ) =
+
+1
+
+d2
+max
+2σ 2
+
+exp(−
+
+3) Proposed RNN Models: The proposed RNN architecture
+is trained by the data from consecutive locations in a trajectory
+to exploit the time correlation between them. Each location in
+a trajectory appears at a different time step. The length of a
+trajectory, or equivalently the number of time steps, defines
+the memory length T as illustrated in Fig. 3. The number of
+time steps T significantly impacts the performance of RNN
+because all of the weights and hidden states will be saved at
+every time step during a training trajectory [37]. A larger T
+
+6
+
+value will incorporate more information from the past but will
+accumulate more localization errors. The optimal T value will
+be chosen by the experiment in Section V.
+Fig. 3 illustrates 5 different proposed RNN models labeled
+from model 1 to model 5. Model 1 has a multiple input single
+output (MISO) structure where several RSSI readings (fi )
+from the previous time steps are fed into the network to get the
+single location at time step T (lT ). Model 2, similar to model
+1, has a multiple input single output (A-MISO) structure.
+However, model 2 takes in actual previous step locations as
+well as RSSIs unlike model 1. The actual locations are the
+ground truth locations l̃.
+By comparison, model 3 to model 5 are multiple input multiple output (MIMO) structures where several RSSI readings
+from multiple time steps are fed to the network to get multiple
+output locations l. Model 3 has a MIMO structure, where
+multiple RSSI inputs fi produce multiple output locations li .
+In contrast, model 4 takes in multiple RSSIs with multiple
+actual locations for the input and produces multiple locations
+for the output, denoted as A-MIMO.
+Model 5 takes in multiple RSSIs and multiple previous predicted locations for the input and produces multiple locations
+for the output, denoted as P-MIMO. Specifically, in model 4:
+A-MIMO, the location used in the training is the ground truth
+from the dataset. In model 5: P-MIMO, the location value is the
+predicted location (li ) from the previous time step. Note that in
+the testing phase, both model 2 and model 4 use the predicted
+locations from the previous time steps as input because ground
+truth is not available.
+The objective of RNN training is to minimize the loss
+function L(l, l̃) defined as the Euclidean distance between
+the output l and the target l̃ using the backpropagation algorithm [37]. In single output models such as MISO and AMISO, the loss function is given by
+L(l, l̃) = ||lT − l̃T ||2 .
+
+(2)
+
+In contrast, the multiple output models MIMO, A-MIMO and
+P-MIMO adopt a loss function expressed by
+PT
+||li − l̃i ||2
+.
+(3)
+L(l, l̃) = i=1
+T
+4) Sliding Window Averaging: MIMO, A-MIMO and PMIMO have the output locations appearing in every time step
+(Subsection III-B3). In the online testing phase, the output
+location lT will appear in several time steps as shown in
+Fig. 2(c). lij is the output location li of time step j. At the
+output time step T − 1, we have a set of output location
+(lT1 , lT2 , ..., lTT −1 ) from T − 1 previous steps. In each output
+time step, the accuracy of the targeted output result lT can
+be slightly different due to the difference in length of previous
+historical information. For example, in Fig. 2(c), at output time
+step 1, lT1 is estimated with the information of T − 1 previous
+steps. However, at output time step 2, the number of previous
+steps for lT2 decrease to T − 2; and at time step T − 1, lTT −1 is
+predicted with no previous step. Therefore, the sliding window
+averaging can average the error of the predicted location lT in
+multiple output steps and increase the localization accuracy.
+
+The final output result lT will be the average of the above
+output set:
+PT −1 j
+j=1 lT
+lT =
+.
+(4)
+T −1
+IV. DATABASE A ND E XPERIMENTS
+All experiments have been carried out on the third floor of
+Engineering Office Wing (EOW), University of Victoria, BC,
+Canada. The dimension of the area is 21 m by 16 m. It has
+three long corridors as shown in Fig. 1(a). There are 6 APs
+and 5 of them provide 2 distinct MAC address for 2.4 GHz
+and 5 GHz communications channels respectively, except for
+one that only operates on 2.4 GHz frequency. Equivalently,
+in every scan, 11 RSSI readings from those 6 APs can be
+collected.
+The RSSI data for both training and testing will be collected
+using an autonomous driving robot. The 3-wheel robot as
+shown in Fig. 2(a) has multiple sensors including a wheel
+odometer, an inertial measurement unit (IMU), a LIDAR, sonar
+sensors and a color and depth (RGB-D) camera. It can navigate
+to a target location within an accuracy of 0.07±0.02 m. The
+robot also carries a mobile device (Google Nexus 4 running
+Android 4.4) to collect WiFi fingerprints. The dataset for
+offline training was collected by the phone-carrying robot at
+365 RPs. At each location, 100 scans of RSSI measurements
+(S1 = 100) were collected. To build the dataset, at each
+location in the training trajectory, we randomly choose one out
+of 100 stored RSSIs as the RSSI associated with the location.
+There are total 365,000 random generated training trajectories
+following the proposed method in Subsection III-B2. This
+approximates well the user’s random walk property and helps
+to reduce the spatial ambiguity. The initial position of the user
+in the whole testing trajectory is known.
+In the online phase, the robot moved along a pre-defined
+route (Fig. 1(a)) with an average speed around 0.6 m/s. The
+robot will collect RSSI at 175 testing locations along the
+trajectory. At each location, only 1 or 2 RSSI scans (S2 = 1 or
+2) will be collected and transmitted to a server in real time. The
+server will predict the user’s position according to the proposed
+algorithms and the prediction accuracy will be calculated.
+V. R ESULTS A ND D ISCUSSIONS
+The initial setup for the proposed RNN system follows the
+parameters presented in Table II. All of the results below are
+presented after 10-fold tests with a total of 365,000 random
+training trajectories.
+A. Filter Comparison
+Fig. 5(a) compares the CDF of localization errors among
+the proposed RNN models (i.e., MISO LSTM and P-MIMO
+LSTM) with and without weighted average filter (Subsection III-B1) in both offline training and online testing phases. In
+P-MIMO, the filter decreases the maximum error from 4.5 m to
+3.25 m. In addition, 80% of the error is within 1.25 m with the
+filter while without filter the value increases to 1.5 m. In MISO,
+the filter also leads to better performance with 80% of the error
+
+7
+
+TABLE II.
+
+I NITIAL SETUP PARAMETERS FOR RNN SYSTEM
+
+Category
+K-fold tests
+RNN type
+Memory length (T )
+Model
+Loss function
+Hidden layer (HL)
+Number of neurons for each HL
+Dropout
+Optimizer
+Learning rate
+Number of training trajectory for 1-fold test
+Number of training epochs
+σ
+∆t
+dmax
+
+Value
+10
+LSTM
+10
+P-MIMO
+RMSE
+2
+100
+0.2
+Adam
+0.001
+10,000
+1000
+2m
+1s
+2m
+
+Fig. 6. Average number of ambiguous trajectories with different number of
+locations in a training trajectory
+
+(a)
+
+of those methods has approximately 15% improvement with
+filter. Because of the apparent improvements, we adopt the
+filter to all the models proposed in this paper.
+
+(b)
+
+(c)
+
+(d)
+
+Fig. 5. The CDF of the localization error of (a) Filter and no filter cases (b)
+5 different RNN models (c) Different memory lengths in RNN structure (d)
+RNN, LSTM, GRU, BiRNN, BiLSTM and BiGRU with P-MIMO model.
+
+being within 1.75 m compared with 2 m without filter. In AMISO, MIMO and A-MIMO, the weighted average filter also
+provides consistently good results. The localization accuracy
+
+B. Model Comparison
+Table III illustrates the average errors of all proposed models
+in Subsection III-B3. Among them, P-MIMO achieves the best
+performance with an accuracy of 0.75±0.64 m. MIMO is the
+second best performer with the average error of 0.80±0.67 m.
+MISO has the worst accuracy with the error of 1.05±0.78 m.
+Fig. 5(a) compares the CDF errors among these five models.
+MIMO and P-MIMO consistently show the dominating accuracy with 80% of the errors within 1.2 m, compared with 1.7 m
+of MISO. Furthermore, the maximum error of P-MIMO is
+3.25 m which is lower than the 4 m obtained from MISO. In the
+rest of the paper, P-MIMO is chosen for further performance
+study.
+C. Hyper-parameter Analysis
+This subsection provides a detailed study of choosing the
+optimal hyper-parameters for the proposed model P-MIMO.
+Although the 5 proposed models, i.e., MISO, A-MISO, MIMO,
+A-MIMO, P-MIMO, have different input and output, their
+general neural network structures are mostly similar. Therefore, the procedure to select the optimal hyper-parameters of
+P-MIMO will also be valid for the other proposed models
+including MISO, A-MISO, MIMO and A-MIMO.
+1) Memory Length T : Fig. 5(c) shows the results of PMIMO with different memory lengths (Subsection III-B3), i.e.,
+a training trajectory has 5, 10 or 40 locations. The performance
+of all three cases is comparable. The 10 time steps training
+trajectory has a slightly better accuracy with the maximum
+error being only 2.9 m, compared with 3.5 m and 3.75 m in
+the case of 40 time steps and 5 time steps respectively.
+The theoretical explanation is as follows. A location lj is
+defined as an ambiguous point of li if their physical distance
+is larger than the grid size but their two vectors fi and fj
+have high Pearson correlation coefficient above the correlation threshold. Besides, two locations are defined as physical
+neighbours if the physical distance between them is less than
+
+8
+
+TABLE III.
+Method
+Average Error (m)
+Method
+Average Error (m)
+
+MISO LSTM
+1.05 ± 0.78
+RADAR [12]
+1.13 ± 0.86
+
+AVERAGE LOCALIZATION ERRORS
+
+A-MISO LSTM
+0.92 ± 0.75
+MLNN [20]
+1.65 ± 1.20
+
+MIMO LSTM
+0.80 ± 0.67
+MLP [18]
+1.72 ± 1.17
+
+A-MIMO LSTM
+0.91 ± 0.75
+Kernel Method [9]
+1.10 ± 0.84
+
+P-MIMO LSTM
+0.75 ± 0.64
+Kalman Filter [23]
+1.47 ± 1.2
+
+or equal to the grid size. The correlation threshold is chosen
+based on the average correlation coefficients between li and
+all of its physical nearest neighbours, i.e., approximately 0.9 in
+our database. Then all non-nearest-neighbour locations whose
+correlation coefficient above this threshold are considered as
+ambiguous points. Pearson correlation coefficient ρ(fi , fj )
+between fi and fj can be calculated as follows
+ρ(fi , fj ) =
+
+N
+1 X Fni − µi Fnj − µj
+(
+)(
+)
+N − 1 n=1
+δi
+δj
+
+(5)
+
+where µi , µj are the mean of fi and fj respectively, δi , δj
+are the standard deviation of fi and fj respectively. Similar
+to the definition of the ambiguous location, 2 trajectories are
+defined as ambiguous if they include different locations but
+the combinations of their fingerprints have a high Pearson
+correlation coefficient. Fig. 6 demonstrates the advantage of
+the proposed LSTM model which exploits the sequential trajectory locations compared with the conventional single point
+prediction. In the case of single point prediction (1 location
+in a training trajectory), the average number of ambiguous
+locations in our database are 27. If we increase the number of
+locations in a trajectory for training, the number of ambiguous
+trajectories decreases significantly. If a training trajectory has
+more than 8 locations, there will be no ambiguity in our
+database. Therefore, the memory length configured as 10
+locations is reasonable to remove all the ambiguity.
+2) Number of Hidden Layers and Neurons: Fig. 7(a) illustrates the average localization errors of P-MIMO with different
+number of hidden layers and neurons per layer. In general,
+adopting 2 hidden layers leads to better accuracy than 1 hidden
+layer. In the 1 hidden layer model, using 200 neurons results
+the best accuracy of 0.85±0.72 m. Increasing more neurons
+does not result in better performance. In comparison, the best
+accuracy of 2 hidden layers model is 0.75±0.64 m when the
+number of neurons per layer is 100. In summary, 2 hidden
+layers and 100 neurons per layer are the optimal parameters
+for our proposed model.
+3) Number of Training Trajectories and Training Epochs:
+The learning curve can determine the minimum required
+number of training trajectory samples and training epochs for
+the proposed RNN models. Fig. 7(b) shows the relationship
+between the training and validation errors vs. the number of
+training trajectory samples of the proposed P-MIMO model.
+According to Fig. 7(b), overfitting will be mitigated if the
+number of training samples increases to 104 . Therefore, 104
+is the minimum number for the random training trajectories to
+feed to P-MIMO in the training phase. Fig. 7(c) illustrates the
+relationship between the training and cross-validation errors vs.
+the number of running epochs of P-MIMO LSTM when the
+training trajectory samples is 104 . When the cross-validation
+error is at a minimum on the graph, the minimum number of
+
+(a)
+
+(b)
+
+(c)
+Fig. 7. (a) Average localization errors of P-MIMO LSTM with different
+number of hidden layers and neurons per layer. (b) Learning curve of PMIMO LSTM with the average localization error vs. the number of training
+trajectory samples. (c) Learning curve of P-MIMO LSTM with the average
+localization error (the training trajectory samples = 104 ) vs. the number of
+running epochs.
+
+epochs is approximately 1,000.
+4) Learning Rate, Optimization Algorithm and Dropout
+Rate: Table IV shows the localization errors when the learning
+rates and optimization algorithms are varied. Clearly, optimizer
+ADAM with the learning rate 0.001 provides the best results
+with the average error of 0.75±0.64 m. Table V demonstrates
+the accuracy of different dropout rates. With the dropout rate
+equals or less than 0.2, the performance of P-MIMO is mostly
+unchanged, i.e., 0.72±0.68 m at a dropout rate of 0.1 and
+
+9
+
+TABLE IV.
+
+D IFFERENT LEARNING RATES AND OPTIMIZATION
+ALGORITHMS
+
+Optimization algorithm
+Adam
+Adam
+Adam
+SGD
+SGD
+SGD
+RMSProp
+RMSProp
+RMSProp
+
+TABLE V.
+
+Learning rate
+0.01
+0.001
+0.0001
+0.01
+0.001
+0.0001
+0.01
+0.001
+0.0001
+
+Average Error (m)
+1.0 ± 0.78
+0.75 ± 0.64
+0.80 ± 0.62
+1.52 ± 1.32
+1.92 ± 1.52
+1.85 ± 1.25
+1.05 ± 0.95
+0.88 ± 0.72
+0.85 ± 0.68
+
+D IFFERENT DROPOUT RATES
+
+Dropout rate
+0.1
+0.2
+0.3
+0.4
+
+Average Error (m)
+0.72 ± 0.68
+0.75 ± 0.64
+0.87 ± 0.74
+0.92 ± 0.73
+
+Fig. 9. Average localization errors with the error bars of P-MIMO LSTM
+and SRL-KNN in changing speed scenarios
+
+potential long-distance dependencies. Furthermore, GRU is a
+simpler version of LSTM, which means that some of the
+feature of LSTM are reduced in GRU, e.g., the exposure of the
+memory content control [38]. Therefore, LSTM has a slightly
+better performance than GRU. For the bidirectional models
+including BiRNN, BiLSTM, BiGRU, they use both historical
+and future information, i.e., the initial location and the last
+location to predict the current location. In this paper, we
+assume only the very first location of each trajectory is known.
+As the ground truth of the last location is not incorporated,
+error is introduced into the bidirectional models. Therefore,
+the bidirectional models are not favorable in our work.
+Fig. 8. The CDF of the localization error of P-MIMO LSTM and the other
+methods in literature.
+
+E. Literature Comparison
+0.75±0.64 m at a dropout rate of 0.2. After the dropout rate
+increases to above 0.2, the accuracy is deteriorated and reaches
+the bottom of 0.92±0.73 m at a dropout rate of 0.4.
+D. RNNs Comparison
+Fig. 5(d) compares the performance between vanilla
+RNN [33], LSTM [28], GRU [29], BiRNN, BiLSTM [30]
+and BiGRU [31]. All of the settings follow Table II. Although the gap between these systems are close, LSTM
+still consistently has the best performance with the average
+error at 0.75±0.64 m compared to 1.05±0.77 m of RNN,
+0.80±0.70 m of GRU, 0.95±0.77 m of BiRNN, 0.89±0.75 m
+of BiLSTM and 0.93±0.81 m of BiGRU, respectively. While
+80% of the errors of RNN and BiLSTM are all within
+1.5 m, the ones of LSTM and GRU are within 1.2 m. Some
+explanations are as follows.
+Regarding vanilla RNN, there is a disadvantage of vanishing
+gradient at large T [38]. Therefore, RNN has difficulty to
+learn from the long-term dependency, i.e, T = 10 in our
+case. Unlike the traditional RNN, both LSTM and GRU are
+able to decide whether to keep the existing memory from the
+past by their gates, i.e, forget gate in LSTM and reset gate
+in GRU. Intuitively, their performances in our experiment are
+both better than vanilla RNN because if LSTM and GRU detect
+an important feature from an input sequence at early stage, they
+easily carry this information over a long distance and capture
+
+Fig. 8 compares the proposed P-MIMO LSTM with the
+feedforward neural network MLP [18], multi-layer neural
+network (MLNN) [20] and the other conventional methods
+including KNN-RADAR [12], probabilistic Kernel method [9]
+and Kalman filter [23]. In our experiments, we reproduced
+the results of MLP and MLNN [18], [20]. The MLP model
+has three layers with only one 500-neuron hidden layer. In
+contrast, MLNN has five layers, i.e., 1 input layer, 3 hidden
+layers with 200, 200 and 100 neurons respectively and 1 output
+layer. The input of these memoryless methods is a single RSSI
+vector (11 RSSI readings) of a specific location, the output is
+a single location. The input of P-MIMO is a trajectory with T
+RSSI vectors (11×T RSSI readings) from T time steps, the
+output is a trajectory including T output locations. P-MIMO
+clearly outperforms MLP with the maximum error of 3.4 m
+compared with 5.5 m of MLP. 80% of LSTM model errors are
+within 1.2 m, which is much lower than 2.7 m of MLP. The
+maximum errors of conventional methods such as RADAR,
+Kalman filter and Kernel method are more significant 4.8 m,
+5.0 m and 4.50 m, respectively. Besides, 80% of the errors
+of those methods are all within 2 m, 1.7 times higher than
+the proposed LSTM model. Table III lists the average errors
+between LSTM models and the other mentioned methods.
+Clearly, the accuracy of P-MIMO with 0.75 m dominates the
+other conventional feedforward neural networks with 1.65 m
+of MLNN [20] and 1.72 m of MLP [18].
+
+10
+
+F. Further Discussion
+1) Three Challenges of WiFi Indoor Localization: As mentioned at the beginning, the proposed LSTM models can
+address three challenges of WiFi indoor localization. Subsection V-C1 has demonstrated that LSTM adopts sequential
+measurements from several locations in the trajectory and
+decreases the spatial ambiguity significantly. In addition, RSSI
+instability and RSSI short collecting time per location create
+the diverse values of RSSI readings in one location, which can
+lead to more locations having similar fingerprint distances. The
+proposed LSTM models can effectively remove the number of
+false locations which are far from the previous points based
+on the series of the previous measurements and predictions.
+Therefore, the adverse effects of the second and third challenge
+can be mitigated.
+2) Training Time Requirement: Compared with other conventional methods, e.g., KNN-RADAR [12], probabilistic Kernel method [9] and Kalman filter [23], the proposed RNN
+method outperforms. However, those conventional methods do
+not require the training phase, which compares the current
+RSSI measurement with the ones in the database to get user
+locations directly. In contrast, the proposed RNN methods
+require to train the neural network model beforehand. The
+learning curve can determine the minimum required training
+time for the proposed RNN models. From Subsection V-C3,
+the optimal training trajectory samples is 104 and the optimal
+number of epochs is approximately 1,000 according to a 1 fold
+test. In the experiment, the training is executed on a home-built
+computer with an AMD FX(tm)-8120 Eight-Core CPU and an
+Nvidia GTX 1050 GPU. The running time is approximately
+4 s per epoch. Therefore, the training time is approximately
+4×1000 = 4000 s (∼
+= 1 hour and 6 minutes).
+In practical scenarios, more APs are used, more RSSI features can be extracted and better performance can be achieved.
+However, increasing the number of APs also creates more computational cost and extends the training time. Ref. [42] suggests
+to use LSTM with projection layer (LSTMP) to reduce the
+computational cost. Furthermore, LSTMP was reported helpful
+to error rate reduction because parameter reduction helps the
+LSTM generalization. In the future work, when the number
+of APs are increased to achieve better accuracy, the idea of
+LSTMP can be applied to reduce the training time of our RNN
+models.
+3) Impacts from speed variation: Some conventional shortmemory methods such as Kalman filter [23], SRL-KNN [22]
+have the constraints on the speed of the users. If a user
+changes moving speed rapidly, the localization accuracy of
+these methods will be degraded severely. In contrast, the
+proposed LSTM network is trained with random trajectories
+as described in Subsection III-B2 without strict constraints on
+the speed of the users. Fig. 9 illustrates the average errors
+of the proposed P-MIMO LSTM and SRL-KNN using RSSI
+mean database with parameter σ = 2 m [22]. The number
+of testing points are 344 locations following the backward
+and forward trajectory like Fig. 1. The maximum speed is
+the instant speed of the robot between 2 random consecutive
+testing locations in a sampling time interval ∆t. The number
+
+Fig. 10. Average correlation coefficient between different time trajectory
+tests and the database.
+
+of locations having the maximum speed are 50% of the total
+testing points (172 locations). The rest of the locations have
+a random speed smaller than the maximum speed. When the
+maximum speed increases from 0.5 m/s to 2.5 m/s, the average
+errors of LSTM model stays stable around 0.85±0.75 m. On
+the other hand, SRL-KNN starts from the comparable result as
+P-MIMO LSTM with 0.90 m in the case of 0.5 m/s. After the
+maximum speed increases to above 1.5 m/s, the accumulated
+errors appear and the accuracy of SRL-KNN is significantly
+degraded to above 3 m with a large variation more than 5 m.
+4) Impacts from Different Time Slots: The proposed RNN
+methods first learn the RSSI range characteristics of the
+environment offline in a prior training phase before using the
+learned characteristics during the testing phase. Therefore, the
+initial data in the training phase might not have the same
+distribution with the data in the testing phase [43]. In our
+experiment, we address this problem with the support of
+our autonomous robot as shown in Fig. 2(a). The robot is
+programmed to repeatedly navigate around the experimental
+area and collect the new data to update the database in different
+hours and days. The proposed RNN networks are trained with
+a wide variety of data reflecting the different characteristics of
+the environment at different time periods. Fig. 10 illustrates
+the Pearson correlation coefficients between different time
+trajectory tests and the appropriate neighbour locations in our
+database. We repeatedly collect the testing trajectory with 175
+locations as shown in Fig. 1(a) at 18 random hours. The
+correlation coefficients range from 0.7 to 0.9, which proves that
+we can always find similarly distributed data in the database
+corresponding to each single test.
+Furthermore, according to the survey [44], the percentage
+of stationary time when a user is not moving can exceed 80%
+for most mobile users. Some of the locations falling in the
+stationary period can serve as the anchor points to re-calibrate
+the network in the testing phase [45]. On the other hand, if
+other sensors such as camera are available, the additional data
+can help to increase the estimation accuracy of locations in the
+trajectory [45]. A detailed study of these issues is out of the
+scope of this paper but will be addressed in our future work.
+5) Stability and Robustness: Since P-MIMO LSTM leverages the information of a user’s previous positions to estimate
+the current location, the stability of P-MIMO LSTM depends
+on the accuracy of historical data from the previous steps. In
+
+11
+
+TABLE VI.
+Building 0 (m)
+Building 1 (m)
+All buildings (m)
+
+AVERAGE L OCALIZATION E RRORS O F UJII NDOOR L OC DATABASE
+P-MIMO
+4.5 ±
+4.0 ±
+4.2 ±
+
+LSTM
+2.7
+3.8
+3.2
+
+RADAR [12]
+7.9 ± 4.9
+8.2 ± 4.9
+8.1 ± 4.9
+
+MLNN [20]
+7.6 ± 4.2
+7.5 ± 3.3
+7.5 ± 3.8
+
+Fig. 12.
+Fig. 11. CDF of P-MIMO LSTM localization errors in different historical
+data error scenarios.
+
+order to investigate the propagation error due to the imperfect
+prior location estimation, Fig. 11 illustrates the localization
+errors of P-MIMO LSTM with both the ideal and erroneous
+history data. Starting with the perfect historical coordinate
+h(x, y) for every location in the testing trajectory as illustrated
+in Section IV, an amount of Gaussian error is added to
+h. The erroneous prior location h0 (x0 , y 0 ) is obtained as:
+x0 = x + xe , y 0 = y + ye , where xe and ye are random
+variables that follow Gaussian distribution
+q
+xe ∼ N (0, σx2e ) ; ye ∼ N (0, σy2e ) ; γe = σx2e + σy2e
+Fig. 11 shows that if the standard deviation error γe of the
+historical data is within 2 m, the localization accuracy is mostly
+similar to the ideal case, with a maximum error of 3.5 m and
+80% of the error is 1.5 m. When γe increases to 4 m and 6 m,
+the accuracy becomes slightly worse with the maximum errors
+being around 5 m and 80% errors being around 1.80 m and
+2.3 m, respectively. As shown in Table III, the average errors
+of P-MIMO LSTM is within 1 m, i.e., 0.75 ± 0.64 m, which
+indicates that our proposed P-MIMO LSTM is robust to the
+localization error of the previous positions.
+G. Other Database Comparison
+The consistent effectiveness of the proposed LSTM system
+is proved by the published dataset, UJIIndoorLoc [32]. The
+reported average localization error [32] is 7.9 m. The database
+from 2 random phone users (Phone Id: 13, 14) in 2 different
+buildings (Building ID: 0 and 1) are used to implement PMIMO LSTM. Note that the grid size of UJIIndoorLoc is
+different from the collected database which affects the average
+localization error. However, the relative accuracy comparison
+between the proposed LSTM and conventional KNN, e.g.,
+RADAR [12] and Kalman filter [23] or feedforward neural
+network, e.g, MLP [18] and MLNN [20] can verify the
+
+Kalman Filter [23]
+8.2 ± 5.0
+8.4 ± 3.9
+8.2 ± 4.7
+
+MLP [18]
+9.2 ± 5.8
+7.4 ± 4.4
+8.2 ± 5.2
+
+Localization error CDF of UJIndoorLoc database for all buildings
+
+effectiveness of our algorithm. Table VI shows the average
+errors in meter of P-MIMO LSTM, RADAR, Kalman filter,
+MLP and MLNN for each separate building and for all 2
+buildings in general. For all 2 buildings, the average error of PMIMO LSTM is 4.2±3.2 m, significantly lower than the result
+of RADAR 8.1±4.9 m, MLNN 7.5±3.8 m, Kalman filter
+8.2±4.7 m and MLP 8.2±5.2 m. Furthermore, Fig. 12 compares the CDF of localization errors between those methods.
+In total, a 11.5 m maximum localization error is recorded for
+P-MIMO LSTM, 22 m for MLNN and the largest maximum
+localization error of 28 m for RADAR. Besides, 80% of the
+error is below 7 m in the case of P-MIMO LSTM, which
+is much lower than 12 m in the case of MLP, MLNN and
+RADAR.
+VI. C ONCLUSIONS
+In conclusion, we have proposed recurrent neural networks
+for WiFi fingerprinting indoor localization. Our RNN solution
+has considered the relation between a series of the RSSI
+measurements and determines the user’s moving path as one
+problem. Experimental results have consistently demonstrated
+that our LSTM structure achieves an average localization error
+of 0.75 m with 80% of the errors under 1 m, which outperforms
+feedforward neural network, conventional methods such as
+KNN, Kalman filter and probabilistic methods. Furthermore,
+main challenges of those conventional methods including
+the spatial ambiguity, RSSI instability and the RSSI short
+collecting time have been effectively mitigated. In addition,
+the analysis of vanilla RNN, LSTM, GRU, BiRNN, BiLSTM
+and BiGRU with important parameters such as loss function,
+memory length, input and output features have been discussed
+in detail.
+REFERENCES
+[1]
+
+H. Liu, H. Darabi, P. Banerjee, and J. Liu, “Survey of wireless indoor
+positioning techniques and systems,” IEEE Transactions on Systems,
+Man, and Cybernetics - Part C: Applications and Reviews, vol. 37,
+no. 6, pp. 1067–1080, Nov. 2007.
+
+12
+
+[2]
+
+C. Chen, Y. Chen, Y. Han, H. Lai, and K. J. R. Liu, “Achieving
+centimeter-accuracy indoor localization on WiFi platforms: A frequency
+hopping approach,” IEEE Internet of Things Journal, vol. 4, pp. 111–
+121, Feb. 2017.
+
+[3]
+
+M. Xue and et al., “Locate the mobile device by enhancing the WiFibased indoor localization model,” IEEE Internet of Things Journal
+(Early Access), Jun. 2019.
+
+[4]
+
+C. Liu, D. Fang, Z. Yang, H. Jiang, X. Chen, W. Wang, T. Xing, and
+L. Cai, “RSS distribution-based passive localization and its application
+in sensor networks,” IEEE Transactions on Wireless Communications,
+vol. 15, pp. 2883–2895, Apr. 2016.
+
+[23]
+
+[24]
+
+[25]
+
+[26]
+
+[5]
+
+H. Chen, Y. Zhang, W. Li, X. Tao, and P. Zhang, “ConFi: Convolutional
+neural networks based indoor Wi-Fi localization using channel state
+information,” IEEE Access, vol. 5, pp. 18 066–18 074, Sep. 2017.
+
+[6]
+
+X. Wang, L. Gao, and S. Mao, “BiLoc: Bi-modal deep learning for
+indoor localization with commodity 5GHz WiFi,” IEEE Access, vol. 5,
+pp. 4209–4220, Mar. 2017.
+
+[27]
+
+[7]
+
+M. Youssef and A. Agrawala, “The Horus WLAN location determination system,” Proc. 3rd international conference on Mobile systems,
+applications, and services, pp. 205–218, 2005.
+
+[28]
+
+[8]
+
+Y. Xu, Autonomous Indoor Localization Using Unsupervised Wi-Fi
+Fingerprinting. Kassel University Press, 2016.
+
+[9]
+
+A. Kushki, K. N. Plataniotis, and A. N. Venetsanopoulos, “Kernelbased positioning in wireless local area networks,” IEEE Trans. Mobile
+Comput., vol. 6, pp. 689–705, Jun. 2007.
+
+[30]
+
+C. Figuera, I. Mora, and A. Curieses, “Nonparametric model comparison and uncertainty evaluation for signal strength indoor location,” IEEE
+Trans. Mobile Comput., vol. 8, pp. 1250–1264, 2009.
+
+[31]
+
+S. He and S.-H. G. Chan, “Wi-Fi fingerprint-based indoor positioning:recent advances and comparisons,” IEEE Communications Surveys
+& Tutorials, vol. 18, no. 11, pp. 466–490, Feb. 2016.
+
+[32]
+
+[10]
+
+[11]
+
+[29]
+
+[12]
+
+P. Bahl and V. Padmanabhan, “RADAR: An in-building RF-based user
+location and tracking system,” IEEE Infocom, pp. 775–784, Mar. 2000.
+
+[13]
+
+Y. Xie, Y. Wang, A. Nallanathan, and L. Wang, “An improved KNearest-Neighbor indoor localization method based on Spearman distance,” IEEE Signal Processing Letters, vol. 23, pp. 351–355, 2016.
+
+[33]
+
+[14]
+
+D. Li, B. Zhang, and ChengLi, “A feature-scaling-based K-Nearest
+Neighbor algorithm for indoor positioning systems,” IEEE Internet of
+Things Journal, vol. 3, pp. 590–597, Aug. 2016.
+
+[34]
+
+[15]
+
+M. Brunato and R. Battiti, “Statistical learning theory for location
+fingerprinting in wireless LANs,” Computer Networks, vol. 47, pp. 825–
+845, Apr. 2005.
+
+[35]
+
+[16]
+
+C. Gentile, N. Alsindi, R. Raulefs, and C. Teolis, Geolocation Techniques Principles and Applications. Springer, 2013.
+
+[36]
+
+[17]
+
+S.-H. Fang and T.-N. Lin, “Indoor location system based on
+discriminant-adaptive neural network in IEEE 802.11 environments,”
+IEEE Transactions on Neural Networks, pp. 1973–1978, Nov 2008.
+
+[37]
+
+[18]
+
+R. Battiti, A. Villani, and T. L. Nhat, “Neural network models for
+intelligent networks: deriving the location from signal patterns,” in:
+Proceedings of AINS2002, UCLA, pp. 1–13, 2002.
+
+[38]
+
+[19]
+
+X. Lu, H. Zou, H. Zhou, L. Xie, and G.-B. Huang, “Robust extreme
+learning machine with its application to indoor positioning,” IEEE
+Transaction on Cybernetics, vol. 46, no. 1, pp. 194–205, Jan. 2016.
+
+[39]
+
+[20]
+
+H. Dai, W. hao Ying, and J. Xu, “Multi-layer neural network for received signal strength-based indoor localization,” IET Communications,
+vol. 10, pp. 717–723, Jan. 2016.
+
+[40]
+
+[21]
+
+J. Jiao, F. Li, Z. Deng, and W. Ma, “A smartphone camera-based indoor
+positioning algorithm of crowded scenarios with the assistance of deep
+CNN,” Sensors (Basel), vol. 17, pp. 1–21, Mar. 2017.
+
+[41]
+
+[22]
+
+M. T. Hoang, Y. Zhu, B. Yuen, T. Reese, X. Dong, T. Lu, R. Westendorp,
+and M. Xie, “A soft range limited k-nearest neighbours algorithm for
+indoor localization enhancement,” IEEE Sensors Journal, vol. 18, pp.
+10 208–10 216, Dec. 2018.
+
+[42]
+
+A. W. S. Au, C. Feng, S. Valaee, S. Reyes, S. Sorour, S. N. Markowitz,
+D. Gold, K. Gordon, and M. Eizenman, “Indoor tracking and navigation
+using received signal strength and compressive sensing on a mobile
+device,” IEEE Transactions on Mobile Computing, vol. 12, pp. 2050–
+2062, Oct. 2013.
+I. Guvenc, C. Abdallah, R. Jordan, and O. Dedeoglu, “Enhancements to
+RSS based indoor tracking systems using Kalman filters,” Proc. Global
+Signal Processing Expo and Intl Signal Processing Conf, pp. 1–6, 2003.
+A. Besada, A. Bernardos, P. Tarrio, and J. Casar, “Analysis of tracking
+methods for wireless indoor localization,” Proc. Second Intl Symp.
+Wireless Pervasive Computing, pp. 493–497, Feb 2007.
+A. Kushki, K. Plataniotis, and A. Venetsanopoulos, “Location tracking
+in wireless local area networks with adaptive radio maps,” Proc. IEEE
+Intl Conf. Acoustics, Speech and Signal Processing, vol. 5, pp. 741–744,
+May 2006.
+Y. Chapre, P. Mohapatray, S. Jha, and A. Seneviratne, “Received signal
+strength indicator and its analysis in a typical WLAN system,” IEEE
+Conference on Local Computer Networks, pp. 304–307, 2013.
+S. Hochreiter and J. Schmidhuber, “Long short-term memory,” Neural
+Comput., vol. 9, pp. 1735–1780, Nov. 1997.
+K. Cho, B. van Merrienboer, D. Bahdanau, and Y. Bengio, “On the
+properties of neural machine translation: Encoderdecoder approaches,”
+Proceedings of SSST-8, Eighth Workshop on Syntax, Semantics and
+Structure in Statistical Translation, pp. 103–111, Oct. 2014.
+M. Schuster and K. Paliwal, “Bidirectional recurrent neural networks,”
+IEEE Transactions on Signal Processing, vol. 45, pp. 2673–2681, Nov.
+1997.
+W. Zhao, S. Han, R. Q. Hu, W. Meng, and Z. Jia, “Crowdsourcing and
+multi-source fusion based fingerprint sensing in smartphone localization,” IEEE Sensors Journal, vol. 18, pp. 3236–3247, Feb. 2018.
+J. Torres-Sospedra and etc., “Ujiindoorloc: A new multi-building and
+multi floor database for WLAN fingerprintbased indoor localization
+problem,” 2014 International Conference on Indoor Positioning and
+Indoor Navigation (IPIN), pp. 261–270, Oct. 2014.
+H. J. Jang, J. M. Shin, and L. Choi, “Geomagnetic field based indoor
+localization using recurrent neural networks,” GLOBECOM 2017, pp.
+1–6, Dec. 2017.
+G. Huang, S. Song, C. Wu, and K. You, “Robust support vector
+regression for uncertain input and output data,” IEEE Trans. Neural
+Netw. Learn. Syst, vol. 23, pp. 1690–1700, Nov. 2012.
+Y. Lukito and A. R. Chrismanto, “Recurrent neural networks model for
+WiFi-based indoor positioning system,” International Conference on
+Smart Cities, Automation & Intelligent Computing Systems, Indonesia,
+pp. 121–125, Nov. 2017.
+X. Wang, Z. Yu, and S. Mao, “DeepML: Deep LSTM for indoor localization with smartphone magnetic and light sensors,” IEEE International
+Conference on Communications, pp. 1–6, Jul. 2018.
+Z. C. Lipton, J. Berkowitz, and C. Elkan, “A critical review of recurrent
+neural networks for sequence learning,” arXiv:1506.00019, Oct. 2015.
+J. Chung, C. Gulcehre, K. Cho, and Y. Bengio, “Empirical evaluation of gated recurrent neural networks on sequence modeling,”
+arXiv:1412.3555v1, Dec. 2014.
+P. Jiang, Y. Zhang, W. Fu, H. Liu, and X. Su, “Indoor mobile localization based on Wi-Fi fingerprint’s important access point,” International
+Journal of Distributed Sensor Networks, vol. 2015, pp. 1–8, Apr. 2015.
+R. C. Browning, E. A. Baker, J. A. Herron, and R. Kram, “Effects of
+obesity and sex on the energetic cost and preferred speed of walking,”
+Journal of Applied Physiology, vol. 100, pp. 390–398, Feb. 2006.
+B. J. Mohler, W. B. Thompson, S. H. Creem-Regehr, H. L. PickJr,
+and W. H. Warren, “Visual flow influences gait transition speed and
+preferred walking speed,” Experimental Brain Research, vol. 181, pp.
+221–228, Aug. 2007.
+D. Yu and J. Li, “Recent progresses in deep learning based acoustic
+model,” IEEE/CAA Journal of Automatica Sinica, vol. 4, no. 3, pp. 396
+– 409, Jul. 2017.
+
+13
+
+[43]
+
+X. Guo, S. Zhu, L. Li, F. Hu, and N. Ansari, “Accurate WiFi localization
+by unsupervised fusion of extended candidate location set,” IEEE
+Internet of Things Journal, vol. 6, pp. 2476–2485, Apr. 2019.
+[44] C. Wu, Z. Yang, and C. Xiao, “Automatic radio map adaptation for
+indoor localization using smartphones,” IEEE Transaction on Mobile
+Computing, vol. 17, pp. 517–528, Mar. 2018.
+[45] J. R. M. de Dios, A. Ollero, F. J. Fernndez, and C. Regoli, “On-line
+RSSI-range model learning for target localization and tracking,” Journal
+of Sensor and Actuator Network, vol. 6, pp. 1–19, Aug. 2017.
+
+

@@ -1,0 +1,8 @@
+
+an rnn-based forecasting approach is used
+to early detect anomalies in industrial multivariate time series data from a simulated tennessee eastman process (tep) with many cyberattacks. this work continues a previously proposed lstm-based approach to the fault detection in simpler data. it is considered necessary
+to adapt the rnn network to deal with data containing stochastic, stationary, transitive and a rich
+variety of anomalous behaviours. there is particular focus on early detection with special nabmetric. a comparison with the dpca approach
+is provided. the generated data set is made publicly available.
+
+1. 

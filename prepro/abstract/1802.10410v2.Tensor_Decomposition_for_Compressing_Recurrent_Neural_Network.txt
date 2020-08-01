@@ -1,0 +1,15 @@
+in the machine learning fields, recurrent neural
+network (rnn) has become a popular architecture for sequential
+data modeling. however, behind the impressive performance,
+rnns require a large number of parameters for both training
+and inference. in this paper, we are trying to reduce the number
+of parameters and maintain the expressive power from rnn
+simultaneously. we utilize several tensor decompositions method
+including candecomp/parafac (cp), tucker decomposition
+and tensor train (tt) to re-parameterize the gated recurrent
+unit (gru) rnn. we evaluate all tensor-based rnns performance on sequence modeling tasks with a various number of
+parameters. based on our experiment results, tt-gru achieved
+the best results in a various number of parameters compared to
+other decomposition methods.
+
+i. 

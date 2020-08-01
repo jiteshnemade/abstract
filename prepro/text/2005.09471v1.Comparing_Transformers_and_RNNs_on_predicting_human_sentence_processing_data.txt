@@ -1,0 +1,597 @@
+Comparing Transformers and RNNs on predicting human sentence
+processing data
+Danny Merkx
+Radboud University Nijmegen
+d.merkx@let.ru.nl
+
+Stefan L. Frank
+Radboud University Nijmegen
+s.frank@let.ru.nl
+
+arXiv:2005.09471v1 [cs.CL] 19 May 2020
+
+Abstract
+Recurrent neural networks (RNNs) have long been an architecture of interest for computational
+models of human sentence processing. The more recently introduced Transformer architecture
+has been shown to outperform recurrent neural networks on many natural language processing
+tasks but little is known about their ability to model human language processing. It has long
+been thought that human sentence reading involves something akin to recurrence and so RNNs
+may still have an advantage over the Transformer as a cognitive model. In this paper we train
+both Transformer and RNN based language models and compare their performance as a model
+of human sentence processing. We use the trained language models to compute surprisal values
+for the stimuli used in several reading experiments and use mixed linear modelling to measure
+how well the surprisal explains measures of human reading effort. Our analysis shows that the
+Transformers outperform the RNNs as cognitive models in explaining self-paced reading times
+and N400 strength but not gaze durations from an eye-tracking experiment.
+
+1
+
+Introduction
+
+Recurrent Neural Networks (RNNs) are widely used in both psycholinguistics and Natural Language
+Processing (NLP). Psycholinguists have looked to RNNs as an architecture for modelling human sentence processing (for a recent review, see Frank et al., (2019)). RNNs have been used to account for
+human reading times (Monsalve et al., 2012; Goodkind and Bicknell, 2018) and N400 amplitudes in the
+EEG signal during reading (Frank et al., 2015; Rabovsky et al., 2018; Brouwer et al., 2017; Fitz and
+Chang, 2019). Since the introduction of the Simple Recurrent Network (SRN) (Elman, 1990), different
+RNN architectures have been proposed that address the issue that SRNs had with capturing long term
+patterns by adding gating mechanisms that control the flow of information over time; allowing the networks to weigh old and new inputs and memorise or forget information when appropriate. The most well
+known of these are the Long Short-Term Memory (LSTM) (Hochreiter and Schmidhuber, 1997) and the
+Gated Recurrent Unit (GRU) (Cho et al., 2014).
+These gated RNNs have successfully been applied to NLP tasks such as translation, caption generation
+and speech recognition (Bahdanau et al., 2015; Xu et al., 2015; Zeyer et al., 2017; Michel and Neubig,
+2018). However, a recent study which compared SRN, GRU and LSTM models’ ability to predict reading
+times and N400 amplitudes found no significant differences between the three recurrent architectures
+(Aurnhammer and Frank, 2019).
+In essence, all these RNN types process sequential information by recurrence. Previous input is represented as the hidden state of the recurrent computation and each new input is processed and combined
+with the hidden state. Recently, a new neural network architecture called the Transformer has been introduced (Vaswani et al., 2017). Importantly, the Transformer is not simply an improved type of RNN as
+the LSTM and GRU were. The Transformer is a fundamentally different type of architecture that does
+not use recurrence at all. A Transformer cell as originally proposed by Vaswani et al. (2017), consists of
+self-attention layers (Luong et al., 2015) followed by a linear feed forward layer. In contrast to recurrent
+processing, self-attention layers are allowed to ‘attend’ to parts of previous input directly.
+Since its introduction, the Transformer has received substantial attention in the NLP community and
+achieved state-of-the art results on several NLP tasks (Devlin et al., 2019; Hayashi et al., 2019; Karita et
+
+al., 2019). Pre-trained Transformer based models such as BERT and GPT-2 make it possible to employ
+the power of networks trained on huge amounts of data. Many studies have fine-tuned such models and
+broken benchmark NLP scores. Not much is known however, about how the Transformer fares as a
+model of human sentence processing. The success of RNNs in explaining human behavioural and neurophysiological data suggests that something akin to recursive processing might be involved in human
+sentence processing and as such RNNs seem more cognitively plausible than the Transformer. Especially the direct access that attention operations have to past input regardless of temporal distance is not
+biologically plausible. Even though the Transformer seems less biologically plausible it has not yet been
+confirmed that the Transformer is a worse model of sentence comprehension.
+We will compare the Transformer with the GRU and investigate how well they perform as models of
+human sentence processing. We model human sentence processing using Transformer and GRU based
+language models (LMs). We compare how well their word-by-word surprisal predicts human processing
+effort as measured by self-paced reading, eye tracking and electroencephalography (N400 response) using the same human reading data as Aurnhammer and Frank (2019) used to compare RNN architectures.
+We think the introduction of the Transformer merits a similar comparison as the differences between
+Transformers and RNNs are more fundamental than the differences between RNN types. Looking ahead
+to our results, we surprisingly find that the Transformer outperforms our RNN models.
+
+2
+2.1
+
+Background
+Models of human sentence processing
+
+An important question in human sentence processing research is why some words are more difficult to
+process than others. It has long been known that more predictable words are generally read faster than
+less predictable words and are more likely to be skipped (Ehrlich and Rayner, 1981). Predictability has
+been formalised as surprisal, a measure which can be derived from LMs. To generate surprisal values,
+LMs are trained to estimate the probability of the next word in a sentence given the preceding context.
+In this sense, a LM has an expectation of a word w at time t given the preceding words w1 , ..., wt−1 . We
+formally measure this as the surprisal of a word given by: surprisal(wt ) = − log P (wt |w1 , ..., wt−1 ).
+In surprisal theory, surprisal acts as a ‘causal bottleneck’ between computational models and behavioural
+observations (Levy, 2008), meaning that for instance the model architecture (Transformer or RNN) only
+affects predictions about human processing difficulty through the generated word probabilities.
+Surprisal has long been related to human word processing effort in sentence comprehension. The
+central idea of such expectation-based theories of sentence comprehension is that less expected words
+lead to more processing effort. For instance, in psycholinguistics it is common to take reading times as
+a measure of word processing difficulty and the positive correlation between reading time and surprisal
+has firmly been established (Hale, 2001; Levy, 2008; Mitchell and Keller, 2010; Monsalve et al., 2012;
+Smith and Levy, 2013; Hahn and Keller, 2016) with Goodkind and Bicknell (2018) recently showing
+that the predictive power of surprisal values increases linearly with the quality of the language model.
+High surprisal has been shown to correlate with greater neural activity in fMRI and MEG studies
+(Ettinger et al., 2014; Henderson et al., 2016). The N400, a brain potential peaking around 400 ms after
+stimulus onset and associated with semantic incongruity (Kutas and Hillyard, 1980), has been shown to
+correlate with word surprisal in both EEG and MEG studies (Wehbe et al., 2014; Frank et al., 2015).
+Most recent models of processing difficulty used RNN-based LMs. In this paper, we will compare
+RNN and Transformer based LMs on their ability to predict human reading data. The work most closely
+related to the current study is that by Aurnhammer and Frank (2019). They compared SRNs, LSTMs and
+GRUs; three RNN types differing in how they integrate their ‘memory’ of past input with the next input
+in the sequence, on human reading data from three psycholinguistic experiments. Despite the GRU and
+LSTM generally outperforming the SRN on NLP tasks, Aurnhammer and Frank found no difference in
+how well the models’ surprisal predicted human processing effort in the self-paced reading, eye-tracking
+and EEG experiments. The Transformer has to the best of our knowledge not yet been evaluated as a
+model of human sentence processing.
+
+Figure 1: Comparison of how sequential information flows through the Transformer and RNN. In the
+Transformer, every time-step has access to all previous time-steps. The RNN encodes incoming information and adds it to a single hidden state that is passed on to the next layer and time-step.
+2.2
+
+Comparing RNN and Transformer architectures
+
+For a complete overview of the Transformer and our implementation we refer to Vaswani et al. (2017) and
+our code https://github.com/DannyMerkx/next_word_prediction. Here we briefly
+highlight the difference between RNNs and the Transformer in how the models process sequential information. The way activation flows through the network is represented in Figure 1, which shows an
+example with a five-word sentence. We only consider uni-directional versions of both the Transformer
+and RNNs here, since language modelling is trivial for a bi-directional network. Note that Figure 1 only
+shows how activation is propagated through time and across layers, not how specific architectures compute the hidden states (see (Elman, 1990; Hochreiter and Schmidhuber, 1997; Cho et al., 2014; Vaswani
+et al., 2017) for specifics on the SRN, LSTM, GRU, and Transformer respectively).
+In an RNN, incoming information is immediately processed and represented as a hidden state. The
+next token in the sequence is again immediately processed and combined with the previous hidden state
+to form a new hidden state. Across layers, each time-step also only gets to see its corresponding hidden
+state from the previous layer and the hidden state of the previous time-step. So, processing is immediate
+and incremental. Information from previous time-steps is encoded in the hidden state, but this state is
+limited in how much it can encode so decay of previous time-steps is implicit.
+The Transformer’s attention layer allows each input to look at all previous time-steps. Hidden states
+are a weighted combination of all time-steps seen so far. This basically unlimited memory is a big
+conceptual difference with RNNs, where long-distance dependencies can only be propagated through
+the hidden states. Processing is not incremental over time as in a single layer: the processing of word
+wt is not dependent on the results of processing words w1 through wt−1 . While the RNN is inherently
+sequential, the Transformer can only use order information if it is explicitly added to the input or if the
+network is multi-layered. Consider H1,3 in the first layer which is based on w1 , w2 and w3 . Hidden state
+H1,3 does not depend on the order of the previous inputs (any order will result in the same hidden state).
+However, H2,3 depends on H1,1 , H1,2 and H1,3 . If the order of the inputs w1 , w2 , w3 is different, H1,3
+will be the same hidden state but H1,1 and H1,2 will not, resulting in a different hidden state at H2,3 .1
+RNNs handling of sequential inputs make them seemingly more plausible as a cognitive model. Christiansen and Chater (2015) argue for a ‘now-or-never’ bottleneck in language processing; incoming inputs
+need to be rapidly recoded and passed on for further processing to prevent being interfered with by the
+rapidly incoming stream of new material. In line with this theory, Futrell et al. (2020) proposed a model
+of lossy-context surprisal based on a lossy representation of memory. Recurrent processing, where input
+is forgotten as soon as it is processed and only available for subsequent processing through a bounded
+size hidden state, is more compatible with these theories than the Transformer’s attention operation.
+1
+Note that this is only true for uni-directional Transformers. Bi-directional Transformers are not sensitive to order unless
+explicit order information is given.
+
+3
+
+Methods
+
+We train LMs with Transformer and GRU architectures and compare how well their surprisal explains
+human behavioural and neural data. It has been shown that the predictive power of surprisal is a linear
+function of language model quality (Goodkind and Bicknell, 2018). So, to separate the effects of LM
+quality from the effects of the architectural differences, we compare the architectures at equal language
+modelling capability. A state-of-the-art pre-trained model such as GPT-2 (Radford et al., 2019) can likely
+achieve a lower perplexity, but we opt for training our own LMs to have control over the training material
+and hyperparameters such that a fair comparison between the two architectures can be made.
+3.1
+
+Language model architectures
+
+In this work we test only the Gated Recurrent Unit (GRU). Aurnhammer and Frank (2019) extensively
+compared GRUs, LSTMs and SRNs on the same behavioural and electrophysiological data that we use
+here and found no significant differences. We use the GRU because of the three it was most recently
+introduced and it has fewer weights than the LSTM (Cho et al., 2014). We train single-layer and twolayer LMs for both the GRU and the Transformer, to also investigate the effect of network depth.
+First we trained a GRU model where we used the same architecture as used in Aurnhammer and Frank
+(2019): an embedding layer with 400 dimensions per word, a 500-unit GRU layer followed by a 400unit linear layer with a tanh activation function and finally an output layer with log-softmax activation
+function. All LMs used in this experiment use randomly initialised embedding layers, that is, no pretrained word embeddings were used.
+To minimise the differences between the LMs we picked parameters for the Transformer such that the
+total number of weights is as close as possible to the GRU model. We also make sure the embedding
+layers for the models share the same initial weights. The Transformer model has an embedding layer
+with 400 dimensions per word followed by a single Transformer layer with 8 attention heads and a fully
+connected layer with 1024 units and finally an output layer with log-softmax activation function. The
+Transformer was described as an encoder-decoder model Vaswani et al. (2017). We use the encoder
+side of the model, that is, the Transformer with one instead of two attention operations.2 We implement
+the Transformer in PyTorch following (Vaswani et al., 2017) and make our implementation including
+all training and analysis scripts available on https://github.com/DannyMerkx/next_word_
+prediction. The total number of parameters for our single-layer GRU and Transformer models are
+9,673,137 and 9,581,961 respectively.
+We also train two-layer GRU and Transformer models. It is known that neural networks tend to increase in expressiveness with depth, learning more complex representations (e.g. (Giulianelli et al., 2018;
+Abnar et al., 2019)). Furthermore, an additional layer allows the Transformer to make use of implicit order information. The analysis (see Section 3.5) showed that the two-layer Transformer outperformed the
+single-layer Transformer in explaining the human reading data so we decided to train a four-layer Transformer as well too see if this trend continues. We did not see a performance increase in the two-layer
+GRU over the the single-layer GRU however and did not increase the layer depth further. As the analysis showed that the Transformer outperformed the GRU we trained a GRU model with a Transformer
+self-attention operation in between the GRU layer and the linear layer to see whether the Transformer’s
+advantage was solely due to the unlimited access to past states.
+3.2
+
+Training materials
+
+We train our LMs on Section 1 of the English Corpora from the Web (ENCOW 2014) (Schfer, 2015),
+consisting of random sentences taken from the web. We first exclude tokens containing numerical values
+or punctuation other than hyphens and apostrophes. We treat common contractions such as ‘don’t’ as a
+single token instead of two. Following Aurnhammer and Frank (2019) we then select the 10,000 most
+frequent word types from ENCOW. 134 word types from the test data (see Section 3.4) that were not
+covered by these most frequent words were added for a final vocabulary of 10,134 words. We selected the
+2
+The decoder has a self-attention operation and a second attention operation attending to a context vector given by the
+encoder. In the current setting the encoder with only self-attention is more appropriate, since there is no context vector.
+
+Data
+SPR
+ET
+EEG
+
+Participants
+54
+35
+24
+
+Sentences
+361
+205
+205
+
+Sentence length
+5-38
+5-15
+5-15
+
+Mean sentence length
+14.0
+9.5
+9.5
+
+Tokens
+5043
+1947
+1947
+
+Datapoints
+136,727
+33,001
+32,417
+
+Table 1: Overview of the test data: the number of participants and different sentences (for SPR each
+participant only saw a subset of the 361 sentences), the range of sentence lengths and mean sentence
+length, the total number of word tokens and the final number of datapoints used in the analysis after
+exclusion criteria are applied.
+sentences from ENCOW that consisted only of words in the vocabulary and limit the sentence length to
+39 tokens, reflecting the longest sentence in the test data. Our training data contains 5,855,671 sentences
+with a total of 84,938,722 tokens.
+3.3
+
+Language model training
+
+We use a standard next word prediction task with cross-entropy loss to train the LMs. Because the
+attention operation in the Transformer inherently allows each position in the sentence to attend to all
+other words in the sentence (including future words) we apply a mask to the upper diagonal of the
+attention matrix such that each position can only attend to itself and previous positions.
+To account for random effects of weight initialisation and data presentation order we train eight LMs
+of each type described in section 3.1 and share the random seeds between the LM types so each random
+presentation order and embedding layer initialisation is present in each of the LM types. The LMs were
+trained for two epochs using stochastic gradient descent with a momentum of 0.9. The initial learning
+rates were chosen such that the models still improved near the end of the second epoch while keeping the
+language modelling performance of the GRU and Transformer models as similar as possible. The initial
+learning rate for the GRU models was 0.02 and for the Transformer models 0.005. The learning rate was
+halved after 13 , 23 and all of the sentences during the first epoch and then kept constant over the second
+epoch. The LMs were trained on minibatches of ten sentences.
+3.4
+
+Human reading data
+
+We use the LMs to calculate surprisal values for sentences used in human sentence processing experiments and evaluate our models on how well the surprisal values predict human processing effort. We
+use the self paced reading (SPR) and eye-tracking (ET) data from Frank et al. (2013) and the electroencephalography (EEG) data from Frank et al. (2015). In these experiments, participants read English
+sentences from unpublished novels. In the SPR and EEG experiments, the participants were presented
+sentences one word at a time. In the SPR experiment the reading was self paced (i.e., participants proceed to the next word with a key-press) while in the EEG experiment words had a fixed presentation time.
+In the ET experiments, participants were shown full sentences while an eye tracking device monitored
+which word was fixated. The SPR stimuli consists of 361 sentences, with the EEG and ET stimuli being
+a subset of the SPR stimuli. The experimental measures representing processing effort of a word are
+reading time for the SPR data (time between key presses), gaze duration for the ET data (time a word
+is fixated before the first fixation on a different word) and N400 amplitude for the EEG data (average
+amplitude at the centroparietal electrodes between 300 and 500 ms after word onset (Frank et al., 2015)).
+For our analysis we exclude the word at the start and end of each sentence, and words attached to a
+comma. For the SPR and ET data we also exclude the word following a comma. For the EEG data we
+exclude datapoints that were marked by Frank et al. (2015) as containing artifacts. For the SPR and ET
+data we excluded words with a reading time under 50 ms or over 3500 ms and for the ET data we exclude
+words that were not fixated. Table 1 gives an overview of the test data.
+3.5
+
+Analysis procedure
+
+We save each LM’s parameters at 10 different points during training (1K, 3K, 10K, 30K, 100K, 300K,
+1M, 3M sentences and after the first and second epoch). We use each of these parameter states to generate
+
+Model
+SPR
+
+Dependent
+log(RT)
+
+ET
+EEG
+
+log(gaze dur)
+N400
+
+Fixed effects
+surp + prev surp + log(freq) * char * word pos * prev log(freq) * prev char
+* prev log(RT)
+surp + prev surp + log(freq) * char * word pos * prev log(freq) * prev char
+surp + log(freq) * char * word pos * baseline
+
+Table 2: Summary of the dependent variables and fixed effects for the mixed linear models. The baseline
+models are fitted excluding the surprisal data (indicated in boldface). A * indicates variables for which
+we included interactions.
+surprisal values for the 361 test sentences for a total of 480 sets of surprisal values (10 (parameter states)
+× 8 (repetitions) × 6 (LMs)).
+3.5.1
+
+Linear mixed effects regression
+
+Following Aurnhammer and Frank (2019), we analyse how well each set of surprisal values predicts the
+human sentence processing data using linear mixed effects regression (LMER) models with the MixedModels package in Julia (Bates et al., 2019). For each of the human behavioural datasets (SPR, ET
+and EEG) we fit a baseline LMER model which takes into account several factors known to influence
+processing effort. The dependent variables of the SPR and ET models are reading time (ms) and gaze
+duration (ms) respectively (both log transformed). The dependent variable of the EEG model is the size
+of the N400 response. All LMER models include log transformed training corpus word frequency, word
+length (characters) and the word’s position in the sentence as fixed effects. Spill-over is known to affect
+reading time and can occur when processing of a word is not yet fully done by the time the next word
+is read (e.g., (Rayner, 1998; Mitchell, 1984; Ferreira and Henderson, 1990)). In order to account for
+spill-over in the SPR and ET data we add in the previous word’s frequency and length. For the SPR data
+we add the previous word’s reading time to account for the high correlation between consecutive word’s
+reading times in SPR paradigms. For the EEG data, we include the baseline activity which is the average amplitude in the 100 ms before word onset. All LMER models have by-subject and by-item (word
+token) random intercepts and by-subject random slopes for all fixed effects. We included interaction
+effects between all fixed effects and all fixed effects were normalised for mean and standard deviation.
+After fitting the baseline models, we fit LMER models where we add in the surprisal values and for
+the SPR and ET data also the previous word’s surprisal as fixed effects. We do not include interaction
+effects between the surprisal and the other fixed effects. Table 2 gives an overview of the variables used
+in each model.
+For each LMER model with surprisal, we calculate the log-likelihood ratio with its corresponding
+baseline model indicating the decrease in model deviance due to adding the surprisal measures. The
+more the surprisal values decrease the model deviance, the better these values predict the human reading
+data. We call this log-likelihood ratio the goodness-of-fit between the surprisal and the data. If the
+surprisal values actually predict effects contrary to what we expect, we show this by reversing the sign of
+the goodness-of-fit so that negative values indicate the LMER models where high surprisal predicts lower
+gaze duration, reading time, or N400 size. The LMER analysis results in a set of 480 goodness-of-fit
+measures which are used in the second stage of the analysis.
+3.5.2
+
+Generalised additive modelling
+
+As said before, it is well known that surprisal values derived from better LMs are a better fit to human
+reading data (Monsalve et al., 2012; Frank et al., 2015; Goodkind and Bicknell, 2018). We use generalised additive modelling (GAM) to assess whether the LMs differ in their ability to explain the human
+reading data at equal language modelling capability, that is, because of their architectural differences and
+not due being a better LM. We used the R package mgcv by Wood (2004). We take the log-likelihood
+ratios obtained in the previous analysis step as a measure of how well each LM explains the human reading data. We use each LM’s average log probability (i.e., negative average surprisal) over the datapoints
+used in the LMER analysis as a measure of the LM’s language modelling capability. Separate GAMs
+
+were fitted for each of the three datasets. We used the LM type (single-layer GRU, two-layer GRU etc.)
+as an unordered factor so that separate smooths are fit for each LM type. Furthermore, we add training
+repetition (i.e. the random training order and embedding initialisation) as a random smooth effect.
+
+4
+4.1
+
+Results
+LM quality and the effects on goodness-of-fit
+
+Figure 2 shows the goodness-of-fit values resulting from the linear mixed effects models and the smooths
+fitted by the GAMs. As in Aurnhammer and Frank (2019), we see that for lower LM quality the surprisal
+values actually predict effects contrary to what we expect, especially in the gaze duration and the N400
+size (as indicated by negative goodness-of-fit). This effect occurs in both our GRU LMs and our Transformer LMs, showing this is not particular to RNNs. Overall we see the expected relationship where
+higher LM quality generally results in higher goodness of fit. The Transformer models notably have a
+higher minimum LM quality than the GRUs. The models do seem to reach similar levels of LM quality at the end of training. The average log probability of the best LM (two-layer Transformer) is only
+0.17 higher than worst LM (two-layer GRU). The LM quality increases monotonically during training
+meaning the clusters seen in the scatter-plots correspond to the points during training where the network
+parameters were stored.
+4.2
+
+GAM comparisons
+
+Figure 3 shows plots of the estimated differences between the GAM curves in Figure 2. We indicate
+where the 95% confidence interval of the estimated differences does not include zero. The two-layer
+GRU does not seem to improve over the single-layer GRU. It outperforms the single-layer GRU only in
+the early stages of training on the EEG/ET data with the single-layer GRU outperforming it on the SPR
+data. The two-layer GRU also reaches a lower maximum LM quality on all datasets. For the Transformers we see the opposite, with the two-layer Transformer outperforming the single-layer Transformer on
+the N400 data at the end of training and never being outperformed by its shallower counterpart. The
+two-layer Transformer reaches a higher maximum LM quality on all datasets.
+Here we only compare the best model of each type, i.e., the single-layer GRU and the two-layer
+Transformer3 . We see that while the GRU outperforms the Transformer in the early stages of training
+(10K/30K sentences) on the N400 data, the Transformer clearly outperforms the GRU at the end of
+training on both the SPR and N400 data. Note that even these stretches of language model quality at the
+end of training where the Transformer outperforms the GRU seem small, they represent roughly 75% of
+the training cycle (1st and 2nd epoch) for the EEG data and roughly 91% (3M sentences, 1st and 2nd
+epoch) for the SPR data. On the gaze duration data, there are some performance differences with the
+Transformers and GRUs outperforming each other at different points during training but there are no
+differences in the later stages of training.
+4.3
+
+Alternative LM architectures
+
+The results prompted us to investigate further and train two more LM types. The Transformer benefited
+from the additional complexity of increased depth as shown by the difference on the N400 data and
+by reaching overall higher LM quality. We trained a four-layer Transformer model to see if this trend
+continues. The GRU did not seem to benefit from additional depth and instead we trained a singlelayer GRU that was followed by a Transformer attention operation in between the GRU output and the
+linear classification layer. The resulting smooths and plots of the estimated differences can be found in
+Appendix B. The addition of attention to the GRU did not improve its performance. The attention GRU
+outperforms the GRU on the SPR data corresponding to the end of the first epoch but the difference is
+gone after the second epoch. The four-layer Transformer does not seem to improve the performance of
+the Transformer more than the addition of a second layer did. The four-layer model outperforms the
+3
+The comparisons between the two-layer GRU and the Transformers and the single-layer GRU and single-layer Transformer
+can be found in Appendix A.
+
+Figure 2: The top row shows the results of the linear mixed effects regression analysis grouped by LM
+type. These scatter-plots show the resulting goodness-of-fit values plotted against the average surprisal
+over the included test data. The bottom row shows the smooths resulting from the GAMs fitted on the
+goodness-of-fit data, with their 95% confidence intervals.
+
+Figure 3: Estimated differences in goodness-of-fit score. The markings on the x-axis and the vertical
+lines indicate intervals where zero is not within the 95% confidence interval. Each curve represents
+a comparison between two models, with an estimated difference above zero meaning the first model
+performed better and vice versa for differences below zero.
+
+two-layer model early on in the N400 data and near the end of training in the SPR data but this difference
+disappears at after the second epoch.
+4.4
+
+Shorter and longer sentences in SPR
+
+While the EEG and ET datasets used the same test stimuli, the SPR experiment included sentences that
+were not in the EEG/ET data. The SPR data contains a subset of sentences longer (in terms of characters)
+than those seen in the EEG/ET data. We repeated the analysis of the single- and two-layer GRUs and
+Transformers but only on those sentences from the SPR data that also occurred in the EEG/ET data.
+On this data we surprisingly find the exact opposite of our previous results, where the two-layer GRU
+outperforms both Transformers at the end of training. When we test on only those sentences that were not
+included in the EEG/ET experiments (i.e. the longer sentences), we see that the Transformers outperform
+the GRUs as they did on the complete SPR dataset. The plots for these results can be found in Appendix
+C.
+
+5
+
+Discussion
+
+We trained several language models based on Transformer and GRU architectures in order to investigate
+if there is any difference in how well these neural networks are able to model human reading data. We
+compared the architectures at equal LM quality and found that in general the Transformers seem to
+outperform the GRUs. Previous work had shown there are no significant differences between different
+RNN types despite differences in their gating mechanisms (Aurnhammer and Frank, 2019). It seems that
+the Transformer’s attention-based computation allow it to better capture the human self paced reading
+time data and to a lesser extent the EEG data.
+Somewhat surprisingly, adding more depth to the GRU models did not seem to improve performance
+and even hurt it in the case of the reading time data, despite previous research showing that increasing
+layer depth in RNNs allows them to capture more complex patterns in linguistic data (Giulianelli et al.,
+2018; Abnar et al., 2019). The Transformers did show improvement when adding a second layer and
+improving slightly further on the SPR data for the even deeper 4-layer model. This could be explained by
+the fact that our single-layer Transformer cannot make use of implicit order information in the sequence,
+and hence we add explicit order information to the input embeddings following Vaswani et al. (2017).
+When adding more layers to our Transformer, the subsequent layers operate no longer on raw input
+embeddings but on contextualised hidden states allowing the model to utilise implicit information in the
+order of the input. Further research could investigate how powerful this implicit order information is,
+and whether multi-layer Transformer LMs no longer require the additional explicit order information.
+It is notable that the Transformer outperformed the GRU on the two datasets which consist of a reading
+task where sentences were presented to the subjects word by word (SPR and EEG). There is neurophysiological evidence that natural reading (whole sentences) places different demands on the reader than
+reading in a word-by-word setting, leading to different encoding and reading strategies (Metzner et al.,
+2015). Metzner et al. speculate that a word-by-word setting places greater demand on the reader’s working memory, leading to faster retrieval of previously processed material. This seems to be supported by
+our results; the Transformer has direct access to previous inputs and hidden states is better at explaining the RT and N400 data from the word-by-word reading experiments. However, when we split the
+SPR data by sentences that were also present in the ET/EEG data, the results seem to suggest that the
+Transformers’ advantage is mainly due to performing better on longer sentences. This question could be
+resolved with new data gathered in experiments where the same set of stimuli is used for the SPR and
+EEG experiment.
+In conclusion, we investigated how the recently introduced Transformer architecture holds up as a
+model of human sentence processing compared to the GRU. Our Transformer LMs are better at explaining the EEG and SPR data even though the Transformer’s attention operation contradicts the widely held
+idea that human sentence processing involves recurrent and immediate processing with lossy retrieval of
+previous input.
+
+References
+Samira Abnar, Lisa Beinborn, Rochelle Choenni, and Willem Zuidema. 2019. Blackbox meets blackbox: Representational similarity and stability analysis of neural language models and brains. In Proceedings of the 2019
+ACL Workshop BlackboxNLP: Analyzing and Interpreting Neural Networks for NLP, pages 191–203, Florence,
+Italy, August. Association for Computational Linguistics.
+Christoph Aurnhammer and Stefan L Frank. 2019. Comparing gated and simple recurrent neural network architectures as models of human sentence processing. In Proceedings of the 41st Annual Conference of the Cognitive
+Science Society, pages 112–118.
+Dzmitry Bahdanau, Kyunghyun Cho, and Yoshua Bengio. 2015. Neural machine translation by jointly learning to
+align and translate. In 3rd International Conference on Learning Representations, ICLR 2015.
+Douglas Bates, Phillip Alday, Dave Kleinschmidt, Jos Bayon Santiago Caldern, Andreas Noack, Tony Kelman,
+Milan Bouchet-Valat, Yakir Luc Gagnon, Simon Babayan, Patrick Kofod Mogensen, Morten Piibeleht, Michael
+Hatherly, Elliot Saba, and Antoine Baldassari. 2019. Juliastats/mixedmodels.jl: v2.2.0, December.
+Harm Brouwer, Matthew W. Crocker, Noortje J. Venhuizen, and John C. J. Hoeks. 2017. A neurocomputational
+model of the N400 and the P600 in language processing. Cognitive Science, 41:1318–1352.
+Kyunghyun Cho, Bart Van Merriënboer, Caglar Gulcehre, Dzmitry Bahdanau, Fethi Bougares, Holger Schwenk,
+and Yoshua Bengio. 2014. Learning phrase representations using RNN encoder-decoder for statistical machine
+translation. In Proceedings of the 2014 Conference on Empirical Methods in Natural Language Processing
+(EMNLP), pages 1724–1734.
+Morten H. Christiansen and Nick Chater. 2015. The Now-or-Never bottleneck: A fundamental constraint on
+language. Behavioral and Brain Sciences, 39(2016).
+Jacob Devlin, Ming-Wei Chang, Kenton Lee, and Kristina Toutanova. 2019. Bert: Pre-training of deep bidirectional transformers for language understanding. In Proceedings of NAACL-HLT 2019, pages 4171–4186.
+Susan F. Ehrlich and Keith Rayner. 1981. Contextual effects on word perception and eye movements during
+reading. Journal of Verbal Learning and Verbal Behavior, 20:641655.
+Jeffrey L. Elman. 1990. Finding structure in time. Cognitive Science, 14(2):179–211.
+Allyson Ettinger, Tal Linzen, and Alec Marantz. 2014. The role of morphology in phoneme prediction: Evidence
+from MEG. Brain and Language, 129(1):14–23.
+Fernanda Ferreira and John M. Henderson. 1990. Use of verb information in syntactic parsing: Evidence from eye
+movements and word-by-word self-paced reading. Journal of Experimental Psychology: Learning, Memory,
+and Cognition, 16(4):555–568.
+Hartmut Fitz and Franklin Chang. 2019. Language ERPs reflect learning through prediction error propagation.
+Cognitive Psychology, 111:15 – 52.
+Stefan L. Frank, Irene F. Monsalve, Robin L. Thompson, and Gabriella Vigliocco. 2013. Reading time data for
+evaluating broad-coverage models of english sentence processing. Behavior Research Methods, 45(4):1182–
+1190.
+Stefan L. Frank, Leun J. Otten, Giulia Galli, and Gabriella Vigliocco. 2015. The ERP response to the amount of
+information conveyed by words in sentences. Brain and Language, 140:1–11.
+Stefan L. Frank, Padraic Monaghan, and Chara Tsoukala. 2019. Neural network models of language acquisition
+and processing. In Peter Hagoort, editor, Human Language: from Genes and Brains to Behavior, pages 277–
+291. Cambridge, MA: The MIT Press.
+Richard Futrell, Edward Gibson, and Roger P Levy. 2020. Lossy-Context Surprisal: An Information-Theoretic
+Model of Memory Effects in Sentence Processing. Cognitive Science, 44(3):e12814.
+Mario Giulianelli, Jack Harding, Florian Mohnert, Dieuwke Hupkes, and Willem Zuidema. 2018. Under the hood:
+Using diagnostic classifiers to investigate and improve how language models track agreement information. In
+Proceedings of the 2018 EMNLP Workshop BlackboxNLP: Analyzing and Interpreting Neural Networks for
+NLP, pages 240–248, Brussels, Belgium, November. Association for Computational Linguistics.
+
+Adam Goodkind and Klinton Bicknell. 2018. Predictive power of word surprisal for reading times is a linear function of language model quality. In Proceedings of the 8th Workshop on Cognitive Modeling and Computational
+Linguistics (CMCL 2018), pages 10–18.
+M. Hahn and F. Keller. 2016. Modeling human reading with neural attention. In Proceedings of the 2016
+Conference on Empirical Methods in Natural Language Processing, pages 85–95.
+John Hale. 2001. A probabilistic Earley parser as a psycholinguistic model. In Second Meeting of the North
+American Chapter of the Association for Computational Linguistics.
+Hiroaki Hayashi, Yusuke Oda, Alexandra Birch, Ioannis Konstas, Andrew Finch, Minh-Thang Luong, Graham
+Neubig, and Katsuhito Sudoh. 2019. Findings of the third workshop on neural generation and translation. In
+Proceedings of the 3rd Workshop on Neural Generation and Translation, pages 1–14.
+John M. Henderson, Wonil Choi, Matthew W. Lowder, and Fernanda Ferreira. 2016. Language structure in the
+brain: A fixation-related fMRI study of syntactic surprisal in reading. NeuroImage, 132:293–300.
+Sepp Hochreiter and Jürgen Schmidhuber. 1997. Long short-term memory. Neural Computation, 9(8).
+Shigeki Karita, Nanxin Chen, Tomoki Hayashi, Takaaki Hori, Hirofumi Inaguma, Ziyan Jiang, Masao Someki,
+Nelson E. Y. Soplin, Ryuichi Yamamoto, Xiaofei Wang, Shinji Watanabe, Takenori Yoshimura, and Wangyou
+Zhang. 2019. A comparative study on transformer vs rnn in speech applications. In 2019 IEEE Automatic
+Speech Recognition and Understanding Workshop (ASRU), pages 449–456.
+Marta Kutas and Steven A. Hillyard. 1980. Reading senseless sentences: brain potentials reflect semantic incongruity. Science, 207(11):203–206.
+Roger Levy. 2008. Expectation-based syntactic comprehension. Cognition, 106(3):1126–1177.
+Minh-Thang Luong, Hieu Pham, and Christopher D. Manning. 2015. Effective approaches to attention-based
+neural machine translation. In Proceedings of the 2015 Conference on Empirical Methods in Natural Language
+Processing, EMNLP, pages 1412–1421.
+Paul Metzner, Titus von der Malsburg, Shravan Vasishth, and Frank Rösler. 2015. Brain responses to world
+knowledge violations: A comparison of stimulus- and fixation-triggered event-related potentials and neural
+oscillations. Journal of Cognitive Neuroscience, 27(5):1–10.
+Paul Michel and Graham Neubig. 2018. MTNT: A testbed for machine translation of noisy text. In Proceedings
+of the 2018 Conference on Empirical Methods in Natural Language Processing, pages 543–553. Association
+for Computational Linguistics.
+Lapata M. Demberg V. Mitchell, J. and F. Keller. 2010. Syntactic and semantic factors in processing difficulty:
+An integrated measure. In Proceedings of the 48th Annual Meeting of the Association for Computational Linguistics, page 196206.
+Don C. Mitchell. 1984. An evaluation of subject-paced reading tasks and other methods for investigating immediate processes in reading. In D. E. Kieras and M. A. Just, editors, New methods in reading comprehension
+research, pages 69–89.
+Irene F. Monsalve, Stefan L. Frank, and Gabriella Vigliocco. 2012. Lexical surprisal as a general predictor of
+reading time. In EACL 2012 - 13th Conference of the European Chapter of the Association for Computational
+Linguistics, Proceedings, pages 398–408.
+Milena Rabovsky, Steven S. Hansen, and James L. McClelland. 2018. Modelling the n400 brain potential as
+change in a probabilistic representation of meaning. Nat Hum Behav, 2:693705.
+Alec Radford, Jeffrey Wu, Rewon Child, David Luan, Dario Amodei, and Ilya Sutskever. 2019. Language Models
+are Unsupervised Multitask Learners. OpenAI Blog 1.8 (2019): 9.
+Keith Rayner. 1998. Eye movements in reading and information processing: 20 years of research. Psychological
+Bulletin, 124(3):372–422.
+Roland Schfer. 2015. Processing and querying large web corpora with the COW14 architecture. In Proceedings
+of the 3rd Workshop on the Challenges in the Management of Large Corpora, pages 28–34.
+Nathaniel J. Smith and Roger Levy. 2013. The effect of word predictability on reading time is logarithmic.
+cognition, 128:302–319.
+
+Ashish Vaswani, Noam Shazeer, Niki Parmar, Jakob Uszkoreit, Llion Jones, Aiden N. Gomes, Lukasz Kaiser,
+and Illia Polosukhin. 2017. Attention is all you need. In 31st Conference on Neural Information Processing
+Systems (NIPS 2017), pages 6000–6010.
+L. Wehbe, A. Vaswani, K. Knight, and T. Mitchell. 2014. Aligning context-based statistical models of language
+with brain activity during reading. In In Proceedings of the 2014 Conference on Empirical Methods in Natural
+Language Processing, pages 233–243.
+S. N. Wood. 2004. Stable and efficient multiple smoothing parameter estimation for generalized additive models.
+Journal of the American Statistical Association, 99(467):673–686.
+Kelvin Xu, Jimmy Lei Ba, Ryan Kiros, Kyunghyun Cho, Aaron Courville, Ruslan Salakhutdinov, Richard S.
+Zemel, and Yoshua Bengio. 2015. Show, attend and tell: Neural image caption generation with visual attention.
+In 32nd International Conference on Machine Learning, volume 37, pages 169–176.
+Albert Zeyer, Patrick Doetsch, Paul Voigtlaender, Ralf Schluter, and Hermann Ney. 2017. A comprehensive
+study of deep bidirectional lstm rnns for acoustic modeling in speech recognition. In 2017 IEEE International
+Conference on Acoustics, Speech and Signal Processing, ICASSP, pages 2462–2466.
+
+A
+
+Appendix A
+
+Figure 4: Estimated differences in goodness-of-fit score for the three LM comparisons not included in
+section 4.2. The markings on the x-axis and the vertical lines indicate intervals where zero is not within
+the 95% confidence interval. Each curve represents a comparison between two models, with an estimated
+difference above zero meaning the first model performed better and vice versa for differences below zero.
+
+B
+
+Appendix B
+
+Figure 5: GAM plots and estimated differences in goodness-of-fit score for the experiments in section
+4.3. The two top rows show the two-layer Transformer compared to the four-layer transformer. The
+bottom two rows show the vanilla RNN compared to the RNN with added attention layer.
+
+C
+
+Appendix C
+
+Figure 6: The top row shows the results of the linear mixed effects regression analysis on the SPR
+data, where as described in section 4.4 the data is split by whether the sentences were present in the
+ET/EEG experiment or not. These scatter-plots show the resulting goodness-of-fit values plotted against
+the average surprisal over the included test data. The bottom row shows the smooths resulting from the
+GAMs fitted on the goodness-of-fit data, with their 95% confidence intervals.
+
+

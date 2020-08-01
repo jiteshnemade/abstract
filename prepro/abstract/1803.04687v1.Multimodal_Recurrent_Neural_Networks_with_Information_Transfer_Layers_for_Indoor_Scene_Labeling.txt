@@ -1,0 +1,20 @@
+this paper proposes a new method called multimodal rnns for rgb-d scene semantic segmentation. it is
+optimized to classify image pixels given two input sources: rgb
+color channels and depth maps. it simultaneously performs
+training of two recurrent neural networks (rnns) that are
+crossly connected through information transfer layers, which are
+learnt to adaptively extract relevant cross-modality features. each
+rnn model learns its representations from its own previous
+hidden states and transferred patterns from the other rnns
+previous hidden states; thus, both model-specific and crossmodality features are retained. we exploit the structure of
+quad-directional 2d-rnns to model the short and long range
+contextual information in the 2d input image. we carefully
+designed various baselines to efficiently examine our proposed
+model structure. we test our multimodal rnns method on
+popular rgb-d benchmarks and show how it outperforms
+previous methods significantly and achieves competitive results
+with other state-of-the-art works.
+index terms—multimodal learning, rnns, cnns, rgb-d
+scene labeling.
+
+i. 

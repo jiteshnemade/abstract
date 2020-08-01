@@ -1,0 +1,15 @@
+
+deep neural networks (dnns) have revolutionized the field of natural language
+processing (nlp). convolutional neural
+network (cnn) and recurrent neural
+network (rnn), the two main types of
+dnn architectures, are widely explored to
+handle various nlp tasks. cnn is supposed to be good at extracting positioninvariant features and rnn at modeling
+units in sequence. the state-of-the-art on
+many nlp tasks often switches due to the
+battle of cnns and rnns. this work is
+the first systematic comparison of cnn
+and rnn on a wide range of representative nlp tasks, aiming to give basic guidance for dnn selection.
+
+1
+

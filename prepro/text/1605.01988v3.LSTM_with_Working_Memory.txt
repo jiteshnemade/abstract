@@ -1,0 +1,641 @@
+arXiv:1605.01988v3 [cs.NE] 30 Mar 2017
+
+LSTM with Working Memory
+Andrew Pulver
+
+Siwei Lyu
+
+Department of Computer Science
+University at Albany
+Email: apulver@albany.edu
+
+Department of Computer Science
+University at Albany
+Email: slyu@albany.edu
+
+Abstract—Previous RNN architectures have largely been superseded by LSTM, or “Long Short-Term Memory”. Since its
+introduction, there have been many variations on this simple
+design. However, it is still widely used and we are not aware of
+a gated-RNN architecture that outperforms LSTM in a broad
+sense while still being as simple and efficient. In this paper we
+propose a modified LSTM-like architecture. Our architecture is
+still simple and achieves better performance on the tasks that we
+tested on. We also introduce a new RNN performance benchmark
+that uses the handwritten digits and stresses several important
+network capabilities.
+
+I. INTRODUCTION
+Sequential data can take many forms. Written text, video data,
+language, and many other forms of information are naturally
+sequential. Designing models for predicting sequential data,
+or otherwise extracting information from a sequence is an
+important problem in machine learning. Often, recurrent neural
+networks are used for this task. Unlike a non-recurrent network,
+a recurrent network’s input at a given time-step consists of
+any new information along with the output of the network at
+the previous time-step. Since the network receives both new
+input as well as its previous output, it can be said to have a
+“memory”, since its previous activations will affect the current
+output. Training a RNN model with gradient descent, or similar
+gradient-based optimization algorithms is subject to the usual
+problem of vanishing gradients [2]. At each time step, the
+gradient diminishes and eventually disappears. Consequently,
+if the RNN needs information from more than a few time-steps
+ago to compute the correct output at the current time step,
+it will be incapable of making an accurate prediction. The
+model “Long Short-Term Memory”, [11] greatly mitigated this
+problem. LSTM incorporates “gates”, which are neurons that
+use a sigmoid activation, and are multiplied with the output of
+other neurons. Using gates, the LSTM can adaptively ignore
+certain inputs. LSTM also maintains a set of values that are
+protected by the gates and that do not get passed through an
+activation function.
+In this work we develop a modification to LSTM that aims
+to make better use of the existing LSTM structure while using
+a small number of extra parameters. We claim that there are
+three issues with LSTM with forget gates. First, forget gates
+impose an exponential decay on the memory, which may
+not be appropriate in some cases. Second, the memory cells
+cannot communicate or exchange information without opening
+the input and output gates, which also control the flow of
+information outside the memory cells. Third, the hyperbolic
+
+tangent function is not ideal since LSTM memory values can
+grow large, but the the hyperbolic tangent has a very small
+gradient when its input value is large.
+In our modified version, the forget gate is replaced with
+a functional layer that resides between the input and output
+gates. We call this modification LSTM with working memory,
+henceforth abbreviated LSTWM. LSTWM incorporates an
+extra layer that operates directly on the stored data. Rather
+than multiplying previous cell values by a forget gate, it uses
+a convex combination of the current memory cell value and
+the output of this extra layer whose input consists of previous
+memory cell values. In addition, we find that using a logarithmbased activation function improves performance with both the
+LSTM architecture and our modified variant. We evaluate this
+method on the Hutter challenge dataset [12] as well as a task
+designed using the MNIST [19] handwritten digit dataset.
+II. A RCHITECTURE AND T RAINING
+We begin with a review of LSTM. Since nearly all modern
+implementations use forget gates, we will call LSTM with
+forget gates standard LSTM or just LSTM. The term “memory
+cell” will be used to refer to the inner recurrence with a weight
+of one and “LSTM cell” to refer to an entire, individual LSTM
+unit.
+A. Background on LSTM
+We introduce notation to be used throughout the rest of the
+paper: xt is the input vector at time t, yt is the network layer
+1.0
+output at time t, σ = 1.0+e
+−x and f is an activation function.
+The standard LSTM formulation includes an input gate, output
+gate, and usually a forget gate (introduced in [7]). The output
+of an LSTM unit is computed as follows:
+a = f (W · [xt ; yt−1 ] + b)
+= σ(Wgi · [xt ; yt−1 ] + bgi )
+
+(2)
+
+(o)
+
+= σ(Wgo · [xt ; yt−1 ] + bgo )
+
+(3)
+
+(f )
+
+= σ(Wgs · [xt ; yt−1 ] + bgs )
+
+(4)
+
+g
+g
+g
+
+(1)
+
+(i)
+
+ct = g
+
+(i)
+
+(f )
+
+a+g
+
+yt = g
+
+(o)
+
+f (ct )
+
+ct−1
+
+(5)
+(6)
+
+It should be noted that other variants of LSTM exist, such
+as LSTM with peepholes [8] and more recently Associative
+LSTM [6]. We chose LSTM with forget gates as it is a simple
+yet commonly used LSTM configuration.
+
+Fig. 1. LSTM with forget gates. The orange circles are multiplicative gate
+units, the white circle is the addition operator. Double arrows represent the
+output of a neuron with multiple inputs, while single arrows represent the path
+of a single value.
+
+Fig. 2. LSTWM. The orange square represents a convex combination of the
+two inputs on the right.
+
+large-magnitude value for a longer period of time. For this
+reason, we feel that the LSTM is a stronger base upon which
+to build.
+
+The input and output gate values, g (i) and g (o) , serve to
+regulate incoming and outgoing data, protecting the memory
+cell value. The forget gate can be used to clear the memory B. LSTWM
+cell when its data is no longer needed. If the input/output
+For a regular LSTM to operate on the values stored in its
+gates are closed, and the forget gate is open, then there is no memory cell and store them again, it must open both the
+transformation on the memory cell values. This is an extreme output gate and the input gate. This releases the value to
+example, since the gate cells will likely take different values the downstream network, and new input from the upstream
+at any given timestep and can never be fully open or closed. network must also, to some degree, be allowed to enter the
+However, it illustrates the main point of LSTM, which is that cell. We propose that a network may make better use of its
+it can store data for an arbitrary amount of time, in principle. input and output gates if they weren’t serving the two, not
+LSTM with forget gates does not share the same mathemat- necessarily related, purposes of regulating recurrent data as
+ical properties of the original LSTM design. The memory-cell well as regulating inputs and outputs to and from other parts
+value decays exponentially due to the forget gate. This is of the network. Additionally, the activation function is applied
+important, since the network has a finite memory capacity to the memory cell values before they are multiplied by the
+and the most recent information is often more relevant than output gate. Typically, the hyperbolic tangent function is used,
+the older information. It may, however, be useful to decay and if the memory cell value already has a high magnitude,
+that information in a more intelligent manner. Another point the errors entering the memory cell will be very small. We
+is that the information in the memory cells cannot be used argue that a non-saturating activation function will confer a
+without releasing it into the outer recurrence. This exposes significant performance increase. The output of a LSTWM cell
+them to the downstream network. A memory cell must also, to is computed in the following manner:
+some degree, accept information from the upstream network
+to perform computation on the recurrent information.
+a = f (W · [xt ; yt−1 ] + b)
+(7)
+Another related architecture in this domain is the Gated
+(i)
+g = σ(Wgi · [xt ; yt−1 ] + bgi )
+(8)
+Recurrent Unit, or GRU [4], which uses a convex combination
+(o)
+instead of an input gate. It does not use an output gate. This
+g = σ(Wgo · [xt ; yt−1 ] + bgo )
+(9)
+makes the architecture easier to implement, since there is
+(s)
+g = σ(Wgs · [xt ; yt−1 ] + bgs )
+(10)
+only one set of recurrent values per layer. This also does not
+(rl )
+c
+= ρ(ct−1 , −1)
+(11)
+share the theoretical properties of the original LSTM, since
+(rr )
+the memory cell values are replaced by their input rather than
+c
+= ρ(ct−1 , 1)
+(12)
+summed with their input.
+(rl )
+(rr )
+it = f (wv1 ct−1 + wv2 c
++ w v3 c
++ bv 1 )
+Empirical studies [14] [5] comparing the performance of
+(13)
+LSTM and GRU are somewhat inconclusive. Despite this, we
+(s)
+(s)
+rt = g
+ct−1 + (1.0 − g ) it
+(14)
+hypothesize that a potential weak-point of the GRU is that its
+(i)
+ct = g
+a + rt
+(15)
+cells cannot accumulate large values as evidence of the strong
+(o)
+presence of a certain feature. Suppose a GRU sees the same
+yt = g
+f (ct )
+(16)
+feature three times in a row, and its input gate is open. The
+Where f is an activation function, either
+cell will (roughly speaking) be replaced three times, but there
+is comparatively little evidence that the GRU saw this feature
+(
+−ln(−x + 1) if x< 0
+more than once. On the other hand, the LSTM memory cell
+f (x) =
+has been increased three times, and it can arguably retain this
+ln(x + 1)
+otherwise
+
+Fig. 3. Wikipedia Text Prediction Task. Two layer networks.
+
+or
+
+Fig. 4. Wikipedia Text Prediction Task. Single layer networks.
+
+biases for the inner layer, the network can also achieve a
+traditional forget gate. Since this layer does not use many extra
+This logarithm-based activation function does not saturate parameters, we can compare equal width networks. wv1 , wv2 ,
+and can better handle larger inputs than tanh. Fig. 5 illustrates wv3 and bv1 are initialized with zeros, so the network starts
+both functions. The recurrent cell values may grow quite large, out as a standard LSTM. In summary, an LSTWM network
+causing the hyperbolic tangent function to quickly saturate and can modify its memory in a more complex manner without
+gradients to disappear. To obtain good performance from our necessarily accepting new values or exposing its current values.
+design, we wanted to develop a non-saturating function that Since the inner layer only uses the previous memory cell values,
+can still squash its input. Earlier works have used logarithm- it can be computed in parallel with any downstream network
+based activations, and the function we used appears in [13] and does not present a computation bottleneck if implemented
+in a parallel manner.
+and originally in [3].
+This architecture was adapted from a design in a previous
+While the rectified linear unit [9] (ReLU) is a common
+version
+[20] of this work, which used normal forget gates
+choice for non-recurrent architectures, they are usually not
+and
+included
+an extra layer and extra gate after the memory
+suitable for LSTM cells since they only have positive outputs
+cell
+update.
+We
+found that the previous four-gate architecture
+(although they have been used with some success in LSTM
+did
+not
+perform
+as well on tasks that required a precise
+and RNNs, see [18] [17]), and exploding feedback loops are
+memory.
+Likely,
+having
+three different memory operations at
+more likely when the activation function does not apply some
+each
+timestep
+resulted
+in
+excessive changes in to the memory.
+“squashing effect”. However, tanh is less suited for large inputs
+Setting
+appropriate
+initial
+bias values helped the situation in
+due to the small values of its derivative outside the small
+some
+cases,
+however,
+we
+found better designs that did not
+interval around zero.
+(s)
+require
+as
+much
+hand-tuning.
+Our first attempt at resolving the
+The forget gate output has been renamed g , and now
+issue
+was
+removing
+the
+forget
+gate. Removing the forget gate
+controls the convex combination of the previous memory cell
+from
+our
+earlier
+design
+did
+not
+yield good result by itself.
+value ct−1 with the output of the inner layer it . The weight
+Figures
+1
+and
+2
+illustrate
+LSTM
+and LSTWM, respectively.
+vectors wv2 and wv3 only connect a neuron to its left and right
+The
+i
+subscript
+indicates
+that
+this
+is
+the
+ith unit in a layer. The
+neighbors. In software, we did not implement this as a matrix
+multiplication, but as an element-wise roll of the input which white double arrows indicate an input that determines a gate
+gets multiplied by weight vectors and then has bias vectors value (as opposed to a value that gets multiplied by a gate).
+1) Training, Regularization and Other Details: Given that
+added. The function ρ(x, y) is an element-wise roll where x is
+the input vector and y is the number of times to roll left or right. the memory cells are not necessarily decaying in an exponential
+For example ρ([1, 2, 3], 1) = [3, 1, 2] and ρ([1, 2, 3], −1) = manner at each timestep, it is important to control their
+[2, 3, 1]. So the inter-neuron connections within the memory magnitude. Rather than just using a regularization term on
+cells are sparse and local. The reason for choosing a sparse the network weights themselves, we also regularize the overall
+layer is that dense layers grow quadratically with respect to magnitude of the memory-cells at each timestep.
+layer width. We wanted to compare equal-width networks,
+When training an ANN of any type, a regularization term
+since a LSTM’s memory capacity is determined by the number is usually included in the cost function. Often, the L2-norms
+of individual memory cells. By setting near-zero weights and of the weight matrices are added together and multiplied by
+f (x) = tanh(x)
+
+Architecture
+LSTM-256-tanh
+LSTWM-256-tanh
+LSTM-256-log
+LSTWM-256-log
+LSTM-256-256-tanh
+LSTWM-256-256-tanh
+LSTM-256-256-log
+LSTWM-256-256-log
+
+BPC on test set after training
+1.893
+1.892
+1.880
+1.880
+1.742
+1.733
+1.730
+1.725
+
+Fig. 6. Performance on text prediction task.
+
+III. E XPERIMENTS
+
+Fig. 5. Comparison of tanh and log-based activation function
+
+We have two experimental tasks to test our network on: text
+prediction and a combination digit-recognition and addition task.
+The networks were trained using ADAM [16], an optimization
+algorithm based on gradient descent, with the following settings
+α = .001 β1 = .9 β2 = .999.
+
+IV. T EXT P REDICTION
+a very small constant. This keeps the weight magnitudes in
+Like many other works e.g. [6], we use the hutter challenge
+check. For our architecture to train quickly, it is important [12] dataset as a performance test. This is a dataset of text
+to use an additional regularization term. Given a batch of and XML from Wikipedia. The objective is to predict the
+training data, we take the squared mean of the absolute value next character in the sequence. (Note that we only use the
+plus the mean absolute value of the memory cell magnitudes dataset itself, and this benchmark is unrelated to the Hutter
+at each timestep for every element in the batch. In other compression challenge) The first 95% of the data was used as
+words, η · (mean(|cells|)2 + mean(|cells|)) for some small a training set and the last 5% for testing. Error is measured
+constant η. We found that using η ≈ 10−2 or η ≈ 10−3 in bits-per-character, BPC, which is identical to cross entropy
+worked well. Similar regularization terms are discussed in [17], error, except that the base-2 logarithm is used instead of the
+although they differ in that they are applied to the change in natural log. We used a batch size of 32 and no gradient clipping.
+memory cell values from one timestep to the next, rather than To reduce the amount of training time needed, we used lengththeir magnitude. Using direct connections between the inner 200 sequences for the first epoch, and then used length-2000
+cells can amplify gradients and produce quickly exploding sequences for the remaining five epochs.
+values. By adding this regularization term, we penalize weight
+Figures 3 and 4 show a running average of the training
+configurations that encourage uncontrollable memory cell error and 6 shows the BPC on the test set after training. The
+values. Since the cells values get squashed by the activation results are close for this particular task, with LSTWM taking a
+function before being multiplied by the output gate, regularizing slight advantage. Notice that for this test, the logarithm based
+these values shapes the optimization landscape in a way that activation does carry some benefit, and the best performing
+encourages faster learning. This is also true to some extent for network was indeed LSTWM with the logarithmic activation.
+regular LSTM, which benefits from this type of regularization
+as well. We also applied this regularization function to the A. Training Information
+weights themselves. LSTWM can learn effectively without
+Given the popularity of this task as a benchmark, a quick
+extra regularization, but it will learn slowly in some cases.
+training phase is desirable. Input vectors are traditionally given
+Note that we use the square-of-abs-mean not the mean- in a one-hot format. However, the network layers can be quite
+squared. Using the square-of-abs-mean allows some values to wide, and each cell has many connections. We found that using
+grow large, and only encourages most of the values to be small. a slightly larger nonzero value in the vectors resulted in quicker
+This is important, especially for the memory cells, because the training. Instead of using a value of 1.0 for the single non-zero
+ability of a neural network to generalize depends on its ability element in the input vectors, we used log(n) + 1.0 where n
+to abstract away details and ignore small changes in input. is the number of input symbols. In this case, n = 205, since
+Indeed, this is the entire purpose of using sigmoid-shaped there are 205 distinct characters in this dataset. On tasks where
+squashing functions. If the goal were to keep every single there are many symbols, the mean magnitude of the elements
+memory cell within tanh’s “gradient-zone”, one could use the of the input vector is not as small, which accelerated training
+hyperbolic cosine as a regularization function since it grows in our experiments.
+very large outside this range.
+Another method we used to speed up training was using a
+We used Python and Theano [21] to implement our network pre-train epoch with shorter sequences. The shorter sequences
+and experiments.
+mean that there are more iterations in this epoch and the
+
+Fig. 7. Example input sequences for combination digit task
+
+Fig. 8. Inputs colored and separated into columns to show individual input
+columns
+
+iterations are performed more quickly. This rapid pre-training
+phase moves the parameters to a better starting point more
+quickly. This method could also be used in any task where the
+input is an arbitrary-length sequence. Longer sequences result
+in better quality updates, but they take proportionally longer
+to compute. We also added a very small amount of Gaussian
+noise to the inputs during the pre-train epoch, but not during
+the main training phase. Fast and noisy updates work well
+early in the training process and reduce the amount of time
+necessary to train networks.
+
+Fig. 9. Digit Combo task training error.
+
+Architecture
+LSTM-128-128-tanh
+LSTWM-128-128-tanh
+LSTM-128-128-log
+LSTWM-128-128-log
+
+# of correct sum outputs
+(out of 10000)
+8864
+8820
+8972
+9015
+
+Fig. 10. Performance on digit combo task.
+
+the forget gate biases are often < 0, which indicates low forgetgate activity, i.e. it tends to forget things quickly. This task
+was developed as a way to test memory functionality, since
+V. D IGIT RECOGNITION AND ADDITION COMBINED TASK
+text-recognition does not stress this capability.
+This task is a combination of digit recognition and addition.
+Another interesting property of this task is that it demonOther works (e.g. [10], [15]) use the MNIST dataset as a strates the ability of an architecture to form a generalized
+performance test for artificial neural networks. Addition is also algorithm. Increasing the length by concatenating more digit
+a common task for evaluating the viability of new RNN designs, images will remove non-algorithmic minimums from the search
+and usually the numbers to be added are explicitly encoded by space. In other words, the network will need to learn an
+a single input vector at each timestep. The difference with addition algorithm to correctly process a longer sequence.
+this task is that we horizontally concatenate a number of Simply “memorizing” the correct outputs will not work when
+images from MNIST and train on the sum of those digits. the network does not have enough parameters, to work on
+This large concatenated image is presented to the network in longer sequences, it must learn an addition algorithm. This
+column vectors. After the network has seen the entire image, can also be applied without the strict memory requirements
+it should output the sum of the digits in the input. No error of back-propagating to the first digit. In this case, one would
+is propagated until the end of the image. This makes the task simply train to output the running sum at frequent intervals
+a useful benchmark for memory, generalization ability, and rather than just at the end of the sequence. In the boundary
+vision. The training targets are placeholders until the end, and case where the number of digit images is one, it becomes a
+then two (more if needed) size-10 vectors corresponding to simple digit-recognition task.
+the two digits of the sum. A similar but non-sequential task
+We trained in a similar manner to the text-prediction
+appears in [1].
+experiment. Each training input consists of randomly selected
+For this task, the error coming from the end of the sequence digits along with their sum as a target. The same ADAM
+must be back-propagated all the way to the first digit image. If parameters were used as in the text-prediction task. We trained
+this does not occur, the model will not correctly learn. Unlike on sequences with four concatenated digit images. Therefore,
+text prediction, this requires a robust memory and the ability each input sequence was 112 input vectors with three more
+to back-propagate the error an arbitrary number of time-steps. placeholders at the end. As a preprocessing step, the digit
+We suspect that text prediction is a task where memory values images were added with Gaussian (scaled down ×10−5 )
+are often replaced. For text-prediction, at the end of training, noise, blurred (3x3 kernel, Gaussian), mean-subtracted and
+
+number of extra parameters used is linear, not quadratic, with
+respect to layer width, so we consider it a good improvement
+given the small size increase. We claim that using the inner
+layer, along with using a logarithm-based activation will offer
+a modest but significant performance benefit. Another notable
+feature of LSTWM is that the training error decreases more
+quickly compared to standard LSTM.
+VI. C ONCLUSION
+We discussed several interesting properties of LSTM and
+introduced a modified LSTM architecture that outperforms
+LSTM in several cases using few additional parameters. We
+observe that a logarithm-based activation function works well
+in LSTM and our modified variant. Finally, we presented a
+benchmark for recurrent networks based on digit-recognition.
+REFERENCES
+Fig. 11. Plain Digit Recognition
+
+Architecture
+LSTM-32-33-tanh
+LSTWM-32-32-tanh
+LSTM-32-33-log
+LSTWM-32-32-log
+LSTM-32-32-33-33-tanh
+LSTWM-32-32-32-32-tanh
+LSTM-32-32-33-33-log
+LSTWM-32-32-32-32-log
+
+Best test-set performance
+(out of 10000)
+9600
+9620
+9657
+9655
+9676
+9690
+9690
+9712
+
+Fig. 12. Performance on digit recognition. (out of 10,000 test sequences)
+
+squashed with the log-activation function in that order. Better
+performance can be obtained by omitting the noise and blur,
+however it was difficult to obtain consistent results without
+some smoothing of the inputs.
+The LSTWM architecture learned more quickly, and achieved
+the best performance, although only using the logarithm-based
+activation. Figures 9 and 10 show the training error curve
+and peak test set results respectively.
+
+[1]
+
+[2]
+
+[3]
+
+[4]
+
+[5]
+
+[6]
+[7]
+
+[8]
+
+A. Plain Digit Recognition
+We also tested the case for the task above where there is
+only one digit image, for a variety of different network sizes.
+Since the layers are narrow, we decided to slightly increase
+the width of LSTM so that the LSTM networks have more
+parameters. Since this is a much simpler task, it did not require
+as much training.
+
+[9]
+
+[10]
+[11]
+
+B. Results
+For text-prediction, the performance is roughly equal, although LSTWM with the logarithm activation slightly outperforms the other networks. Notably, the logarithmic activation
+function increases performance consistently on this task. For
+the digit-combo task, we observed better performance with
+LSTWM, and likewise on the simple digit recognition task. The
+
+[12]
+[13]
+
+Jimmy Ba, Volodymyr Mnih, and Koray Kavukcuoglu.
+“Multiple object recognition with visual attention”. In:
+arXiv preprint arXiv:1412.7755 (2014).
+Yoshua Bengio, Patrice Simard, and Paolo Frasconi.
+“Learning long-term dependencies with gradient descent
+is difficult”. In: IEEE transactions on neural networks
+5.2 (1994), pp. 157–166.
+Jaroslaw Bilski. “The backpropagation learning with
+logarithmic transfer function”. In: Proc. 5th Conf. on
+Neural Networks and Soft Computing. 2000, pp. 71–76.
+Kyunghyun Cho et al. “Learning phrase representations
+using RNN encoder-decoder for statistical machine
+translation”. In: arXiv preprint arXiv:1406.1078 (2014).
+Junyoung Chung et al. “Empirical evaluation of gated
+recurrent neural networks on sequence modeling”. In:
+arXiv preprint arXiv:1412.3555 (2014).
+Ivo Danihelka et al. “Associative Long Short-Term
+Memory”. In: arXiv preprint arXiv:1602.03032 (2016).
+Felix A Gers, Jürgen Schmidhuber, and Fred Cummins.
+“Learning to forget: Continual prediction with LSTM”.
+In: Neural computation 12.10 (2000), pp. 2451–2471.
+Felix A Gers, Nicol N Schraudolph, and Jürgen Schmidhuber. “Learning precise timing with LSTM recurrent
+networks”. In: The Journal of Machine Learning Research 3 (2003), pp. 115–143.
+Xavier Glorot, Antoine Bordes, and Yoshua Bengio.
+“Deep Sparse Rectifier Neural Networks.” In: Aistats.
+Vol. 15. 106. 2011, p. 275.
+David Ha, Andrew Dai, and Quoc V Le. “HyperNetworks”. In: arXiv preprint arXiv:1609.09106 (2016).
+Sepp Hochreiter and Jürgen Schmidhuber. “Long shortterm memory”. In: Neural computation 9.8 (1997),
+pp. 1735–1780.
+Marcus Hutter. http://prize.hutter1.net/.
+IS Isa et al. “Suitable MLP network activation functions
+for breast cancer and thyroid disease detection”. In:
+2010 Second International Conference on Computational
+Intelligence, Modelling and Simulation. IEEE. 2010,
+pp. 39–44.
+
+[14] Rafal Jozefowicz, Wojciech Zaremba, and Ilya Sutskever.
+“An empirical exploration of recurrent network architectures”. In: Proceedings of the 32nd International
+Conference on Machine Learning (ICML-15). 2015,
+pp. 2342–2350.
+[15] Nal Kalchbrenner, Ivo Danihelka, and Alex Graves.
+“Grid long short-term memory”. In: arXiv preprint
+arXiv:1507.01526 (2015).
+[16] Diederik Kingma and Jimmy Ba. “Adam: A method
+for stochastic optimization”. In: arXiv preprint
+arXiv:1412.6980 (2014).
+[17] David Krueger and Roland Memisevic. “Regularizing
+RNNs by stabilizing activations”. In: arXiv preprint
+arXiv:1511.08400 (2015).
+[18] Quoc V Le, Navdeep Jaitly, and Geoffrey E Hinton.
+“A simple way to initialize recurrent networks of rectified linear units”. In: arXiv preprint arXiv:1504.00941
+(2015).
+[19] Yann LeCun and Corinna Cortes. “MNIST handwritten
+digit database”. In: AT&T Labs [Online]. Available:
+http://yann. lecun. com/exdb/mnist (2010).
+[20] Andrew Pulver and Siwei Lyu. “LSTM with Working
+Memory”. In: arXiv preprint arXiv:1605.01988 (2016).
+[21] Theano Development Team. “Theano: A Python framework for fast computation of mathematical expressions”.
+In: arXiv e-prints abs/1605.02688 (May 2016). URL:
+http://arxiv.org/abs/1605.02688.
+
+

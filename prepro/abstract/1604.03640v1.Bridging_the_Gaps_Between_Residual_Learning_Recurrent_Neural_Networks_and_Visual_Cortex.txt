@@ -1,0 +1,15 @@
+ we discuss relations between residual networks (resnet), recurrent neural networks (rnns) and
+the primate visual cortex. we begin with the observation that a shallow rnn is exactly equivalent to a very deep
+resnet with weight sharing among the layers. a direct implementation of such a rnn, although having orders
+of magnitude fewer parameters, leads to a performance similar to the corresponding resnet. we propose 1) a
+generalization of both rnn and resnet architectures and 2) the conjecture that a class of moderately deep rnns
+is a biologically-plausible model of the ventral stream in visual cortex. we demonstrate the effectiveness of the
+architectures by testing them on the cifar-10 dataset.
+
+this work was supported by the center for brains, minds and machines
+(cbmm), funded by nsf stc award ccf - 1231216.
+
+1
+
+1
+

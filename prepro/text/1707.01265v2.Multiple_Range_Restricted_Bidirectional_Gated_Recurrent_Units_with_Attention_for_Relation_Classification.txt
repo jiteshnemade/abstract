@@ -1,0 +1,521 @@
+Multiple Range-Restricted Bidirectional Gated Recurrent Units with
+Attention for Relation Classification
+Jonggu Kim
+Computer Science and Engineering,
+Pohang University of Science and
+Technology (POSTECH)
+Pohang, Republic of Korea
+jgkimi@postech.ac.kr
+
+arXiv:1707.01265v2 [cs.CL] 1 Nov 2017
+
+Abstract
+Most of neural approaches to relation classification have focused on finding short
+patterns that represent the semantic relation using Convolutional Neural Networks
+(CNNs) and those approaches have generally achieved better performances than using Recurrent Neural Networks (RNNs).
+In a similar intuition to the CNN models,
+we propose a novel RNN-based model that
+strongly focuses on only important parts of
+a sentence using multiple range-restricted
+bidirectional layers and attention for relation classification. Experimental results
+on the SemEval-2010 relation classification task show that our model is comparable to the state-of-the-art CNN-based and
+RNN-based models that use additional linguistic information.
+
+1
+
+Introduction
+
+Relation classification is to select the relation class
+that implies the relation of the two nominals (e1,
+e2) in the given text. For instance, given the following sentence, “The <e1>phone</e1> went
+into the <e2>washer</e2>.”, where <e1>,
+</e1>, <e2>, </e2> are position indicators that
+represent the starting and ending positions of nominals, the goal is to find the actual relation EntityDestination of phone and washer. The task is important because the results can be utilized in other
+Natural Language Processing (NLP) applications
+like question answering and information retrieval.
+Recently, Neural Network (NN) approaches to
+relation classification have been spotlighted since
+they do not need any handcrafted features but even
+obtain better performances than traditional models. Such NNs can be simply classified into CNNbased and RNN-based models, and they capture
+
+Jong-Hyeok Lee
+Computer Science and Engineering,
+Pohang University of Science and
+Technology (POSTECH)
+Pohang, Republic of Korea
+jhlee@postech.ac.kr
+slightly different features to predict a relation
+class.
+In general, CNN-based models can only capture local features while RNN-based models are
+expected to capture global features as well, but
+the performances of CNN-based models are better
+than RNN-based models. That could be thought
+that most of relation-related terms are not scattered
+but intensively positioned as short expressions on
+a given sentence, and further even if RNNs are expected to learn such information automatically, it
+cannot be easily done contrary to our expectation.
+To overcome the limitation of RNNs, most of the
+recent work using RNNs have used additional linguistic information like Shortest Dependency Path
+(SDP), which can reduce the effect of noise words
+when predicting a relation.
+In this paper, we propose a simple RNN-based
+model that strongly pays attention to nominalrelated and relation-related parts with multiple
+range-restricted RNN variants called Gated Recurrent Units (GRUs) (Cho et al., 2014) and attention. On the SemEval-2010 Task 8 dataset (Hendrickx et al., 2009), our model with only pretrained word embeddings achieved the F1 score
+of 84.3%, which is comparable with the state-ofthe-art CNN-based and RNN-based models that
+use additional linguistic resources such as Part-OfSpeech (POS) tags, WordNet and SDP. Our contributions are summarized as follows:
+• For relation classification, without any additional linguistic information, we suggest
+modeling nominals and a relation in a sentence with specified range-restriction standards and attention using RNNs.
+• We show how effective abstracting nominal
+parts, a relation part and both separately with
+the restrictions is to relation classification.
+
+2
+
+Related Work
+
+3.2
+
+Traditional approaches to relation classification
+are to find important features of relations with
+various linguistic processors and utilize them to
+train classifiers. For instance, Rink and Harabagiu
+(2010) uses NLP tools to extract linguistic features
+and trains an SVM model with the features.
+Recently, many deep learning approaches have
+been proposed. Zeng et al. (2014) proposes a
+model based on CNNs to automatically learn important N-gram features. dos Santos et al. (2015)
+proposes a ranking loss function to well distinguish between the real classes and Other class.
+To capture long distance patterns, RNN-based,
+usually using Long Short-Term Memory (LSTM),
+approaches have also appeared, one of which is
+Zhang and Wang (2015). The model simply feeds
+on all words in a sentence, then captures important one through the max-pooling operation. Xu
+et al. (2015b) and Miwa and Bansal (2016) propose other RNN models using SDP to ignore noise
+words in a sentence. In addition, Liu et al. (2015)
+and Cai et al. (2016) propose hybrid models of
+RNN and CNN.
+One of the most related work to ours is the
+attention-based bidirectional LSTM (att-BLSTM)
+(Zhou et al., 2016). The model uses bidirectional
+LSTM and attention techniques to abstract important parts. However, the att-BLSTM does not distinguish roles of each part in a sentence, which
+could not involve sensitive attention. Another of
+the most related work is by Zheng et al. (2016).
+They try to capture nominal-related and relationrelated patterns with CNNs and use neither restrictions nor attention mechanism.
+
+3
+
+The Proposed Model
+
+Figure 1 shows the architecture of the proposed
+model, which will be described in the subsections.
+3.1
+
+Word Embeddings
+
+Our model first takes word embeddings to represent a sentence at the word level. Given a sentence
+S consisting of N words, it can be represented as
+S = {w1 , w2 , w3 ,..., wN }. We convert each onehot vector wt by multiplying with the word embedding matrix We ∈ Rde ×|V | :
+e t = W e wt .
+
+(1)
+
+Then, the sentence can be represented as Se =
+{e1 , e2 , ..., eN }.
+
+Range-Restricted Bidirectional GRUs
+
+To capture information of two nominals and one
+relation, our model consists of three bidirectional
+GRU layers with range restrictions. A GRU is
+a kind of RNN variant to alleviate the gradientvanishing problem like LSTM, but it has fewer
+weights than LSTM. In a GRU, the t-th hidden ht
+with reset gate rt and update gate zt is computed
+as:
+
+
+rt = σ Wr et + Ur ht−1 ,
+
+zt = σ Wz et + Uz ht−1 ,
+h̃t = tanh W et + U (rt
+ht = zt
+
+ht−1 + (1 − zt )
+
+(2)
+(3)
+
+ht−1 ) ,
+
+(4)
+
+h̃t ,
+
+(5)
+
+where σ is the logistic sigmoid function.
+The range restrictions can be done by using
+masking techniques to restrict the input range of
+the three bidirectional GRUs. Therefore, they
+should be conducted under three separate standards, but because the standards for two nominals are the same, we introduce two kinds of standards. First, to capture each nominal information,
+only the pen ± k positioned words are regarded
+as input to the corresponding bidirectional GRU
+layer, where pen is the position of nominal e1 or e2
+and k is a hyperparameter affecting their window
+size. Second, for the relation GRU layer, the input range is set to [pe1 , pe2 ] or [pe2 , pe1 ] according
+to the relative order of the nominals in a sentence,
+which means that the range is from the formerlyappearing nominal to the latterly-appearing nominal.
+After the sentence representation at word level
+Se is fed into the six GRU layers (three GRU layers in two directions) under the restrictions, various hidden units are finally generated from the
+layers. We call the hidden units of each GRU layer
+→
+− ←
+− →
+− ←
+− →
+−
+←
+−
+H e1 , H e1 , H e2 , H e2 , H rel , H rel for convenience
+in the next subsection.
+3.3
+
+Sentence-level Representation
+
+Among the hidden units of the six range-restricted
+GRUs, the model selects important parts by using
+direct selection from hidden layers and the attention mechanism.
+To extract e1 and e2 information, we propose
+to directly select hidden units at each nominal position in the e1 and e2 bidirectional GRUs, and to
+
+Figure 1: Multiple Range-Restricted Bidirectional GRUs with Attention (k = 3)
+sum them to construct ve1 , ve2 ∈ Rdh , respectively
+as:
+→
+−
+←
+−
+ve1 = h e1 + h e1 ,
+(6)
+→
+−
+←
+−
+ve2 = h e2 + h e2 ,
+(7)
+where each directional hen represents hidden units
+at the en positions in the directional Hen .
+To abstract relation information, we adopt the
+attention mechanism that has been widely used
+in many areas (Bahdanau et al., 2014; Hermann
+et al., 2015; Chorowski et al., 2015; Xu et al.,
+2015a). We use the attention mechanism (Zhou
+et al., 2016), but we apply it to each directional
+GRU layer independently to capture more informative parts with the flexibility. The forward di−
+rectional relation-abstracted vector →
+v rel is com←
+−
+puted as ( v rel in the same way):
+−
+→
+→
+−
+M = tanh( H rel ),
+(8)
+−
+→
+→
+−
+−
+α = sof tmax(→
+w T M ),
+(9)
+→
+− −T
+→
+−
+v rel = H rel →
+α ,
+
+att
+
+(10)
+
+−
+where →
+w att is a trained attention vector for the forward layer.
+−
+−
+Then, we sum →
+v rel and ←
+v rel to make the
+relation-abstracted vector vrel ∈ Rdh :
+−
+−
+vrel = →
+v rel + ←
+v rel .
+
+(11)
+
+Lastly, the final representation vf in ∈ R3dh is
+constructed by concatenating them:
+vf in = ve1 ⊕ vrel ⊕ ve2 ,
+where ⊕ is a concatenation operator.
+
+(12)
+
+3.4
+
+Classification
+
+Our model uses scores of how similar the vf in is to
+each class embedding to predict the actual relation
+(dos Santos et al., 2015). Concretely, we propose a
+feed-forward layer in which a weight matrix Wc ∈
+Rclasses×3dh and a bias vector bc ∈ Rclasses can
+be regarded as a set of the class embeddings. In
+other words, the inner-product of each row vector
+in Wc with vf in represents the similarity between
+them in vector space, so the class score vector sc ∈
+Rclasses is just computed as:
+sc = Wc vf in + bc .
+
+(13)
+
+Then, the model chooses the max-valued index
+that represents the most probable class label ĉ except that every value in the sc is negative. In the
+exceptional case, ĉ is chosen as Other (dos Santos
+et al., 2015).
+3.5
+
+Training Objectives
+
+We adopt the ranking loss function (dos Santos
+et al., 2015) to train the networks. Let scy+ the
+score of the ĉ, and scc− the competitive score that
+is the best score excluding scy+ for convenience.
+Then, the loss is computed as:
+L = log(1 + exp(γ(m+ − scy+ )))
++ log(1 + exp(γ(m− + scc− ))), (14)
+where m+ and m− represent margins and γ is
+a factor that magnifies the gap between the score
+and the margin.
+
+Model
+SDP-LSTM
+(Xu et al., 2015b)
+DepNN
+(Liu et al., 2015)
+SPTree
+(Miwa and Bansal, 2016)
+MixCNN+CNN
+(Zheng et al., 2016)
+att-BLSTM
+(Zhou et al., 2016)
+Our Model (att-BGRU)
+Our Model (Relation only)
+Our Model (Nominals only)
+Our Model (Nominals and Relation)
+
+Additional Features (Except Word Embeddings)
+
+F1
+
+- POS, WordNet, dependency parse, grammar relation
+
+83.7
+
+- NER, dependency parse
+
+83.6
+
+- POS, dependency parse
+
+84.4
+
+- None
+
+84.8
+
+- None
+
+84.0
+
+- None
+- None
+- None
+- None
+
+82.9
+83.0
+81.4
+84.3
+
+Table 1: Comparison with the results of the state-of-the-art models
+
+4
+
+Experiments
+
+For the experiments, we implement our model
+in Python using Theano (Theano Development
+Team, 2016) and use the model with the following descriptions.
+4.1
+
+Datasets and Settings
+
+We conduct the experiments with SemEval-2010
+Task 8 dataset (Hendrickx et al., 2009), which
+contains 8,000 sentences as the training dataset,
+and 2,717 sentences as the test dataset. A sentence consists of two nominals (e1, e2), and a
+relation between them. Ten relation types are
+considered: Nine specific types (Cause-Effect,
+Component-Whole, Content-Container, EntityDestination, Entity-Origin, Instrument-Agency,
+Member-Collection, Message-Topic and ProductProducer), and the Other class. The specific types
+have directionality, so a total of 2 × 9 + 1 = 19
+relation classes exist.
+We use 10-fold cross-validation to tune the hyperparameters. We adopt the 100-dimensional
+word vectors trained by Pennington et al. (2014)
+as initial word embeddings and select the hidden
+layer dimension dn of 100, the learning rate of
+1.0 and the batch size of 10. AdaDelta (Zeiler,
+2012) is used as the learning optimizer. Also, we
+adapt the dropout (Hinton et al., 2012) to the word
+embeddings, GRU hidden units, and feed-forward
+layer with dropout rates of 0.3, 0.3 and 0.7, respectively, and use the k of 3. We adopt the position
+indicator that regards <e1>, </e1>, <e2> and
+</e2> as single words (Zhang and Wang, 2015).
+
+We set m+ , m− and γ to 2.5, 0.5 and 2.0, respectively (dos Santos et al., 2015) and adopt the L2
+regularization with 10−5 . The official scorer is
+used to evaluate our model in the macro-averaged
+F1 (excluding Other).
+4.2
+
+Results
+
+In Table 1, our results are compared with the other
+state-the-art models. Our model with only pretrained word embeddings achieved the F1 score of
+84.3%, which is comparable to the state-of-the-art
+models.
+Furthermore, we investigated the effects of extracting relation, nominals and both of them.
+Attention-based bidirectional GRUs with no restriction (att-BGRU) were also tested as a reimplementation of the att-BLSTM. Here, our finding is that the restricted version of the att-BGRU
+(the relation only model) is not significantly better,
+but by abstracting nominals together, the model
+achieves higher F1 score. That indicates even if
+the ranges are slightly overlapped, they capture
+distinct features and improve the performance.
+
+5
+
+Conclusion
+
+This paper proposed a novel model based on multiple range-restricted RNNs with attention. The
+proposed model achieved a comparable performance to the state-of-the-art models without any
+additional linguistic information.
+
+References
+Dzmitry Bahdanau, Kyunghyun Cho, and Yoshua Bengio. 2014. Neural machine translation by jointly
+learning to align and translate. arXiv preprint
+arXiv:1409.0473 .
+Rui Cai, Xiaodong Zhang, and Houfeng Wang. 2016.
+Bidirectional recurrent convolutional neural network
+for relation classification. In Proceedings of the
+54th Annual Meeting of the Association for Computational Linguistics (Volume 1: Long Papers). Association for Computational Linguistics, pages 756–
+765. https://doi.org/10.18653/v1/P16-1072.
+Kyunghyun Cho, Bart van Merrienboer, Caglar Gulcehre, Dzmitry Bahdanau, Fethi Bougares, Holger
+Schwenk, and Yoshua Bengio. 2014. Learning
+phrase representations using rnn encoder–decoder
+for statistical machine translation. In Proceedings of
+the 2014 Conference on Empirical Methods in Natural Language Processing (EMNLP). Association
+for Computational Linguistics, pages 1724–1734.
+https://doi.org/10.3115/v1/D14-1179.
+Jan K Chorowski, Dzmitry Bahdanau, Dmitriy
+Serdyuk, Kyunghyun Cho, and Yoshua Bengio. 2015. Attention-based models for speech
+recognition.
+In Advances in Neural Information Processing Systems. pages 577–585.
+http://papers.nips.cc/paper/5847-attention-basedmodels-for-speech-recognition.pdf.
+Cicero dos Santos, Bing Xiang, and Bowen Zhou.
+2015.
+Classifying relations by ranking with
+convolutional neural networks. In Proceedings
+of the 53rd Annual Meeting of the Association
+for Computational Linguistics and the 7th International Joint Conference on Natural Language
+Processing (Volume 1: Long Papers). Association for Computational Linguistics, pages 626–634.
+https://doi.org/10.3115/v1/P15-1061.
+Iris Hendrickx, Nam Su Kim, Zornitsa Kozareva,
+Preslav Nakov, Diarmuid Ó Séaghdha, Sebastian
+Padó, Marco Pennacchiotti, Lorenza Romano, and
+Stan Szpakowicz. 2009. Semeval-2010 task 8:
+Multi-way classification of semantic relations between pairs of nominals.
+In Proceedings of
+the Workshop on Semantic Evaluations: Recent
+Achievements and Future Directions (SEW-2009).
+Association for Computational Linguistics, pages
+94–99. http://aclweb.org/anthology/W09-2415.
+Karl Moritz Hermann, Tomas Kocisky, Edward
+Grefenstette, Lasse Espeholt, Will Kay, Mustafa Suleyman, and Phil Blunsom. 2015. Teaching machines to read and comprehend. In Advances in Neural Information Processing Systems. pages 1693–
+1701. https://doi.org/10.1002/trtr.1467.
+Geoffrey E Hinton, Nitish Srivastava, Alex Krizhevsky,
+Ilya Sutskever, and Ruslan R Salakhutdinov. 2012.
+Improving neural networks by preventing coadaptation of feature detectors. arXiv preprint
+arXiv:1207.0580 .
+
+Yang Liu, Furu Wei, Sujian Li, Heng Ji, Ming Zhou,
+and Houfeng WANG. 2015. A dependency-based
+neural network for relation classification. In Proceedings of the 53rd Annual Meeting of the Association for Computational Linguistics and the 7th International Joint Conference on Natural Language
+Processing (Volume 2: Short Papers). Association for Computational Linguistics, pages 285–290.
+https://doi.org/10.3115/v1/P15-2047.
+Makoto Miwa and Mohit Bansal. 2016. End-to-end
+relation extraction using lstms on sequences and
+tree structures. In Proceedings of the 54th Annual Meeting of the Association for Computational
+Linguistics (Volume 1: Long Papers). Association
+for Computational Linguistics, pages 1105–1116.
+https://doi.org/10.18653/v1/P16-1105.
+Jeffrey Pennington, Richard Socher, and Christopher Manning. 2014.
+Glove: Global vectors
+for word representation. In Proceedings of the
+2014 Conference on Empirical Methods in Natural Language Processing (EMNLP). Association
+for Computational Linguistics, pages 1532–1543.
+https://doi.org/10.3115/v1/D14-1162.
+Bryan Rink and Sanda Harabagiu. 2010. Utd: Classifying semantic relations by combining lexical and
+semantic resources. In Proceedings of the 5th International Workshop on Semantic Evaluation. Association for Computational Linguistics, pages 256–259.
+http://aclweb.org/anthology/S10-1057.
+Theano Development Team. 2016.
+Theano: A
+Python framework for fast computation of mathematical expressions. arXiv e-prints abs/1605.02688.
+http://arxiv.org/abs/1605.02688.
+Kelvin Xu, Jimmy Ba, Ryan Kiros, Kyunghyun Cho,
+Aaron Courville, Ruslan Salakhutdinov, Richard S
+Zemel, and Yoshua Bengio. 2015a. Show, attend
+and tell: Neural image caption generation with visual attention. arXiv preprint arXiv:1502.03044
+2(3):5.
+Yan Xu, Lili Mou, Ge Li, Yunchuan Chen, Hao
+Peng, and Zhi Jin. 2015b. Classifying relations
+via long short term memory networks along shortest dependency paths.
+In Proceedings of the
+2015 Conference on Empirical Methods in Natural Language Processing (EMNLP). Association
+for Computational Linguistics, pages 1785–1794.
+https://doi.org/10.18653/v1/D15-1206.
+Matthew D Zeiler. 2012. Adadelta: an adaptive learning rate method. arXiv preprint arXiv:1212.5701 .
+Daojian Zeng, Kang Liu, Siwei Lai, Guangyou Zhou,
+and Jun Zhao. 2014. Relation classification via
+convolutional deep neural network. In Proceedings of COLING 2014, the 25th International Conference on Computational Linguistics: Technical
+Papers. Dublin City University and Association
+for Computational Linguistics, pages 2335–2344.
+http://aclweb.org/anthology/C14-1220.
+
+Dongxu Zhang and Dong Wang. 2015. Relation classification via recurrent neural network. arXiv preprint
+arXiv:1508.01006 .
+Suncong Zheng, Jiaming Xu, Peng Zhou, Hongyun
+Bao, Zhenyu Qi, and Bo Xu. 2016.
+A
+neural network framework for relation extraction: Learning entity semantic and relation pattern.
+Knowledge-Based Systems 114:12–23.
+https://doi.org/10.1016/j.knosys.2016.09.019.
+Peng Zhou, Wei Shi, Jun Tian, Zhenyu Qi, Bingchen
+Li, Hongwei Hao, and Bo Xu. 2016. Attentionbased bidirectional long short-term memory networks for relation classification. In Proceedings of
+the 54th Annual Meeting of the Association for Computational Linguistics (Volume 2: Short Papers). Association for Computational Linguistics, pages 207–
+212. https://doi.org/10.18653/v1/P16-2034.
+
+

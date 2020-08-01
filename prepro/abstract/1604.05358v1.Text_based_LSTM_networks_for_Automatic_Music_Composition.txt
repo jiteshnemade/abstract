@@ -1,0 +1,11 @@
+ in this paper, we introduce new methods and discuss results
+of text-based lstm (long short-term memory) networks for automatic
+music composition. the proposed network is designed to learn relationships within text documents that represent chord progressions and drum
+tracks in two case studies. in the experiments, word-rnns (recurrent
+neural networks) show good results for both cases, while character-based
+rnns (char-rnns) only succeed to learn chord progressions. the proposed system can be used for fully automatic composition or as semiautomatic systems that help humans to compose music by controlling a
+diversity parameter of the model.
+keywords: lstm, rnn, automatic composition, chord progressions
+
+1
+

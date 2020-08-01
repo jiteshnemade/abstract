@@ -1,0 +1,15 @@
+
+long short-term memory (lstm) is a recurrent neural network
+(rnn) architecture that has been designed to address the vanishing and exploding gradient problems of conventional rnns. unlike
+feedforward neural networks, rnns have cyclic connections making them powerful for modeling sequences. they have been successfully used for sequence labeling and sequence prediction tasks,
+such as handwriting recognition, language modeling, phonetic labeling of acoustic frames. however, in contrast to the deep neural
+networks, the use of rnns in speech recognition has been limited
+to phone recognition in small scale tasks. in this paper, we present
+novel lstm based rnn architectures which make more effective
+use of model parameters to train acoustic models for large vocabulary speech recognition. we train and compare lstm, rnn and
+dnn models at various numbers of parameters and configurations.
+we show that lstm models converge quickly and give state of the
+art speech recognition performance for relatively small sized models. 1
+index terms— long short-term memory, lstm, recurrent
+neural network, rnn, speech recognition.
+1. 

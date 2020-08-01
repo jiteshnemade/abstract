@@ -1,0 +1,10 @@
+
+the advantage of recurrent neural networks (rnns) in learning dependencies between time-series data has
+distinguished rnns from other deep learning models. recently, many advances are proposed in this emerging
+field. however, there is a lack of comprehensive review on memory models in rnns in the literature. this
+paper provides a fundamental review on rnns and long short term memory (lstm) model. then, provides a
+surveys of recent advances in different memory enhancements and learning techniques for capturing long term
+dependencies in rnns.
+keywords: long-short term memory, long-term dependency, recurrent neural networks, time-series data.
+
+1. 

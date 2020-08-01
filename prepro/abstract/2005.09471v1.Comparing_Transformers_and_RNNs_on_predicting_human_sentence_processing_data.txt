@@ -1,0 +1,16 @@
+
+recurrent neural networks (rnns) have long been an architecture of interest for computational
+models of human sentence processing. the more recently introduced transformer architecture
+has been shown to outperform recurrent neural networks on many natural language processing
+tasks but little is known about their ability to model human language processing. it has long
+been thought that human sentence reading involves something akin to recurrence and so rnns
+may still have an advantage over the transformer as a cognitive model. in this paper we train
+both transformer and rnn based language models and compare their performance as a model
+of human sentence processing. we use the trained language models to compute surprisal values
+for the stimuli used in several reading experiments and use mixed linear modelling to measure
+how well the surprisal explains measures of human reading effort. our analysis shows that the
+transformers outperform the rnns as cognitive models in explaining self-paced reading times
+and n400 strength but not gaze durations from an eye-tracking experiment.
+
+1
+

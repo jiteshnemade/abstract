@@ -1,0 +1,753 @@
+Use of recurrent infomax to improve the memory capability of input-driven recurrent
+neural networks
+Hisashi Iwade,1, ∗ Kohei Nakajima,2, 3 Takuma Tanaka,4 and Toshio Aoyagi1
+1
+
+arXiv:1803.05383v1 [cs.NE] 14 Feb 2018
+
+Graduate School of Informatics, Kyoto University,
+Yoshida Honmachi, Sakyo-ku, Kyoto 606-8501, Japan
+2
+Graduate School of Information Science and Technology, University of Tokyo, Tokyo 113-8656, Japan
+3
+JST, PRESTO, 4-1-8 Honcho, Kawaguchi, Saitama 332-0012, Japan
+4
+Faculty of Data Science, Shiga University, 1-1-1 Banba, Hikone, Shiga 522-8522, Japan
+(Dated: November 5, 2018)
+Abstract
+The inherent transient dynamics of recurrent neural networks (RNNs) have been exploited as a
+computational resource in input-driven RNNs. However, the information processing capability varies
+from RNN to RNN, depending on their properties. Many authors have investigated the dynamics
+of RNNs and their relevance to the information processing capability. In this study, we present a
+detailed analysis of the information processing capability of an RNN optimized by recurrent infomax
+(RI), which is an unsupervised learning scheme that maximizes the mutual information of RNNs
+by adjusting the connection strengths of the network. Thus, we observe that a delay-line structure
+emerges from the RI and the network optimized by the RI possesses superior short-term memory,
+which is the ability to store the temporal information of the input stream in its transient dynamics.
+PACS numbers: 89.75.Fb, 84.35.+i, 87.19.lv
+
+I.
+
+INTRODUCTION
+
+A framework called Reservoir Computing (RC) was
+proposed as a novel brain-inspired information processing [1, 2]. One of interesting features of RC is that it exploits the inherent transient dynamics of recurrent neural
+networks (RNNs) as a computational resource in inputdriven RNNs. Because of this feature RC has been focused as a theoretical framework to explain the mechanism of information processing of the central nervous
+system (CNS) [1, 3, 4], and RC has been used to emulate
+the human activity like motor action [5, 6]. As illustrated
+in Fig. 1(A), the architecture of RC generally consists of
+three layers, an input layer, a reservoir layer implemented
+with a recurrent neural network (RNN), and an output
+layer. One of the significant features of this framework is
+the ability to embed the information of the previous input into the transient dynamics of RNNs, which enables
+real-time information processing of input streams. This
+feature is often called a short-term memory property.
+Further, nonlinearity is another feature of the framework
+that is defined by the ability to emulate nonlinear information processing. Additionally, the supervised learning
+of the reservoir layer is not required if the dynamics of
+reservoir layer is appropriate to required dynamical systems. The connection weights from the RNNs to the
+output, which are called readout weights, are adjusted to
+learn the required dynamical systems. Although RC has
+a simple learning scheme, it has been observed to exhibit
+high performance in many machine learning tasks [7–11].
+The information processing capability of an RC system is dependent on the inherent dynamics of the reservoir layer. Consequently, many authors have investigated
+
+∗
+
+iwade@acs.i.kyoto-u.ac.jp
+
+the information processing capabilities of various dynamical systems. One of the most well known networks is a
+dynamical system at the edge of chaos (or at the edge
+of stability), which is the transition point from ordered
+to chaotic dynamics. Such systems exhibit superior information processing capability [12, 13]. Some studies
+have investigated the information processing capabilities
+of physical phenomena. These approaches exploit the
+dynamics of physical phenomena as reservoirs, such as
+the surface of water [14], optoelectronic and photonic
+systems [15–17], ensemble quantum systems [18], neuromorphic chips [19], and the mechanical bodies of soft
+robots [20–22].
+In this study, we exploit the RNNs that are optimized by an optimization principle called recurrent infomax (RI) [23] and investigate the information processing capabilities of these networks. RI was proposed as
+an extension of feedforward infomax, which was originally proposed by Linsker [24]. RI provides an unsupervised learning scheme to maximize information retention
+in an RNN, which is quantified with mutual information.
+The study which introduced RI explained that the RNNs
+optimized by RI exhibit the characteristic dynamics of
+neural activities such as cell assembly-like and synfire
+chain-like spontaneous activities as well as critical neuronal avalanches in CNS [23]. An RNN optimized by RI
+is expected to exhibit superior information processing capability because the principle of RI is to maximize the
+information retention. However, the method by which RI
+affects the information processing capability of an RNN
+remains unclear. In this study, we investigate to clarify
+this method in detail based on the framework of RC. Initially, we optimize RNNs using RI and analyze the basis
+of their information processing capabilities using benchmark tasks.
+
+2
+II.
+
+MODEL
+
+We consider an input-driven network consisting of N
+neurons where the state of each neuron xi (t) ∈ {0, 1} (i =
+1, ..., N ) is updated synchronously and stochastically at
+discrete timesteps. The firing probability of neuron i is
+determined by its interaction with another neuron j (j =
+1, ..., N ) that is connected with the weight Wij and the
+input u(t) ∈ {0, 1} that is connected with the weight Wiin
+as
+pmax
+,
+(1)
+p(xi (t + 1) = 1) =
+1 + exp(−Ui (t))
+Ui (t) =
+
+N
+X
+
+Wij (xj (t) − p̄j ) + Wiin (u(t) − p̄0 ) − hi (t),
+
+j=1
+
+updated at the end of each block, which consists of
+100,000 timesteps. The connection weights at the b + 1th
+block W(b + 1) are calculated using the steepest gradient
+method as follows:
+Wij (b + 1) = Wij (b) + η
+
+hi (t + 1) = hi (t) + ǫ(xi (t + 1) − p̄i ),
+
+(3)
+
+where ǫ is the learning rate, which remains constant at
+0.01. The initial conditions of the network (Wij and Wiin )
+are sampled from the Gaussian distribution with µ = 0
+and σ 2 = 0.01.
+III.
+
+RECURRENT INFOMAX
+
+Further, we briefly describe the algorithm of RI [23]. In
+this study, RI is applied to the connection weights within
+the RNN and from the input to the RNN. The connection weights are represented by solid lines in Fig. 1(A).
+As illustrated in Fig. 1 (B), the connection weights are
+
+1
+log |D|,
+2
+
+(5)
+
+
+E00 . . . E0N
+
+..  ,
+C =  ... . . .
+. 
+EN 0 . . . EN N
+
+(6)
+
+I(b) = log |C| −
+where
+
+
+
+
+E00 . . . E0N
+ . .
+..
+..
+ ..
+.
+
+ E00 . . . E0N
+
+D=
+ Eb00 . . . Eb0N
+ .. . .
+..
+ .
+.
+.
+ENb 0 . . . ENb N
+1
+T
+1
+Ebij =
+T
+1
+Eibj =
+T
+1
+Ebibj =
+T
+
+Eij =
+
+E0b0 . . . E0Nb
+.. . .
+..
+.
+.
+.
+EN b0 . . . EN Nb
+Eb0b0 . . . Eb0Nb
+.. . .
+..
+.
+.
+.
+ENbb0 . . . ENb Nb
+
+
+
+
+
+
+
+,
+
+
+
+
+
+(7)
+
+X
+
+(xi (t) − p̄i )(xj (t) − p̄j ),
+
+(8a)
+
+X
+
+(xi (t + 1) − p̄i )(xj (t) − p̄j ),
+
+(8b)
+
+X
+
+(xi (t) − p̄i )(xj (t + 1) − p̄j ),
+
+(8c)
+
+X
+
+(xi (t + 1) − p̄i )(xj (t + 1) − p̄j ).
+
+(8d)
+
+Finally, the gradient of the mutual information with
+respect to the connection weights is approximated by
+
+∂I(b) 1 X
+≈
+(1 − δij )(Ebibk Ebjl + Ebil Ebj bk )(2(C −1 )ji − (D−1 )ji − (D−1 )j+N i+N )
+∂Wij 2
+1
+− ((1 − 2p̄k )(1 − 2p̄l )Ebkl + p̄k p̄l (1 − p̄k )(1 − p̄l ))((D−1 )lk+N ) + (D−1 )k+N l ).
+2
+
+Typical instances of the firing activity of the network op-
+
+(4)
+
+where η is the learning rate that remains constant at
+η = 0.2 throughout this study. The input connection
+weights Wiin and the input u(t) are represented by Wi0
+and x0 (t), respectively. The gradient of the mutual information with respect to Wij is formulated using several
+approximations [23]. The mutual information between
+two successive states at the bth block is denoted using
+Gaussian approximation and is represented as follows:
+
+(2)
+where pmax is the maximal firing probability, p̄0 is the
+expected input value, p̄j is the mean firing rate of neuron
+j and hi (t) is the bias for neuron i. The firing frequency
+of each neuron is indicated by the mean firing rate. For
+example, the neuron i is activated once in 10 timesteps
+on an average at p̄i = 0.1. The maximal firing probability
+pmax indicates the reliability of the activation in response
+to the input. In this study, the maximal firing probability
+and the mean firing rate are fixed at pmax = 0.8 and p̄i =
+0.1, respectively. The input u(t) is sampled randomly
+from {0, 1} with the expected value p̄0 = 0.5. The bias
+hi (t) is used to fix the average firing probability p¯i and
+is updated at each timestep by
+
+∂I(b)
+,
+∂Wij
+
+(9)
+
+timized by RI at the 0th and 1500th block are depicted in
+
+3
+
+update the
+
+update the
+
+and
+
+and
+
+FIG. 1. (A) The architecture of a conventional RC. The connections represend by the solid lines and dashed lines are optimized
+using RI and the least square method, respectively, for a specific task. (B) The scheme for RI. The connection weights are
+updated between two consecutive blocks and each block consists of 100,000 timesteps. The first 50,000 timesteps are for hi to
+converge to a steady state and the last 50,000 timesteps are used to calculate mutual information.
+
+Figs. 2(A) and 2(B). The neurons in the network optimized by RI tend to fire simultaneously. Similar dynamics were also exhibited in [23]. As depicted in Fig. 2(C),
+the mutual information is increased by RI and it is almost
+saturated at the 1500th block. Therefore, we terminate
+RI at the 1500th block for our study.
+
+IV.
+
+INFORMATION PROCESSING
+CAPABILITY
+
+We use three benchmark tasks, memory capacity, 2bit Boolean function, and 3-bit Boolean function tasks to
+evaluate the information processing capability of a network optimized using RI. Each benchmark task consists
+of washout (50,000 timesteps), learning (1500 timesteps),
+and testing (1500 timesteps) phases. The washout phase
+is used to eliminate the influence of the initial state of
+the network and to converge the bias hi (t) to a steadystate value. Further, the learning phase is used to learn
+readout weights Wout
+τ , whereas the testing phase (1500
+timesteps) is used to evaluate the performance of each
+task accordingly.
+The memory capacity task has been extensively used
+as a benchmark task in the framework of RC [12, 25].
+This task evaluates the extent of decoding the information of past inputs from the network state with memoryless readout. The performance of this task represented
+by MC is the summation of τ -delay memory functions
+[MFτ (τ = 1, ..., 50)] defined by
+MC =
+
+50
+X
+
+MFτ .
+
+The readout weights, Wout
+τ , are trained in accordance
+T
+−1 T
+=
+(X
+X)
+X
+y, where y is the vector of
+with Wout
+τ
+τ -timestep past inputs and X is the matrix of network
+states during the learning phase.
+The n-bit (n = 2, 3) Boolean function task evaluates
+whether the network can process the Boolean operation
+using previous n-bit inputs. We have depicted an example in Table. 1. Each rule of the Boolean function
+tasks requires separate information processing. Hence,
+the execution of each rule may provide us with useful insights about the property of information processing for
+2
+RNNs optimized by RI. The total number of rules is 2n ,
+and all rules except for two, are applied. Exceptional
+rules are those for which output fτ is 0 or 1 regardless of
+the input. Thus, the number of rules, K, for each n-bit
+2
+Boolean function task is 2n − 2.
+TABLE I. An example of a rule table for a 2-bit Boolean
+function.
+u(t − τ ) u(t − τ − 1) fτ (t)
+0
+0
+1
+0
+1
+0
+1
+0
+1
+1
+1
+0
+
+The performance of this task is termed Boolean capacity (BC), which is the summation of Boolean function BFkτ at each rule k (k = 1, ..., K) and time delay τ
+(τ = 1, ..., 50) and is represented as follows:
+
+(10)
+
+BC =
+
+τ =1
+
+K 50
+1 XX
+BFkτ ,
+K
+τ =1
+
+(12)
+
+k=1
+
+The memory function MFτ is the determination coefficient between u(t − τ ) and zτ (t) = Wout
+τ x(t) defined by
+MFτ = max
+out
+Wτ
+
+cov2 (zτ (t), u(t − τ ))
+.
+σ 2 (zτ (t))σ 2 (u(t − τ ))
+
+(11)
+
+where
+BFkτ = max
+
+Wτk,out
+
+cov2 (zk (n), fτk (n))
+.
+σ 2 (zk (n))σ 2 (fτk (n))
+
+(13)
+
+4
+A
+
+C
+
+B
+
+D
+
+FIG. 2. (Color online) (A, B) The raster plots for the firing activity of the network at the 0th and the 1000th blocks from
+50,000 to 50,100 timesteps. The circular and triangular points indicate the firing of the input and the neurons in RNN. (C) The
+result of mutual information as a function of the block. The solid line indicates the mean for the different initial connection
+weights, whereas the dotted line indicates the standard deviation for the networks with the different initial conditions. The
+number of trials is 10, which remains constant throughout this study (D) The results of MC and BCs as a function of the
+block. The solid line indicates the result of the memory capacity task. The dashed and dotted lines indicate the result of a
+2-bit and 3-bit Boolean function task, respectively. The error bar indicates the standard deviation for networks with different
+initial conditions.
+
+The results of the benchmark tasks are depicted in
+Fig. 2(D). We suspended the update and performed the
+benchmark tasks for the networks while evaluating the
+information processing capability of the networks during RI. The process of updating RI was resumed, after
+evaluating the performance of benchmark tasks. Though
+both the memory capacity and Boolean capacities are
+improved using RI, they exhibit a peak at the 1000th
+block. This is in sharp contrast to the mutual information, which is observed to saturate at about the 1500th
+block.
+We visualized the network structure to investigate the
+reason that both MC and BCs exhibit a peak. The network structure is depicted in Fig. 3(A-F), which represents the connections with the 50 largest absolute values.
+Most of the visualized connections are those within the
+RNN, and a few are connections from the input to the
+RNN. Additionally, we calculated the mean of the absolute connection weights (W ) within the RNN and those
+from the input to the RNN, as illustrated in Fig. 3(G).
+The former is calculated using the 50 largest absolute
+values in W while the latter is calculated using Win . We
+can confirm that the value of W within the RNN become
+much higher than that of W from input to the RNN as
+the block of RI increases. This result suggests that the
+information of the input is not stored in the network, but
+the only information existing in the network is preserved
+when the network is optimized by RI for long term. Consequently, the performances of both MC and BCs become
+
+worse.
+
+V.
+
+A.
+
+INTRODUCTION OF INPUT
+MULTIPLICITY
+
+Recurrent Infomax and Information Processing
+Capability
+
+In the previous section, we depicted that the information processing capability exhibits an increase at the
+beginning of RI but peaked at the 1000th block because
+the connection weights within the RNN became stronger
+than the input connection weights. Hence, the input information may not be preserved in the network. We tried
+to increase the number of input neurons having common
+input information to handle this problem. This is equivalent to introducing the weight coefficient (K), which is
+entitled input multiplicity, in the updated formula of the
+connection weights from the input to the RNN. The updated formula is
+Wi0 (b + 1) = Wi0 (b) + ηK
+
+∂I(b)
+,
+∂Wi0
+
+(14)
+
+where K = {K|K ∈ Z, 2 ≤ K ≤ 35}. We optimize the
+input-driven RNN by RI using the above formula to update the connection weights from the input to RNN and
+subsequently executed the memory capacity and Boolean
+function tasks. The parameter values except for the
+
+5
+weight coefficient K and benchmark tasks of RI are similar to those mentioned in previous section.
+A
+
+A
+
+B
+
+C
+
+D
+
+B
+
+C
+
+D
+
+E
+
+F
+
+FIG. 4. (Color online) (A) The mutual information as a function of input multiplicity, K. The color indicates the block
+number. (B) The performance of the memory capability task.
+(C) The performance of the 2-bit Boolean function task. (D)
+The performance of the 3-bit Boolean function task.
+
+G
+
+FIG. 3. (Color online) (A, C, E) The heatmap for the connection weights at the 0th , 1000th and 1500th blocks. The
+neuron #0 indicates the input. (B, D, F) The network structure is designed using each left heatmap. The connections
+with the 50 largest absolute values are visualized. The blue
+and red nodes represent the neurons in the RNN and the input, respectively. (G) The mean of the absolute strength of
+the connection weights from the input to the RNN and those
+within the RNN as a function of the block. The mean and
+standard deviations of the networks under distinct initial conditions are illustrated, but the error bar is not substantial due
+to the small standard deviation.
+
+Initially, we provide an overview of the results for the
+mutual information and benchmark tasks. As depicted
+in Fig. 4(A), a large K value decreases the mutual information at the learning phase, although RI increases
+the mutual information for all values of K, a large K de-
+
+creases the mutual information at the end of the learning
+phase. Furthermore, the memory capacity illustrated in
+Fig. 4(B) also increases throughout the optimization using RI at all values of K, except for K = 1, is maximized
+around K = 7. The results of the 2-bit and 3-bit Boolean
+function tasks illustrated in Fig. 4(C) exhibit similar tendencies as that of the memory capacity task.
+Figures. 5(A-D) illustrate typical network structures at
+K = 5, 30. At K = 5, the strong connection weights from
+the input to the RNN and those within the RNN coexist.
+The postsynaptic input neurons become the presynaptic neurons of other neurons. Hence, a delay-line structure originates from the input. Conversely, the strong
+connection weights are mostly observed to be the connections from the input to the RNN at K = 30. The
+mean strength of the connection weights as a function
+of the block exhibits opposite tendency to that of connection weights mentioned in the previous section, which
+increases more rapidly than those within the RNN, as depicted in Fig. 5(E, F). These network structures suggest
+that for a large K value, the input information at the
+final timestep may be stored dominantly in the network
+and that majority of the previous input may be lost.
+We confirm this speculation quantitatively by investigating the mutual information between the input at the
+last timestep and each neuron in RNN, I(xi (t); u(t − 1))
+(i = 1, ..., N ) as plotted in Fig. 6(A) using boxplot. This
+result indicates that the network optimized by RI at large
+values of K contains information about the input given
+at the last timestep. The results of the memory, 2-bit
+
+6
+A (K = 5)
+
+B (K = 5)
+
+A
+
+B
+
+C (K = 30)
+
+D (K = 30)
+
+C
+
+D
+
+E (K = 5)
+
+F (K = 30)
+
+FIG. 6. (A) The boxplot of mutual information between last
+input and the RNN. It is estimated by sampling the 50, 000
+timesteps after washout timesteps (50, 000 timesteps). (B)
+The performance of the memory capacity task as a function
+of time delay for K = 1, 5 and 30. (C) The performance of
+the 2-bit Boolean function task as a function of time delay for
+K = 1, 5 and 30. (D) The performance of the 3-bit Boolean
+function task as a function of time delay for K = 1, 5 and
+30. The error bar indicates the standard deviation for the
+networks under the different initial conditions.
+FIG. 5. (Color online) (A, C) The heatmap for the connection
+weights for K = 5 and 30 at the 1500th block. Neuron #0
+indicates the input. (B, D) The network structure is designed
+using each left heatmap. The 50 largest absolute connection
+weights are visualized. The blue nodes represent the neurons
+in the RNN, whereas the red nodes represent the input. (E, F)
+The mean of the absolute strength of the connection weights
+from the input to the RNN and those within the RNN is a
+function of the block number.
+
+Boolean, and the 3-bit Boolean functions as a function
+of time delay are plotted in Fig. 6(B, C). The performance of the network when K = 30 at τ ≤ 2 is observed
+to be higher than that when K = 5. As the time delay
+τ becomes longer, the performance of the network when
+K = 30 is inferior to the performance when K = 5. All
+theses results are consistent with the speculation that the
+network optimized by RI with a large K value can only
+store the recent input information. As discussed in the
+preceding sections the learning with RI using a small K
+value optimizes the network such that the last input information is not stored dominantly, but the information
+about its past state is stored.
+
+B. Comparison Of Information Processing
+Capability Between Linear And Nonlinear Rules
+
+We classified the rules of the Boolean function tasks
+into two classes, i.e., linear and nonlinear rules, to investigate the property of information processing of the
+network optimized by RI. The classification criterion is
+based on whether the rule is linearly separable or not
+[26]. Figure 7 plots the performance of each rule sorted by
+score and colored to denote whether it is linear or nonlinear. Initially, we discuss the results of the 2-bit Boolean
+function task depicted in Fig. 7(A). The performance of
+the majority of the rules are improved using RI, and the
+networks exhibit high performance in the execution of
+linear rules as compared to nonlinear rules. This result
+suggests that the network optimized by RI performed the
+linear information processing better than nonlinear information processing. The initial two rules were performed
+more efficiently than the other linear rules because the
+difficulty of executing a rule is dependent on both linear separability as well as short-term memory. These
+two rules are identical to the memory capacity task, and
+which does not require the information of u(t− τ − 1) but
+it only requires the information of u(t − τ ). Therefore,
+these rules are comparatively simple to execute than the
+other linear rules.
+The results of the 3-bit Boolean function task illus-
+
+7
+A
+
+B
+
+FIG. 7. (Color online) The performance of each rule of the
+Boolean function tasks for K = 5 at the 0th block (the points
+with light colors) and 1500th block (the points with deep colors). The blue points indicate the linear rule while the red
+indicate the nonlinear rule. The error bar indicates the standard deviation for the different initial networks. (A) 2-bit and
+(B) 3-bit Boolean function tasks.
+
+trated in Fig. 7(B) exhibit the tendency that linear rules
+are performed better than nonlinear rules. However,
+some nonlinear rules are performed better than linear
+rules. Consequently, the difference between the two kinds
+of rules, which is observed in the 2-bit Boolean function task, is unclear, because some rules require previous information about the input u(t − τ − 2) while the
+performance of each rule may be influenced not only by
+nonlinearity but also the short-term memory in the 3-bit
+Boolean function task.
+VI.
+
+DISCUSSIONS
+
+ported to be one of the structure that can achieve optimal
+short-term memory [25, 27, 28]. However, our model is
+stochastic, and the complete delay-line network may not
+be suitable for short-term memory because the optimal
+short-term memory of the delay-line network is based on
+an assumption that the information of presynaptic neurons is conveyed to postsynaptic neurons without any
+loss, and the retention of the input information of the
+delay-line network is fragile to the unreliable firing of
+neurons.
+The performance for each rule of the 2-bit Boolean
+function task clearly demonstrate the information processing property of the network optimized by RI. Although the performance for majority of the rules is improved by RI, the degrees of improvement depend majorly on the linearity of the rules. The linear rules are
+processed in an efficient manner in contrast to the nonlinear rules which include exclusive OR operations, i.e.,
+u(t − τ ) ⊗ u(t − τ − 1). The tradeoff between shortterm memory and nonlinearity can be observed in multiple dynamical systems such as logistic maps, diffusion
+equations and echo state network [29]. Though there
+is no theoretical proof about this tradeoff, it is possible
+that RI may optimize the network under this tradeoff
+constraint. Thus, the short-term memory of the network
+that is optimized by RI may be superior to that of nonlinearity.
+We clarify the relationships between the network optimized by RI and its information processing properties
+under constrained system. The dynamics of the network
+to which current RI can be applied is limited to stochastic dynamics under Gaussian approximation. Therefore,
+it is interesting to extend RI to other stochastic or deterministic dynamics of the networks and investigate the relationships between RI and information processing properties of RNN.
+
+In this study, we optimized the input-driven RNN using RI and evaluated the information processing capability of the network using the memory capacity and the
+Boolean function tasks. Though naive RI did not improve the information processing capability, RI with input multiplicity improves the performances of the memory capacity and Boolean function tasks because the connection weights of the input increase preferentially and
+the input information is stored in the network. We tackled this problem by introducing input multiplicity. An
+appropriate input multiplicity optimizes the network to
+store the information about the past input, and the network partially acquires a delay-line structure, which is re-
+
+This work was supported by MEXT KAKENHI Grant
+Numbers 15H05877 and 26120006; JSPS KAKENHI
+Grant Numbers 16K16123, 16KT0019, 15587273 and
+15KT0015; and JST PRESTO Grant Numbers JPMJPR15E7, Japan, KAKENHI No. 15K16076, No.
+266880010 and No. 16777928.
+references
+[1] W. Maass, T. Natschläger, and H. Markram, Neural
+Computation 14, 2531 (2002).
+[2] H. Jaeger and H. Haas, Science 304, 78 (2004).
+[3] D. V. Buonomano and W. Maass, Nature Reviews Neuroscience 10, 113 (2009).
+[4] M. Rabinovich, R. Huerta, and G. Laurent, Science 321,
+48 (2008).
+[5] D. Sussillo and L. F. Abbott, Neuron 63, 544 (2009).
+
+[6] R. Laje and D. V. Buonomano, Nature Neuroscience 16,
+925 (2013).
+[7] E. A. Antonelo, B. Schrauwen, and D. Stroobandt, Neural Networks 21, 862 (2008).
+[8] A. Jalalvand, G. V. Wallendael, and R. V. D. Walle, in
+2015 7th International Conference on Computational Intelligence, Communication Systems and Networks (2015)
+pp. 146–151.
+
+VII.
+
+ACKNOWLEDGMENTS
+
+8
+[9] M. Salmen and P. G. Ploger, in Proceedings of the 2005
+IEEE International Conference on Robotics and Automation (2005) pp. 1953–1958.
+[10] M. D. Skowronski and J. G. Harris, Neural Networks 20,
+414 (2007).
+[11] H. Jaeger, in Advances in neural information processing
+systems (2003) pp. 609–616.
+[12] N. Bertschinger and T. Natschläger, Neural Computation
+16, 1413 (2004).
+[13] T. Toyoizumi and L. F. Abbott, Phys. Rev. E 84, 051908
+(2011).
+[14] C. Fernando and S. Sojakka, in European Conference on
+Artificial Life (Springer, 2003) pp. 588–597.
+[15] L. Larger, M. C. Soriano, D. Brunner, L. Appeltant, J. M.
+Gutierrez, L. Pesquera, C. R. Mirasso, and I. Fischer,
+Optics express 20, 3241 (2012).
+[16] L. Appeltant, M. C. Soriano, G. Van der Sande, J. Danckaert, S. Massar, J. Dambre, B. Schrauwen, C. R. Mirasso,
+and I. Fischer, Nature Communications 2, 468 (2011).
+[17] D. Woods and T. J. Naughton, Nature Physics 8, 257
+(2012).
+[18] K. Fujii and K. Nakajima, Phys. Rev. Applied 8, 024030
+(2017).
+[19] A. Z. Stieg, A. V. Avizienis, H. O. Sillin, C. MartinOlmos, M. Aono, and J. K. Gimzewski, Advanced Ma-
+
+terials 24, 286 (2012).
+[20] K. Nakajima, H. Hauser, R. Kang, E. Guglielmino, D. G.
+Caldwell, and R. Pfeifer, Frontiers in Computational
+Neuroscience 7 (2013).
+[21] K. Nakajima, T. Li, H. Hauser, and R. Pfeifer, Journal
+of The Royal Society Interface 11, 20140437 (2014).
+[22] K. Nakajima, H. Hauser, T. Li, and R. Pfeifer, Scientific
+reports 5, 10487 (2015).
+[23] T. Tanaka, T. Kaneko, and T. Aoyagi, Neural Computation 21, 1038 (2008).
+[24] R. Linsker, Computer 21, 105 (1988).
+[25] H. Jaeger, GMD Report 152 , 60 (2002).
+[26] L. O. Chua, S. Yoon, and R. Dogaru, International Journal of Bifurcation and Chaos 12, 2655 (2002).
+[27] S. Ganguli, D. Huh, and H. Sompolinsky, Proceedings
+of the National Academy of Sciences USA 105, 18970
+(2008).
+[28] A. Rodan and P. Tino, IEEE Transactions on Neural
+Networks 22, 1 (2010).
+[29] J. Dambre, D. Verstraeten, B. Schrauwen, and S. Massar, Scientific Reports 2, 514 (2012).
+
+
